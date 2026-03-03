@@ -631,9 +631,9 @@ window.showAnalytics = function showAnalytics() {
  * @param {string} tabId — 'tab-audio' | 'tab-journal' | 'tab-premium'
  */
 window.switchTab = function switchTab(tabId) {
-  // Tüm panelleri gizle
+  // Tüm panelleri gizle (.active class kaldır — CSS .tab-panel{display:none} ile uyumlu)
   document.querySelectorAll('.tab-panel').forEach((panel) => {
-    panel.style.display = 'none';
+    panel.classList.remove('active');
   });
 
   // Tüm butonlardan active sınıfını ve aria-selected'ı kaldır
@@ -642,9 +642,9 @@ window.switchTab = function switchTab(tabId) {
     btn.setAttribute('aria-selected', 'false');
   });
 
-  // Hedef paneli göster
+  // Hedef paneli göster (.active class ekle)
   const activePanel = document.getElementById(tabId);
-  if (activePanel) activePanel.style.display = 'block';
+  if (activePanel) activePanel.classList.add('active');
 
   // İlgili butona active ekle
   const btnId = 'tab-btn-' + tabId.replace('tab-', '');
