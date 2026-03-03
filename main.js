@@ -259,8 +259,6 @@ function setupStateBindings() {
 
   /* ── activeMood → tüm modüllere (Detox dahil) yansıt ── */
   state.subscribe('activeMood', (mood) => {
-    // window._activeMood her zaman StateManager ile senkron kalsın
-    window._activeMood = mood;
     // Detox modülü aktifse mevcut mood bilgisini al (çakışma yok, sadece state)
     if (window.DetoxModule?.isActive?.()) {
       console.info('[main] activeMood değişti (Detox aktif):', mood);
@@ -289,9 +287,6 @@ window.pickMood = function pickMood(el) {
   try {
     state.set('activeMood', mood);
     state.setCurrentScene(MOOD_CATALOG[mood].scene);
-    // window._activeMood subscribe üzerinden otomatik güncellenecek;
-    // ancak subscribe async olabileceği için burada da set ediyoruz.
-    window._activeMood = mood;
   } catch { /* yoksay */ }
 
   // UI'yı doğrudan güncelleyelim (selectedMood enum uyumsuzluğunu bypass ederek)
@@ -321,8 +316,8 @@ function _applyMoodToUI(mood) {
 
   updateBreathGuide(moodData.breathPattern.label);
 
-  // Aktif sahneyi sakla (scene script için)
-  window._activeMood = mood;
+  // Aktif sahneyi StateManager'a kaydet
+  state.set('activeMood', mood);
 }
 
 /**
@@ -330,11 +325,11 @@ function _applyMoodToUI(mood) {
  * play/pause ile tetikleneceği için burada sadece sahne hazırlığı yapılır.
  */
 window.goSanctuary = function goSanctuary() {
-  const mood = window._activeMood ||
+  const mood = state.get('activeMood') ||
     document.querySelector('.mood-chip.active')?.dataset?.mood ||
     'Sakin';
 
-  if (!window._activeMood) _applyMoodToUI(mood);
+  if (!state.get('activeMood')) _applyMoodToUI(mood);
 
   // Ekran geçişi
   switchScreen('screen-sanctuary');
@@ -366,7 +361,7 @@ window.togglePlay = async function togglePlay() {
       await engine.initialize();
     }
 
-    const mood = window._activeMood || 'Sakin';
+    const mood = state.get('activeMood') || 'Sakin';
     const moodData = MOOD_CATALOG[mood];
 
     if (!engine.isPlaying) {
@@ -713,7 +708,7 @@ window.saveJournalEntry = function saveJournalEntry() {
   entries.push({
     text,
     date: now.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    mood: window._activeMood || '',
+    mood: state.get('activeMood') || '',
   });
 
   try { window.localStorage.setItem('sanctuary_journal', JSON.stringify(entries)); }
@@ -1186,7 +1181,7 @@ window.joinRoom = function joinRoom(roomId, password = null) {
   if (result.success) {
     console.info('[main] Odaya katılındı:', roomId);
     // Aktif mood'u state üzerinden tüm modüllere yansıt
-    const currentMood = window._activeMood || state.get('activeMood') || 'Sakin';
+    const currentMood = state.get('activeMood') || 'Sakin';
     try { state.set('activeMood', currentMood); } catch { /* yoksay */ }
   } else {
     console.warn('[main] Odaya katılım başarısız:', result.error);
@@ -1230,7 +1225,7 @@ async function init() {
     if (restoredMood) {
       const chip = document.querySelector(`.mood-chip[data-mood="${restoredMood}"]`);
       if (chip) chip.classList.add('active');
-      window._activeMood = restoredMood;
+      state.set('activeMood', restoredMood);
     }
 
     // 5. Son açılış tarihini güncelle
@@ -1482,7 +1477,7 @@ window.addEventListener('beforeunload', () => {
       if (engine.isPlaying) await engine.pause();
 
       // Önceki mood sahnesini geri yükle
-      const activeMood = window._activeMood || 'Sakin';
+      const activeMood = state.get('activeMood') || 'Sakin';
       const prevScript = MOOD_CATALOG?.[activeMood]?.script;
       if (prevScript) {
         await engine.loadScript(prevScript, { crossfade: true });
