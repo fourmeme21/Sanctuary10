@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sanctuary — Effects Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Figtree:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --void:       #05050a;
+  --surface:    #0d0d18;
+  --gold:       #c9a96e;
+  --gold-dim:   rgba(201,169,110,0.3);
+  --gold-ghost: rgba(201,169,110,0.08);
+  --teal:       #6ecdc4;
+  --violet:     #9b8ec4;
+  --text:       #f0eee8;
+  --text-dim:   #7a7890;
+  --font-d:     'Cormorant Garamond', serif;
+  --font-ui:    'Figtree', sans-serif;
+  --ease-expo:  cubic-bezier(0.16,1,0.3,1);
+  --ease-spring:cubic-bezier(0.34,1.3,0.64,1);
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
+html,body {
+  width:100%; height:100%;
+  background:var(--void);
+  color:var(--text);
+  font-family:var(--font-ui);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ═══════════════════════════════════════════
+   PARTICLE CANVAS (arka plan)
+═══════════════════════════════════════════ */
+#particle-canvas {
+  position:fixed; inset:0;
+  z-index:0;
+  pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════
+   RIPPLE
+═══════════════════════════════════════════ */
+.ripple {
+  position:fixed;
+  border-radius:50%;
+  pointer-events:none;
+  transform:translate(-50%,-50%) scale(0);
+  z-index:9999;
+  will-change:transform,opacity;
+}
+@keyframes ripple-expand {
+  0%  { transform:translate(-50%,-50%) scale(0); opacity:.6; }
+  60% { opacity:.2; }
+  100%{ transform:translate(-50%,-50%) scale(8); opacity:0; }
+}
+
+/* ═══════════════════════════════════════════
+   SCREENS
+═══════════════════════════════════════════ */
+.screen {
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column;
+  z-index:10;
+  transition: opacity .7s var(--ease-expo), transform .7s var(--ease-expo);
+  will-change:transform,opacity;
+}
+.screen.hidden {
+  opacity:0;
+  transform:translate3d(0,28px,0);
+  pointer-events:none;
+}
+.screen.exit-left {
+  opacity:0;
+  transform:translate3d(-60px,0,0);
+  pointer-events:none;
+}
+.screen.exit-right {
+  opacity:0;
+  transform:translate3d(60px,0,0);
+  pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN 1 — ORB
+═══════════════════════════════════════════ */
+#screen-orb {
+  gap:32px;
+}
+
+/* Orb container */
+.orb-wrap {
+  position:relative;
+  width:260px; height:260px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+}
+
+/* Outer glow halo */
+.orb-halo {
+  position:absolute; inset:-30px;
+  border-radius:50%;
+  background: radial-gradient(circle at center,
+    rgba(201,169,110,0.06) 0%,
+    rgba(201,169,110,0.02) 50%,
+    transparent 70%);
+  animation: halo-breathe 5s ease-in-out infinite;
+  will-change:transform,opacity;
+}
+@keyframes halo-breathe {
+  0%,100%{ transform:scale(1);   opacity:.5; }
+  50%    { transform:scale(1.18); opacity:1; }
+}
+
+/* Ring 1 */
+.orb-ring {
+  position:absolute;
+  border-radius:50%;
+  border:1px solid;
+  will-change:transform,opacity;
+}
+.orb-ring-1 {
+  width:260px; height:260px;
+  border-color:rgba(201,169,110,0.12);
+  animation: ring-breathe 5s ease-in-out infinite;
+}
+.orb-ring-2 {
+  width:200px; height:200px;
+  border-color:rgba(201,169,110,0.22);
+  animation: ring-breathe 5s ease-in-out infinite .18s;
+}
+.orb-ring-3 {
+  width:140px; height:140px;
+  border-color:rgba(201,169,110,0.45);
+  box-shadow:0 0 30px rgba(201,169,110,0.08);
+  animation: ring-breathe 5s ease-in-out infinite .36s;
+}
+@keyframes ring-breathe {
+  0%,100%{ transform:scale(1);    opacity:.45; }
+  50%    { transform:scale(1.14); opacity:1;   }
+}
+
+/* Orb core */
+.orb-core {
+  position:relative;
+  z-index:2;
+  width:68px; height:68px;
+  border-radius:50%;
+  background: radial-gradient(circle at 38% 32%, #f0d090, #9a6e30);
+  box-shadow:
+    0 0 40px rgba(201,169,110,0.5),
+    0 0 80px rgba(201,169,110,0.2),
+    0 0 2px rgba(255,220,140,0.8) inset;
+  animation: core-pulse 5s ease-in-out infinite;
+  cursor:pointer;
+  will-change:transform,box-shadow;
+}
+@keyframes core-pulse {
+  0%,100%{ transform:scale(1);    box-shadow:0 0 40px rgba(201,169,110,0.5),0 0 80px rgba(201,169,110,0.2); }
+  50%    { transform:scale(1.12); box-shadow:0 0 60px rgba(201,169,110,0.8),0 0 120px rgba(201,169,110,0.35); }
+}
+
+/* Breath phase label */
+.breath-label {
+  font-family:var(--font-ui);
+  font-size:10px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--gold);
+  opacity:.7;
+  min-height:16px;
+  text-align:center;
+  transition:opacity .4s;
+}
+
+/* Phase arc (SVG dönen halka) */
+.orb-phase-ring {
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%) rotate(-90deg);
+  width:290px; height:290px;
+  pointer-events:none;
+}
+.orb-phase-track {
+  fill:none;
+  stroke:rgba(201,169,110,0.06);
+  stroke-width:1.5;
+}
+.orb-phase-fill {
+  fill:none;
+  stroke:rgba(201,169,110,0.55);
+  stroke-width:1.5;
+  stroke-linecap:round;
+  stroke-dasharray:880;
+  stroke-dashoffset:880;
+  transition:stroke-dashoffset 1s linear;
+  will-change:stroke-dashoffset;
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN 2 — WAVEFORM
+═══════════════════════════════════════════ */
+#screen-wave {
+  gap:24px;
+}
+
+.wave-title {
+  font-family:var(--font-d);
+  font-size:clamp(28px,6vw,42px);
+  font-weight:300;
+  font-style:italic;
+  text-align:center;
+  text-shadow:0 2px 40px rgba(201,169,110,0.3);
+  letter-spacing:-.02em;
+}
+.wave-title span { color:var(--gold); }
+
+#wave-canvas {
+  width: min(520px,90vw);
+  height:120px;
+  border-radius:16px;
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.05);
+}
+
+.wave-bars {
+  display:flex;
+  align-items:center;
+  gap:4px;
+  height:64px;
+}
+.wbar {
+  width:3px;
+  border-radius:3px;
+  background:var(--gold);
+  height:64px;
+  transform:scaleY(.08);
+  transform-origin:center bottom;
+  will-change:transform;
+  animation: bar-dance var(--dur,.6s) ease-in-out infinite alternate var(--del,0s);
+  opacity:.8;
+}
+@keyframes bar-dance {
+  from{ transform:scaleY(var(--min,.08)); opacity:.5; }
+  to  { transform:scaleY(var(--max,.9));  opacity:1; }
+}
+
+.freq-display {
+  display:flex; gap:20px; align-items:center;
+  font-size:11px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--text-dim);
+}
+.freq-val {
+  font-family:var(--font-d);
+  font-size:28px; font-weight:300;
+  color:var(--gold); letter-spacing:.04em;
+  min-width:80px; text-align:center;
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN 3 — PARTICLES closeup
+═══════════════════════════════════════════ */
+#screen-particles {
+  gap:20px;
+  text-align:center;
+}
+.particles-title {
+  font-family:var(--font-d);
+  font-size:clamp(24px,5vw,36px);
+  font-weight:300; color:var(--text);
+  line-height:1.2;
+}
+.particles-sub {
+  font-size:12px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--text-dim);
+}
+#particle-canvas-2 {
+  width:min(480px,90vw); height:260px;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,0.06);
+  background:rgba(0,0,0,0.3);
+}
+
+/* ═══════════════════════════════════════════
+   NAV DOTS
+═══════════════════════════════════════════ */
+.nav-dots {
+  position:fixed;
+  bottom:36px; left:50%;
+  transform:translateX(-50%);
+  display:flex; gap:10px;
+  z-index:100;
+}
+.nav-dot {
+  width:7px; height:7px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.15);
+  cursor:pointer;
+  border:none;
+  transition:all .3s var(--ease-expo);
+}
+.nav-dot.active {
+  background:var(--gold);
+  width:22px; border-radius:4px;
+  box-shadow:0 0 10px rgba(201,169,110,0.6);
+}
+
+/* ═══════════════════════════════════════════
+   NAV ARROWS
+═══════════════════════════════════════════ */
+.nav-arrow {
+  position:fixed;
+  top:50%; transform:translateY(-50%);
+  z-index:100;
+  width:40px; height:40px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+  color:var(--text-dim);
+  font-size:16px;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .25s;
+}
+.nav-arrow:hover {
+  background:rgba(201,169,110,0.1);
+  border-color:var(--gold-dim);
+  color:var(--gold);
+}
+#nav-prev { left:20px; }
+#nav-next { right:20px; }
+
+/* ═══════════════════════════════════════════
+   SCREEN LABEL
+═══════════════════════════════════════════ */
+.screen-badge {
+  position:fixed;
+  top:28px; left:50%;
+  transform:translateX(-50%);
+  z-index:100;
+  display:flex; align-items:center; gap:8px;
+  padding:7px 20px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:100px;
+  font-size:10px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--text-dim);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  transition:opacity .4s;
+}
+.badge-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--gold);
+  box-shadow:0 0 8px var(--gold);
+  animation:blink 2s ease-in-out infinite;
+}
+@keyframes blink {
+  0%,100%{ opacity:1; } 50%{ opacity:.3; }
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN TRANSITION OVERLAY
+═══════════════════════════════════════════ */
+#transition-overlay {
+  position:fixed; inset:0;
+  z-index:500;
+  background:var(--void);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease;
+}
+#transition-overlay.flash {
+  opacity:.55;
+}
+</style>
+</head>
+<body>
+
+<!-- Background particle canvas -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- Transition flash overlay -->
+<div id="transition-overlay"></div>
+
+<!-- Top badge -->
+<div class="screen-badge" id="screen-badge">
+  <span class="badge-dot"></span>
+  <span id="badge-text">Nefes Orb</span>
+</div>
+
+<!-- Nav arrows -->
+<button class="nav-arrow" id="nav-prev">‹</button>
+<button class="nav-arrow" id="nav-next">›</button>
+
+<!-- Nav dots -->
+<div class="nav-dots">
+  <button class="nav-dot active" data-index="0"></button>
+  <button class="nav-dot" data-index="1"></button>
+  <button class="nav-dot" data-index="2"></button>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN 0 — Breathing Orb
+══════════════════════════════════ -->
+<div class="screen" id="screen-orb">
+  <div class="orb-wrap" id="orb-wrap">
+    <!-- Phase arc SVG -->
+    <svg class="orb-phase-ring" viewBox="0 0 290 290">
+      <circle class="orb-phase-track" cx="145" cy="145" r="140"/>
+      <circle class="orb-phase-fill" id="phase-fill" cx="145" cy="145" r="140"/>
+    </svg>
+
+    <div class="orb-halo"></div>
+    <div class="orb-ring orb-ring-1" id="ring1"></div>
+    <div class="orb-ring orb-ring-2" id="ring2"></div>
+    <div class="orb-ring orb-ring-3" id="ring3"></div>
+    <div class="orb-core" id="orb-core"></div>
+  </div>
+
+  <div class="breath-label" id="breath-label">Dokunarak başlat</div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN 1 — Waveform
+══════════════════════════════════ -->
+<div class="screen hidden" id="screen-wave">
+  <div class="wave-title">Ses <span>Frekansı</span></div>
+  <canvas id="wave-canvas"></canvas>
+  <div class="wave-bars" id="wave-bars"></div>
+  <div class="freq-display">
+    <span>Hz</span>
+    <span class="freq-val" id="freq-val">432</span>
+    <span>Binaural</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN 2 — Particles
+══════════════════════════════════ -->
+<div class="screen hidden" id="screen-particles">
+  <p class="particles-title">Kozmik<br><em style="color:var(--gold)">Parçacıklar</em></p>
+  <canvas id="particle-canvas-2"></canvas>
+  <p class="particles-sub">Fareyi hareket ettir · Tıkla</p>
+</div>
+
+
+<script>
+/* ════════════════════════════════════════════════════════
+   UTILITY
+════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const raf = requestAnimationFrame;
+
+/* ════════════════════════════════════════════════════════
+   RIPPLE on click
+════════════════════════════════════════════════════════ */
+document.addEventListener('mousedown', e => {
+  const r = document.createElement('div');
+  r.className = 'ripple';
+  const sz = Math.max(innerWidth, innerHeight) * 0.7;
+  Object.assign(r.style, {
+    width: sz + 'px', height: sz + 'px',
+    left: e.clientX + 'px', top: e.clientY + 'px',
+    background: 'radial-gradient(circle, rgba(201,169,110,0.18) 0%, rgba(201,169,110,0) 65%)',
+    animation: 'ripple-expand .9s cubic-bezier(0.16,1,0.3,1) forwards'
+  });
+  document.body.appendChild(r);
+  r.addEventListener('animationend', () => r.remove(), { once: true });
+});
+
+/* ════════════════════════════════════════════════════════
+   BACKGROUND PARTICLES
+════════════════════════════════════════════════════════ */
+(function bgParticles() {
+  const canvas = $('particle-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width  = innerWidth;
+    H = canvas.height = innerHeight;
+  }
+
+  class Particle {
+    constructor(fast = false) { this.reset(fast); }
+    reset(fast = false) {
+      this.x  = Math.random() * W;
+      this.y  = fast ? Math.random() * H : H + 10;
+      this.vx = (Math.random() - .5) * .3;
+      this.vy = -(Math.random() * .6 + .2);
+      this.r  = Math.random() * 1.4 + .3;
+      this.op = Math.random() * .5 + .1;
+      this.life = 0;
+      this.maxLife = Math.random() * 400 + 200;
+      // Color: gold or teal or violet
+      const c = [
+        `201,169,110`,
+        `110,205,196`,
+        `155,142,196`,
+      ][Math.floor(Math.random() * 3)];
+      this.color = c;
+    }
+    update() {
+      this.x += this.vx + Math.sin(this.life * .01) * .15;
+      this.y += this.vy;
+      this.life++;
+      const t = this.life / this.maxLife;
+      this.opacity = t < .1 ? t * 10 * this.op
+                   : t > .8 ? (1 - t) * 5 * this.op
+                   : this.op;
+      if (this.life >= this.maxLife || this.y < -10) this.reset();
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${this.color},${this.opacity})`;
+      ctx.fill();
+    }
+  }
+
+  function init() {
+    resize();
+    particles = Array.from({ length: 120 }, () => new Particle(true));
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => { p.update(); p.draw(); });
+
+    // Occasionally spawn "burst" from center
+    raf(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  init();
+  frame();
+})();
+
+/* ════════════════════════════════════════════════════════
+   BREATHING ORB
+════════════════════════════════════════════════════════ */
+(function breathOrb() {
+  const label = $('breath-label');
+  const phaseFill = $('phase-fill');
+  const orbCore = $('orb-core');
+  const ring1 = $('ring1'), ring2 = $('ring2'), ring3 = $('ring3');
+  const circumference = 2 * Math.PI * 140; // r=140
+
+  const phases = [
+    { name: 'Nefes Al',  dur: 4000, scale: 1.18, ringScale: 1.14, vol: 1  },
+    { name: 'Tut',       dur: 2000, scale: 1.18, ringScale: 1.14, vol: 1  },
+    { name: 'Nefes Ver', dur: 6000, scale: 0.86, ringScale: 0.88, vol: .35},
+    { name: 'Bekle',     dur: 1000, scale: 0.86, ringScale: 0.88, vol: .35},
+  ];
+
+  let active = false;
+  let phaseIdx = 0;
+  let startTime = 0;
+  let animId = null;
+
+  function setPhase(idx) {
+    phaseIdx = idx;
+    const p = phases[idx];
+    const dur = p.dur / 1000;
+
+    label.textContent = p.name;
+    label.style.opacity = '1';
+
+    // Ring + core transform via inline CSS transitions
+    const rs = p.ringScale;
+    const cs = p.scale;
+    const easing = 'ease-in-out';
+    const durStr = dur + 's';
+
+    [ring1, ring2, ring3].forEach((r, i) => {
+      r.style.transition = `transform ${durStr} ${easing} ${i * .12}s, opacity ${durStr} ${easing} ${i * .12}s`;
+      r.style.transform  = `translate(-50%,-50%) scale(${rs})`;
+      r.style.opacity    = p.vol > .5 ? '1' : '0.35';
+    });
+
+    orbCore.style.transition = `transform ${durStr} ${easing}, box-shadow ${durStr} ${easing}`;
+    orbCore.style.transform  = `scale(${cs})`;
+    if (p.vol > .5) {
+      orbCore.style.boxShadow = '0 0 60px rgba(201,169,110,0.8),0 0 120px rgba(201,169,110,0.35)';
+    } else {
+      orbCore.style.boxShadow = '0 0 20px rgba(201,169,110,0.3),0 0 40px rgba(201,169,110,0.1)';
+    }
+  }
+
+  function startArcAnim(duration) {
+    phaseFill.style.strokeDasharray  = circumference;
+    phaseFill.style.strokeDashoffset = circumference;
+    phaseFill.style.transition = 'none';
+    startTime = performance.now();
+
+    function tick() {
+      if (!active) return;
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      phaseFill.style.transition = 'none';
+      phaseFill.style.strokeDashoffset = circumference * (1 - progress);
+      if (progress < 1) animId = raf(tick);
+    }
+    animId = raf(tick);
+  }
+
+  function runCycle(idx = 0) {
+    if (!active) return;
+    const p = phases[idx];
+    setPhase(idx);
+    startArcAnim(p.dur);
+
+    setTimeout(() => {
+      if (!active) return;
+      runCycle((idx + 1) % phases.length);
+    }, p.dur);
+  }
+
+  function start() {
+    active = true;
+    label.textContent = '';
+    // Remove CSS animation — we override with JS transitions
+    [ring1, ring2, ring3].forEach(r => r.style.animation = 'none');
+    orbCore.style.animation = 'none';
+    runCycle(0);
+  }
+
+  function stop() {
+    active = false;
+    cancelAnimationFrame(animId);
+    label.textContent = 'Dokunarak başlat';
+    // Restore CSS animations
+    [ring1, ring2, ring3].forEach(r => r.style.animation = '');
+    orbCore.style.animation = '';
+    orbCore.style.transform = 'scale(1)';
+    [ring1, ring2, ring3].forEach(r => r.style.transform = '');
+    phaseFill.style.strokeDashoffset = circumference;
+  }
+
+  $('orb-wrap').addEventListener('click', () => {
+    if (active) stop(); else start();
+  });
+})();
+
+/* ════════════════════════════════════════════════════════
+   WAVEFORM (Canvas oscilloscope + bars)
+════════════════════════════════════════════════════════ */
+(function waveform() {
+  const canvas  = $('wave-canvas');
+  const ctx     = canvas.getContext('2d');
+  const barsWrap = $('wave-bars');
+  const freqVal = $('freq-val');
+
+  // Build bars
+  const BAR_COUNT = 40;
+  const bars = [];
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const b = document.createElement('div');
+    b.className = 'wbar';
+    const minV = (.05 + Math.random() * .1).toFixed(2);
+    const maxV = (.5  + Math.random() * .5).toFixed(2);
+    const dur  = (.4  + Math.random() * .5).toFixed(2);
+    const del  = (Math.random() * -.6).toFixed(2);
+    b.style.setProperty('--min', minV);
+    b.style.setProperty('--max', maxV);
+    b.style.setProperty('--dur', dur + 's');
+    b.style.setProperty('--del', del + 's');
+    // Color gradient: gold → teal
+    const t = i / BAR_COUNT;
+    const r = Math.round(201 * (1-t) + 110 * t);
+    const g = Math.round(169 * (1-t) + 205 * t);
+    const bv= Math.round(110 * (1-t) + 196 * t);
+    b.style.background = `rgb(${r},${g},${bv})`;
+    barsWrap.appendChild(b);
+    bars.push(b);
+  }
+
+  // Canvas oscilloscope
+  let t = 0;
+  let freq = 432;
+  let targetFreq = 432;
+
+  const freqs = [396, 417, 432, 528, 639, 741, 852];
+  let fi = 2;
+  setInterval(() => {
+    fi = (fi + 1) % freqs.length;
+    targetFreq = freqs[fi];
+  }, 3000);
+
+  function resizeCanvas() {
+    canvas.width  = canvas.offsetWidth * devicePixelRatio;
+    canvas.height = canvas.offsetHeight * devicePixelRatio;
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  function drawOscilloscope() {
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    freq += (targetFreq - freq) * .02;
+    freqVal.textContent = Math.round(freq);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let y = 20; y < H; y += 20) {
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+
+    // Main wave — composite of 3 sinusoids
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0,   'rgba(201,169,110,0)');
+    grad.addColorStop(0.2, 'rgba(201,169,110,0.9)');
+    grad.addColorStop(0.5, 'rgba(110,205,196,0.9)');
+    grad.addColorStop(0.8, 'rgba(155,142,196,0.9)');
+    grad.addColorStop(1,   'rgba(155,142,196,0)');
+
+    ctx.beginPath();
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    for (let x = 0; x <= W; x++) {
+      const p = x / W;
+      const f = freq / 100;
+      const y = H/2 +
+        Math.sin(p * Math.PI * 2 * f * .5 + t)           * H * .25 +
+        Math.sin(p * Math.PI * 2 * f * 1.0 + t * 1.3)    * H * .10 +
+        Math.sin(p * Math.PI * 2 * f * 2.0 + t * .7)     * H * .05;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Second wave (ghost)
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(201,169,110,0.12)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x++) {
+      const p = x / W;
+      const f = freq / 100;
+      const y = H/2 +
+        Math.sin(p * Math.PI * 2 * f * .5 + t - .5) * H * .3 +
+        Math.sin(p * Math.PI * 2 * f * 1.5 + t * .9) * H * .08;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    t += 0.035;
+    raf(drawOscilloscope);
+  }
+  drawOscilloscope();
+})();
+
+/* ════════════════════════════════════════════════════════
+   PARTICLE CANVAS 2 (screen 3 — interactive)
+════════════════════════════════════════════════════════ */
+(function particles2() {
+  const canvas = $('particle-canvas-2');
+  const ctx    = canvas.getContext('2d');
+  let W, H;
+  let mouse = { x: -1000, y: -1000 };
+  let pts   = [];
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    W = canvas.width  = rect.width  * devicePixelRatio;
+    H = canvas.height = rect.height * devicePixelRatio;
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+  }
+
+  const COLORS = ['201,169,110','110,205,196','155,142,196','240,200,150'];
+
+  class Pt {
+    constructor() { this.reset(true); }
+    reset(init = false) {
+      const rw = canvas.offsetWidth, rh = canvas.offsetHeight;
+      this.x  = Math.random() * rw;
+      this.y  = init ? Math.random() * rh : rh + 5;
+      this.ox = this.x; this.oy = this.y;
+      this.vx = (Math.random() - .5) * .5;
+      this.vy = -(Math.random() * .8 + .2);
+      this.r  = Math.random() * 2.5 + .5;
+      this.life = 0;
+      this.maxLife = Math.random() * 300 + 150;
+      this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    }
+    update() {
+      const rw = canvas.offsetWidth;
+      const dx = this.x - mouse.x, dy = this.y - mouse.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 80) {
+        const force = (80 - dist) / 80;
+        this.vx += dx / dist * force * 1.5;
+        this.vy += dy / dist * force * 1.5;
+      }
+      this.vx *= .96; this.vy *= .96;
+      this.x += this.vx + Math.sin(this.life * .02) * .4;
+      this.y += this.vy;
+      this.life++;
+      const t = this.life / this.maxLife;
+      this.alpha = t < .1 ? t*10*.6 : t>.75 ? (1-t)*4*.6 : .6;
+      if (this.life >= this.maxLife || this.y < -5) this.reset();
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(${this.color},${this.alpha})`;
+      ctx.fill();
+    }
+  }
+
+  // Connection lines between close particles
+  function drawConnections() {
+    const maxDist = 70;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i+1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x;
+        const dy = pts[i].y - pts[j].y;
+        const d  = Math.sqrt(dx*dx + dy*dy);
+        if (d < maxDist) {
+          const alpha = (1 - d/maxDist) * .12;
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x, pts[i].y);
+          ctx.lineTo(pts[j].x, pts[j].y);
+          ctx.strokeStyle = `rgba(201,169,110,${alpha})`;
+          ctx.lineWidth = .5;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+    drawConnections();
+    pts.forEach(p => { p.update(); p.draw(); });
+    raf(frame);
+  }
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+  canvas.addEventListener('mouseleave', () => { mouse.x = -1000; mouse.y = -1000; });
+
+  // Click burst
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    for (let i = 0; i < 18; i++) {
+      const p = new Pt();
+      p.x = mx; p.y = my;
+      p.vx = (Math.random()-0.5) * 5;
+      p.vy = (Math.random()-0.5) * 5;
+      p.r = Math.random() * 3 + 1;
+      pts.push(p);
+    }
+  });
+
+  window.addEventListener('resize', () => { resize(); });
+
+  resize();
+  pts = Array.from({ length: 90 }, () => new Pt());
+  frame();
+})();
+
+/* ════════════════════════════════════════════════════════
+   SCREEN TRANSITIONS
+════════════════════════════════════════════════════════ */
+(function screenNav() {
+  const screens = [
+    { el: $('screen-orb'),       label: 'Nefes Orb'     },
+    { el: $('screen-wave'),      label: 'Ses Dalgası'   },
+    { el: $('screen-particles'), label: 'Parçacıklar'   },
+  ];
+  const dots    = document.querySelectorAll('.nav-dot');
+  const overlay = $('transition-overlay');
+  const badge   = $('badge-text');
+  let current   = 0;
+  let busy      = false;
+
+  function goTo(idx, direction = 1) {
+    if (busy || idx === current) return;
+    busy = true;
+
+    const from = screens[current];
+    const to   = screens[idx];
+    const exitClass = direction > 0 ? 'exit-left' : 'exit-right';
+
+    // Flash overlay
+    overlay.classList.add('flash');
+    setTimeout(() => overlay.classList.remove('flash'), 250);
+
+    // Exit current
+    from.el.classList.add(exitClass);
+
+    setTimeout(() => {
+      from.el.classList.add('hidden');
+      from.el.classList.remove(exitClass);
+
+      // Enter new (from opposite side)
+      to.el.style.transform = `translate3d(${direction > 0 ? '40px' : '-40px'},0,0)`;
+      to.el.style.opacity   = '0';
+      to.el.classList.remove('hidden');
+
+      raf(() => {
+        to.el.style.transition = 'opacity .65s cubic-bezier(0.16,1,0.3,1), transform .65s cubic-bezier(0.16,1,0.3,1)';
+        to.el.style.opacity    = '1';
+        to.el.style.transform  = 'translate3d(0,0,0)';
+      });
+
+      // Badge
+      badge.style.opacity = '0';
+      setTimeout(() => {
+        badge.textContent  = to.label;
+        badge.style.opacity = '1';
+        badge.style.transition = 'opacity .4s';
+      }, 200);
+
+      // Dots
+      dots.forEach((d,i) => d.classList.toggle('active', i === idx));
+
+      current = idx;
+      setTimeout(() => {
+        to.el.style.transition = '';
+        busy = false;
+      }, 700);
+    }, 180);
+  }
+
+  $('nav-next').addEventListener('click', () => goTo((current+1) % screens.length, 1));
+  $('nav-prev').addEventListener('click', () => goTo((current-1+screens.length) % screens.length, -1));
+  dots.forEach((d,i) => d.addEventListener('click', () => goTo(i, i > current ? 1 : -1)));
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') goTo((current+1) % screens.length, 1);
+    if (e.key === 'ArrowLeft')  goTo((current-1+screens.length) % screens.length, -1);
+  });
+
+  // Touch swipe
+  let touchX = 0;
+  document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend',   e => {
+    const dx = touchX - e.changedTouches[0].clientX;
+    if (Math.abs(dx) > 50) goTo(
+      dx > 0 ? (current+1) % screens.length : (current-1+screens.length) % screens.length,
+      dx > 0 ? 1 : -1
+    );
+  });
+})();
+</script>
+</body>
+</html>
