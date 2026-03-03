@@ -2,6 +2,11 @@
  * RoomManager.js
  * Oda Yönetim Sistemi - StateManager ile tam entegre çalışır.
  * ES6+ / Saf JavaScript — Framework bağımlılığı yok.
+ *
+ * Değişiklikler (1. Aşama):
+ *  - mockSync katmanı ve doğrudan localStorage erişimleri tamamen kaldırıldı.
+ *  - Tüm oda işlemleri (_getRooms, _saveRoom, _deleteRoom) StateManager üzerinden çalışır.
+ *  - Cross-tab senkronizasyonu StateManager'ın StorageAdapter'ına devredildi.
  */
 
 import { getStateManager } from './StateManager.js';
@@ -41,40 +46,6 @@ function createRoomSchema({
   };
 }
 
-// ─── LocalStorage Mock-Sync Katmanı ────────────────────────────────────────
-const LS_KEY = 'rm_rooms_sync';
-
-const mockSync = {
-  /** Tüm odaları localStorage'dan oku */
-  read() {
-    try {
-      return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
-    } catch {
-      return {};
-    }
-  },
-  /** Tüm odaları localStorage'a yaz (cross-tab sync) */
-  write(rooms) {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(rooms));
-    } catch (e) {
-      console.warn('[RoomManager] localStorage yazma hatası:', e);
-    }
-  },
-  /** Tek bir odayı güncelle */
-  upsert(room) {
-    const all = this.read();
-    all[room.id] = room;
-    this.write(all);
-  },
-  /** Tek bir odayı sil */
-  remove(roomId) {
-    const all = this.read();
-    delete all[roomId];
-    this.write(all);
-  },
-};
-
 // ─── RoomManager Singleton ─────────────────────────────────────────────────
 class RoomManager {
   constructor() {
@@ -87,39 +58,36 @@ class RoomManager {
     if (!this._state.get('rooms')) {
       this._state.set('rooms', {});
     }
-
-    // Sayfa açılırken localStorage'dan odaları çek (diğer sekme verileri)
-    this._hydrateFromStorage();
-
-    // Cross-tab değişikliklerini dinle
-    window.addEventListener('storage', (e) => {
-      if (e.key === LS_KEY) this._hydrateFromStorage();
-    });
   }
 
   // ── İç yardımcılar ────────────────────────────────────────────────────────
 
-  _hydrateFromStorage() {
-    const stored = mockSync.read();
-    this._state.set('rooms', stored);
-  }
-
+  /**
+   * Mevcut oda haritasını StateManager'dan alır (shallow copy).
+   * @returns {Record<string, object>}
+   */
   _getRooms() {
     return { ...(this._state.get('rooms') || {}) };
   }
 
+  /**
+   * Bir odayı StateManager'a kaydeder.
+   * @param {object} room
+   */
   _saveRoom(room) {
     const rooms = this._getRooms();
     rooms[room.id] = room;
     this._state.set('rooms', rooms);
-    mockSync.upsert(room);
   }
 
+  /**
+   * Bir odayı StateManager'dan siler.
+   * @param {string} roomId
+   */
   _deleteRoom(roomId) {
     const rooms = this._getRooms();
     delete rooms[roomId];
     this._state.set('rooms', rooms);
-    mockSync.remove(roomId);
   }
 
   _currentUser() {
@@ -201,13 +169,11 @@ class RoomManager {
     room.participants = room.participants.filter(id => id !== user.id);
 
     if (room.participants.length === 0) {
-      // Oda boşaldı → tamamen temizle
       this._deleteRoom(roomId);
       console.info(`[RoomManager] ${roomId} odası boşaldı ve silindi.`);
       return { success: true, deleted: true };
     }
 
-    // Host ayrıldıysa yeni host ata
     if (room.hostId === user.id) {
       room.hostId = room.participants[0];
     }
