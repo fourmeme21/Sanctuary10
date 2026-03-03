@@ -116,11 +116,14 @@ textarea,
 
 html, body {
   height: 100%;
+  width: 100%;
+  max-width: 100vw;
   background: var(--void);
   color: var(--text-prime);
   font-family: var(--font-ui);
   font-weight: 300;
   overflow: hidden;
+  overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
   /* Promote to GPU composite layer */
   transform: translateZ(0);
@@ -193,8 +196,6 @@ body::after {
 .inner {
   width: 100%;
   max-width: 460px;
-  max-width: min(460px, 100vw);
-  overflow-x: hidden;
   /* Safe area: top banner height (56px) + notch */
   padding-top:    calc(56px + var(--sat));
   padding-bottom: calc(64px + var(--sab));
@@ -208,6 +209,7 @@ body::after {
 
 .sanctuary-inner {
   max-width: 480px;
+  width: 100%;
   padding-top:    calc(44px + var(--sat));
   padding-bottom: calc(56px + var(--sab));
   padding-left:   calc(24px + var(--sal));
@@ -2667,17 +2669,18 @@ html.low-power .detox-exit__progress {
    ================================================================= */
 
 /* ── Canlı Odalar bölümü ── */
-.live-rooms-section { margin: 0 0 40px; width: 100%; overflow-x: hidden; }
+.live-rooms-section { margin: 0 0 40px; width: 100%; }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0;
   margin-bottom: 16px;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
 }
 .section-title {
   font-size: 18px;
@@ -2729,7 +2732,7 @@ html.low-power .detox-exit__progress {
 .filter-bar {
   display: flex;
   gap: 8px;
-  padding: 0 20px;
+  padding: 0;
   margin-bottom: 20px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -2764,7 +2767,7 @@ html.low-power .detox-exit__progress {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
-  padding: 0 20px;
+  padding: 0;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -2772,17 +2775,14 @@ html.low-power .detox-exit__progress {
 @media (max-width: 600px) {
   .rooms-grid {
     grid-template-columns: 1fr;
-    padding: 0 12px;
-  }
-  .section-header {
-    padding: 0 12px;
-  }
-  .filter-bar {
-    padding: 0 12px;
   }
   .btn-create-room {
-    padding: 7px 14px;
+    padding: 7px 12px;
     font-size: 12px;
+    gap: 4px;
+  }
+  .section-title {
+    font-size: 16px;
   }
 }
 
@@ -2962,7 +2962,7 @@ html.low-power .detox-exit__progress {
 
 .tab-nav {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 20px;
@@ -2970,6 +2970,8 @@ html.low-power .detox-exit__progress {
   margin: 24px 0 0;
   width: 100%;
   box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .tab-item {
@@ -2982,12 +2984,16 @@ html.low-power .detox-exit__progress {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  padding: 10px 6px;
+  padding: 10px 4px;
   cursor: pointer;
   transition: background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  text-align: center;
 }
 
 .tab-item:hover {
@@ -3077,3 +3083,65 @@ html.low-power .detox-exit__progress {
 }
 .premium-tab-cta:active { transform: scale(0.98); box-shadow: 0 0 0 4px rgba(201,169,110,0.15); }
 .premium-tab-note { font-family: var(--font-ui,-apple-system,sans-serif); font-size: 12px; color: rgba(255,255,255,0.3); text-align: center; margin: -8px 0 0; }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE OVERRIDES — Sanctuary
+   Yatay taşma, sekme ve buton düzeltmeleri
+═══════════════════════════════════════════════════════════════ */
+
+/* Global overflow guard */
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Tüm screen içerikleri viewport sınırında kal */
+.screen {
+  max-width: 100vw;
+}
+
+/* Sanctuary inner da tam genişlik */
+.sanctuary-inner {
+  max-width: min(480px, 100vw);
+}
+
+/* Live Rooms bölümü padding sıfırla — inner zaten padding veriyor */
+.live-rooms-section {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Sekme navigasyonu — küçük ekran koruması */
+@media (max-width: 380px) {
+  .tab-item {
+    font-size: 11px;
+    padding: 9px 3px;
+    letter-spacing: 0;
+  }
+  .tab-nav {
+    gap: 2px;
+    padding: 4px;
+  }
+  .btn-create-room {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .inner {
+    padding-left: calc(16px + var(--sal));
+    padding-right: calc(16px + var(--sar));
+  }
+}
+
+/* Section title taşmasın */
+.section-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Filter bar negative margin ile inner padding'den taşmasın */
+.filter-bar {
+  -webkit-overflow-scrolling: touch;
+}
