@@ -3174,3 +3174,79 @@ html {
 .filter-bar {
   -webkit-overflow-scrolling: touch;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   2. AŞAMA EKLENTİLERİ — Cam Mozaik & Premium Görsel Efektler
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Cam Mozaik: Ana Paneller ── */
+.s-card,
+.affirm,
+.ai-card,
+.mood-chip,
+.back-btn,
+.pill,
+.freq-badge,
+.mood-badge,
+.analytics-link,
+.play-btn {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* s-card kendi özel arka planını korusun */
+.s-card {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(17, 17, 24, 0.65) 100%
+  );
+}
+
+/* ai-card premium efekt */
+.ai-card {
+  background: linear-gradient(
+    160deg,
+    rgba(155, 142, 196, 0.10) 0%,
+    rgba(10, 10, 16, 0.72) 100%
+  );
+}
+
+/* mood-chip cam efekti */
+.mood-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+.mood-chip.sel {
+  background: linear-gradient(
+    160deg,
+    rgba(201, 169, 110, 0.16) 0%,
+    rgba(201, 169, 110, 0.07) 100%
+  );
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+}
+
+/* affirm kartı daha derin cam */
+.affirm {
+  background: rgba(10, 10, 16, 0.72);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* ── Low Power Mode: Yeni cam efektlerini de kapat ── */
+html.low-power .s-card,
+html.low-power .affirm,
+html.low-power .ai-card,
+html.low-power .mood-chip,
+html.low-power .back-btn,
+html.low-power .pill,
+html.low-power .freq-badge,
+html.low-power .mood-badge,
+html.low-power .analytics-link,
+html.low-power .play-btn {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: var(--surface) !important;
+}
