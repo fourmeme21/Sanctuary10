@@ -87,7 +87,7 @@ function buildRoomCard(room) {
 }
 
 // ── RoomManager'dan gelen verileri render et
-function renderRooms(rooms) {
+export function renderRooms(rooms) {
   const grid = document.getElementById('roomsGrid');
   if (!grid) return;
   if (!rooms || rooms.length === 0) { renderEmptyState(); return; }
@@ -107,7 +107,7 @@ function joinRoom(roomId) {
 }
 
 // ── Modal aç/kapat
-function openCreateModal() {
+export function openCreateModal() {
   const modal = document.getElementById('createRoomModal');
   if (!modal) return;
   modal.classList.add('open');
@@ -117,7 +117,7 @@ function openCreateModal() {
     if (nameInput) nameInput.focus();
   }, 350);
 }
-function closeCreateModal() {
+export function closeCreateModal() {
   const modal = document.getElementById('createRoomModal');
   if (!modal) return;
   modal.classList.remove('open');
@@ -210,7 +210,7 @@ function bindRoomEvents() {
 }
 
 // ── Public init — main.js'teki init() tarafından çağrılır
-async function initRoomUI() {
+export async function initRoomUI() {
   bindRoomEvents();
   renderSkeletons(3);
 
