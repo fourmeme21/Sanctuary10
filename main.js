@@ -623,6 +623,108 @@ window.showAnalytics = function showAnalytics() {
 };
 
 /* ──────────────────────────────────────────────────────────────────────────
+   BÖLÜM 10b — SEKME GEÇIŞLERI (Ses / Günlük / Premium)
+────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Sanctuary içindeki sekme panellerini değiştirir.
+ * @param {string} tabId — 'tab-audio' | 'tab-journal' | 'tab-premium'
+ */
+window.switchTab = function switchTab(tabId) {
+  // Tüm panelleri gizle
+  document.querySelectorAll('.tab-panel').forEach((panel) => {
+    panel.style.display = 'none';
+  });
+
+  // Tüm butonlardan active sınıfını ve aria-selected'ı kaldır
+  document.querySelectorAll('.tab-item').forEach((btn) => {
+    btn.classList.remove('active');
+    btn.setAttribute('aria-selected', 'false');
+  });
+
+  // Hedef paneli göster
+  const activePanel = document.getElementById(tabId);
+  if (activePanel) activePanel.style.display = 'block';
+
+  // İlgili butona active ekle
+  const btnId = 'tab-btn-' + tabId.replace('tab-', '');
+  const activeBtn = document.getElementById(btnId);
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+    activeBtn.setAttribute('aria-selected', 'true');
+  }
+
+  // Günlük sekmesi açıldığında tarihi güncelle ve önceki girişleri yükle
+  if (tabId === 'tab-journal') {
+    _updateJournalDate();
+    _renderJournalEntries();
+  }
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
+   BÖLÜM 10c — GÜNLÜK (Journal) FONKSİYONLARI
+────────────────────────────────────────────────────────────────────────── */
+
+function _updateJournalDate() {
+  const el = document.getElementById('journal-date');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = now.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function _renderJournalEntries() {
+  const list = document.getElementById('journal-entries-list');
+  if (!list) return;
+
+  let entries = [];
+  try {
+    entries = JSON.parse(window.localStorage.getItem('sanctuary_journal') || '[]');
+  } catch { entries = []; }
+
+  if (!entries.length) {
+    list.innerHTML = '<p class="journal-empty">Henüz kayıtlı giriş yok. İlk notunu yaz ✨</p>';
+    return;
+  }
+
+  list.innerHTML = entries.slice(-5).reverse().map((e) => `
+    <div class="journal-entry">
+      <span class="journal-entry-date">${e.date}</span>
+      <p class="journal-entry-text">${e.text.replace(/</g, '&lt;')}</p>
+    </div>
+  `).join('');
+}
+
+window.saveJournalEntry = function saveJournalEntry() {
+  const textarea = document.getElementById('journal-textarea');
+  const status   = document.getElementById('journal-save-status');
+  if (!textarea) return;
+
+  const text = textarea.value.trim();
+  if (!text) {
+    if (status) { status.textContent = 'Önce bir şeyler yaz 🖊'; setTimeout(() => { status.textContent = ''; }, 2000); }
+    return;
+  }
+
+  let entries = [];
+  try { entries = JSON.parse(window.localStorage.getItem('sanctuary_journal') || '[]'); }
+  catch { entries = []; }
+
+  const now = new Date();
+  entries.push({
+    text,
+    date: now.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    mood: window._activeMood || '',
+  });
+
+  try { window.localStorage.setItem('sanctuary_journal', JSON.stringify(entries)); }
+  catch { /* storage dolu */ }
+
+  textarea.value = '';
+  if (status) { status.textContent = '✓ Kaydedildi'; setTimeout(() => { status.textContent = ''; }, 2500); }
+  _renderJournalEntries();
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
    BÖLÜM 11 — HP BANNER
 ────────────────────────────────────────────────────────────────────────── */
 
