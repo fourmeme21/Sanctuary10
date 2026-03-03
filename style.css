@@ -540,7 +540,10 @@ body::after {
   align-items: center;
   justify-content: center;
   touch-action: manipulation;
-  /* backdrop-filter only on feature-detected high-power screens */
+  /* Glassmorphism */
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255,255,255,0.03);
   box-shadow: var(--glass-specular);
   transition:
     border-color var(--dur-mid) var(--ease-standard),
@@ -2963,7 +2966,9 @@ html.low-power .detox-exit__progress {
 .tab-nav {
   display: flex;
   gap: 4px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 20px;
   padding: 5px;
@@ -3007,7 +3012,7 @@ html.low-power .detox-exit__progress {
   box-shadow: 0 0 0 1px rgba(201,169,110,0.25) inset;
 }
 
-/* Aktif olmayan paneller gizlenir; .active class ile gösterilir */
+/* Panel visibility — toggled via JS classList.add/remove('active') */
 .tab-panel {
   display: none;
   width: 100%;
@@ -3019,6 +3024,23 @@ html.low-power .detox-exit__progress {
   animation: tabFadeIn 0.28s ease both;
 }
 
+
+/* Ripple */
+.ripple-circle {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(circle, rgba(201,169,110,0.35) 0%, rgba(201,169,110,0) 70%);
+  animation: ripple 0.65s cubic-bezier(0.16,1,0.3,1) forwards;
+  z-index: 99998;
+  will-change: transform, opacity;
+}
+@keyframes ripple {
+  0%   { transform: translate(-50%,-50%) scale(0); opacity:1; }
+  70%  { opacity: 0.4; }
+  100% { transform: translate(-50%,-50%) scale(1); opacity:0; }
+}
 @keyframes tabFadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0);   }
