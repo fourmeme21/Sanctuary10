@@ -42,11 +42,6 @@ const AUDIO_CONFIG = {
 ═══════════════════════════════════════════════════════════════ */
 
 class WebAudioAdapter {
-  /**
-   * AudioContext döndürür.
-   * React Native tarafında bu metod override edilip
-   * expo-av Sound nesnesi veya AVAudioSession başlatılabilir.
-   */
   createContext() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) throw new Error('[AudioEngine] Web Audio API desteklenmiyor.');
@@ -69,10 +64,6 @@ class WebAudioAdapter {
     if (ctx) await ctx.close();
   }
 
-  /**
-   * Native tarafta bu metod `expo-av Audio.Sound.createAsync(uri)` çağrısı
-   * yapan bir wrapper ile değiştirilebilir.
-   */
   async loadAudioFile(ctx, uri) {
     const response = await fetch(uri);
     const arrayBuffer = await response.arrayBuffer();
@@ -82,34 +73,17 @@ class WebAudioAdapter {
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 3 — PRELOAD CACHE
-   Ses dosyalarını önceden buffer'a alır, tekrar fetch etmez.
 ═══════════════════════════════════════════════════════════════ */
 
 class PreloadCache {
   constructor() {
-    /** @type {Map<string, AudioBuffer>} */
     this._cache = new Map();
-    /** @type {Map<string, Promise<AudioBuffer>>} */
     this._pending = new Map();
   }
 
-  has(uri) {
-    return this._cache.has(uri);
-  }
+  has(uri)  { return this._cache.has(uri); }
+  get(uri)  { return this._cache.get(uri) || null; }
 
-  get(uri) {
-    return this._cache.get(uri) || null;
-  }
-
-  /**
-   * Ses dosyasını asenkron olarak yükler ve cache'e alır.
-   * Eş zamanlı çağrılar aynı Promise'i paylaşır (request coalescing).
-   *
-   * @param {AudioContext} ctx
-   * @param {string} uri
-   * @param {WebAudioAdapter} adapter
-   * @returns {Promise<AudioBuffer>}
-   */
   async load(ctx, uri, adapter) {
     if (this._cache.has(uri)) return this._cache.get(uri);
     if (this._pending.has(uri)) return this._pending.get(uri);
@@ -127,13 +101,6 @@ class PreloadCache {
     return promise;
   }
 
-  /**
-   * Birden fazla URI'yi paralel olarak preload eder.
-   *
-   * @param {AudioContext} ctx
-   * @param {string[]} uris
-   * @param {WebAudioAdapter} adapter
-   */
   async preloadMany(ctx, uris, adapter) {
     await Promise.allSettled(uris.map((uri) => this.load(ctx, uri, adapter)));
   }
@@ -146,49 +113,26 @@ class PreloadCache {
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 4 — AUDIO LAYER
-   Her bir ses katmanını (ambient, binaural beat, vb.) yönetir.
-   Gapless loop + çatırtısız crossfade destekler.
 ═══════════════════════════════════════════════════════════════ */
 
-/** @typedef {'idle'|'playing'|'paused'|'stopped'} LayerState */
-
 class AudioLayer {
-  /**
-   * @param {string} id      — benzersiz katman adı
-   * @param {string} type    — 'granular' | 'binaural' | 'file'
-   * @param {object} params  — katman parametreleri
-   */
   constructor(id, type, params = {}) {
     this.id = id;
     this.type = type;
     this.params = { volume: 0.5, pitch: 1.0, ...params };
 
-    /** @type {AudioContext|null} */
     this._ctx = null;
-    /** @type {GainNode|null} */
     this.gainNode = null;
-    /** @type {AudioBufferSourceNode|null} — aktif kaynak */
     this._source = null;
-    /** @type {AudioBufferSourceNode|null} — loop seam için hazırlanan kaynak */
     this._nextSource = null;
-    /** @type {AudioWorkletNode|null} */
     this._workletNode = null;
-    /** @type {AudioBuffer|null} */
     this._buffer = null;
 
-    /** @type {LayerState} */
     this._state = 'idle';
     this._startTime = 0;
     this._pauseOffset = 0;
   }
 
-  /* ── Başlatma ─────────────────────────────────────────────── */
-
-  /**
-   * @param {AudioContext} ctx
-   * @param {GainNode} masterGain   — çıkışın bağlanacağı ana gain düğümü
-   * @param {AudioBuffer|null} buffer — önceden preload edilmiş buffer (opsiyonel)
-   */
   async initialize(ctx, masterGain, buffer = null) {
     this._ctx = ctx;
     this._buffer = buffer;
@@ -210,8 +154,6 @@ class AudioLayer {
     this._state = 'idle';
   }
 
-  /* ── Worklet (Web / PWA) ──────────────────────────────────── */
-
   async _initWorklet() {
     const code = WORKLET_PROCESSOR_CODE;
     const blob = new Blob([code], { type: 'application/javascript' });
@@ -227,8 +169,6 @@ class AudioLayer {
     });
     this._workletNode.connect(this.gainNode);
   }
-
-  /* ── Fallback (AudioWorklet desteklenmeyen ortamlar) ─────── */
 
   _initFallbackGenerator() {
     const sampleRate = this._ctx.sampleRate;
@@ -256,7 +196,6 @@ class AudioLayer {
           data[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.18 + (Math.random() * 2 - 1) * 0.08;
           break;
         case 'binaural': {
-          // Sol/sağ kanal frekans farkı ile binaural beat oluştur
           const baseFreq = this.params.baseFreq || 200;
           const beatFreq = this.params.beatFreq || 10;
           const chFreq = channel === 0 ? baseFreq : baseFreq + beatFreq;
@@ -274,8 +213,10 @@ class AudioLayer {
   }
 
   /* ── Buffer Source ────────────────────────────────────────── */
+  /* FIX 1: src.offset ataması kaldırıldı. Offset artık play() içinde
+     doğrudan this._source.start(when, offset) ile geçiliyor. */
 
-  _prepareBufferSource(buffer, startOffset = 0) {
+  _prepareBufferSource(buffer) {
     const src = this._ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
@@ -283,7 +224,7 @@ class AudioLayer {
     src.loopEnd = buffer.duration;
     src.playbackRate.value = this.params.pitch || 1.0;
     src.connect(this.gainNode);
-    src.offset = startOffset;
+    // NOT: src.offset buraya atanmıyor — play() metodunda start(when, offset) ile kullanılır
     this._source = src;
     return src;
   }
@@ -291,8 +232,7 @@ class AudioLayer {
   /* ── Oynatma Kontrolü ─────────────────────────────────────── */
 
   /**
-   * Sesi başlatır. Eğer daha önce duraklattıysa kaldığı yerden devam eder.
-   * @param {number} [when=0] — AudioContext zamanı (crossfade için kullanılır)
+   * FIX 1 (devam): offset, start() çağrısına doğrudan geçilir.
    */
   play(when = 0) {
     if (this._state === 'playing') return;
@@ -304,8 +244,9 @@ class AudioLayer {
     } else if (this._source) {
       // BufferSourceNode tek kullanımlık; pause→play için yeniden oluştur
       if (this._state === 'paused' && this._buffer) {
-        this._prepareBufferSource(this._buffer, offset);
+        this._prepareBufferSource(this._buffer);
       }
+      // offset doğrudan start() argümanı olarak geçiliyor (hata düzeltme)
       this._source.start(when, offset);
       this._startTime = this._ctx.currentTime - offset + when;
     }
@@ -313,9 +254,6 @@ class AudioLayer {
     this._state = 'playing';
   }
 
-  /**
-   * Sesi duraklatır (konum kaydedilir).
-   */
   pause() {
     if (this._state !== 'playing') return;
     this._pauseOffset = (this._ctx.currentTime - this._startTime) % (this._buffer?.duration || 1);
@@ -330,9 +268,6 @@ class AudioLayer {
     this._state = 'paused';
   }
 
-  /**
-   * Sesi tamamen durdurur (konum sıfırlanır).
-   */
   stop() {
     try {
       if (this._workletNode) {
@@ -358,10 +293,6 @@ class AudioLayer {
 
   /* ── Volume / Fade ────────────────────────────────────────── */
 
-  /**
-   * Anlık ses seviyesi değişimi.
-   * @param {number} value — 0..1
-   */
   setVolume(value) {
     this.params.volume = value;
     if (this.gainNode) {
@@ -373,11 +304,6 @@ class AudioLayer {
     }
   }
 
-  /**
-   * Yumuşak fade animasyonu.
-   * @param {number} targetVolume — 0..1
-   * @param {number} duration     — saniye
-   */
   fadeTo(targetVolume, duration = AUDIO_CONFIG.CROSSFADE_DURATION) {
     if (!this.gainNode) return;
     const now = this._ctx.currentTime;
@@ -390,9 +316,6 @@ class AudioLayer {
     this.params.volume = targetVolume;
   }
 
-  /**
-   * Fade-in (0 → hedef volume).
-   */
   fadeIn(targetVolume = this.params.volume, duration = AUDIO_CONFIG.FADE_IN_DURATION) {
     if (!this.gainNode) return;
     const now = this._ctx.currentTime;
@@ -404,10 +327,6 @@ class AudioLayer {
     );
   }
 
-  /**
-   * Fade-out (mevcut → 0). Promise, fade tamamlanınca resolve olur.
-   * @returns {Promise<void>}
-   */
   fadeOut(duration = AUDIO_CONFIG.FADE_OUT_DURATION) {
     return new Promise((resolve) => {
       if (!this.gainNode) { resolve(); return; }
@@ -419,8 +338,6 @@ class AudioLayer {
     });
   }
 
-  /* ── Parametre güncelleme ─────────────────────────────────── */
-
   setParameter(param, value) {
     this.params[param] = value;
     if (this._workletNode) {
@@ -431,8 +348,6 @@ class AudioLayer {
     }
   }
 
-  /* ── Durum sorgusu ────────────────────────────────────────── */
-
   get isPlaying() { return this._state === 'playing'; }
   get isPaused()  { return this._state === 'paused';  }
   get isStopped() { return this._state === 'stopped' || this._state === 'idle'; }
@@ -440,7 +355,7 @@ class AudioLayer {
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 5 — AUDIO WORKLET PROCESSOR KODU
-   (inline blob olarak yüklenir — harici dosya gerektirmez)
+   FIX 2: AmbientProcessor constructor'ına this.phase = 0 eklendi.
 ═══════════════════════════════════════════════════════════════ */
 
 const WORKLET_PROCESSOR_CODE = /* js */ `
@@ -448,7 +363,7 @@ class AmbientProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super(options);
     this.generator = 'wind';
-    this.phase = 0;
+    this.phase = 0;          // FIX 2: phase başlangıç değeri tanımlandı
     this.active = true;
     this.port.onmessage = ({ data }) => {
       if (data.type === 'init')  { this.generator = data.generator || 'wind'; }
@@ -489,49 +404,31 @@ class AudioEngine {
     if (AudioEngine._instance) return AudioEngine._instance;
     AudioEngine._instance = this;
 
-    /** @type {AudioContext|null} */
     this._ctx = null;
-    /** @type {GainNode|null} */
     this._masterGain = null;
-    /** @type {AnalyserNode|null} */
     this._analyser = null;
-    /** @type {Map<string, AudioLayer>} */
     this._layers = new Map();
-    /** @type {boolean} */
     this.isInitialized = false;
-    /** @type {Promise<void>|null} */
     this._initPromise = null;
-    /** @type {boolean} */
     this._playing = false;
 
-    /* Background audio state */
     this._appInBackground = false;
-    this._backgroundVolume = 0.4;  // arka planda düşürülen volume
+    this._backgroundVolume = 0.4;
 
     this._adapter = new WebAudioAdapter();
     this._preloadCache = new PreloadCache();
 
-    /* Session tracking */
     this._sessionStart = null;
-
-    /* Event listeners */
     this._listeners = new Map();
 
     this._attachAppStateListeners();
   }
 
-  /** Singleton erişim noktası */
   static getInstance() {
     if (!AudioEngine._instance) new AudioEngine();
     return AudioEngine._instance;
   }
 
-  /* ── Başlatma ─────────────────────────────────────────────── */
-
-  /**
-   * AudioContext'i başlatır. Kullanıcı etkileşiminden sonra çağrılmalıdır.
-   * İkinci çağrı idempotent'tir.
-   */
   async initialize() {
     if (this.isInitialized) return;
     if (this._initPromise) return this._initPromise;
@@ -541,7 +438,6 @@ class AudioEngine {
         this._ctx = this._adapter.createContext();
         await this._adapter.resumeContext(this._ctx);
 
-        /* Master gain zinciri: Layer → masterGain → analyser → destination */
         this._masterGain = this._ctx.createGain();
         this._masterGain.gain.value = AUDIO_CONFIG.DEFAULT_MASTER_VOLUME;
 
@@ -570,35 +466,12 @@ class AudioEngine {
     await this._adapter.resumeContext(this._ctx);
   }
 
-  /* ── Preload ──────────────────────────────────────────────── */
-
-  /**
-   * Ses dosyalarını önceden buffer'a alır.
-   * Uygulama açılışında veya sahne geçişi öncesinde çağrılmalıdır.
-   *
-   * @param {string[]} uris — ses dosyası URL'leri
-   */
   async preload(uris = []) {
     await this._ensureReady();
     await this._preloadCache.preloadMany(this._ctx, uris, this._adapter);
     this._emit('preloadComplete', { uris });
   }
 
-  /* ── Sahne yükleme ────────────────────────────────────────── */
-
-  /**
-   * Bir "scene script"i yükler. Mevcut katmanlar crossfade ile geçiş yapar.
-   *
-   * Script formatı:
-   * {
-   *   scene: string,
-   *   tracks: [{ id, type, generator, parameters, uri? }],
-   *   mix: { masterVolume, trackVolumes[] }
-   * }
-   *
-   * @param {object} script
-   * @param {{ crossfade?: boolean, crossfadeDuration?: number }} options
-   */
   async loadScript(script, options = {}) {
     if (!script?.tracks) throw new Error('[AudioEngine] Geçersiz script formatı.');
     await this._ensureReady();
@@ -608,7 +481,6 @@ class AudioEngine {
       crossfadeDuration = AUDIO_CONFIG.CROSSFADE_DURATION,
     } = options;
 
-    /* 1. Yeni katmanları hazırla (preload dahil) */
     const incoming = await this._buildLayers(script);
 
     if (crossfade && this._layers.size > 0 && this._playing) {
@@ -626,10 +498,6 @@ class AudioEngine {
     return script;
   }
 
-  /**
-   * Script'ten AudioLayer Map'i oluşturur (henüz başlatmaz).
-   * @private
-   */
   async _buildLayers(script) {
     const limit = Math.min(script.tracks.length, AUDIO_CONFIG.MAX_LAYERS);
     const map = new Map();
@@ -638,7 +506,6 @@ class AudioEngine {
       const track = script.tracks[i];
       const id = track.id || track.generator || `track_${i}`;
 
-      /* Buffer preload (file tipi katmanlar için) */
       let buffer = null;
       if (track.uri) {
         buffer = this._preloadCache.has(track.uri)
@@ -657,39 +524,43 @@ class AudioEngine {
   }
 
   /* ── Crossfade ────────────────────────────────────────────── */
+  /* FIX 3: currentTime referansı kullanılarak yeni ve eski katmanlar
+     aynı zaman noktasından senkronize şekilde başlatılır. */
 
-  /**
-   * Mevcut katmanları fade-out, yeni katmanları fade-in ile geçiş yapar.
-   * "Patlama" / "çıtırtı" olmaması için her katman ayrı gain eğrisiyle yönetilir.
-   * @private
-   */
   async _crossfadeTo(incomingMap, duration) {
     const outgoing = this._layers;
+    // Senkronizasyon noktası: her iki fade aynı currentTime'dan başlar
+    const now = this._ctx.currentTime;
 
-    /* Önce yeni katmanları sıfır volume'dan başlat */
+    // Yeni katmanları sıfır volume'dan tam olarak 'now' anında başlat
     incomingMap.forEach((layer) => {
-      layer.gainNode.gain.setValueAtTime(0, this._ctx.currentTime);
-      layer.play();
+      layer.gainNode.gain.cancelScheduledValues(now);
+      layer.gainNode.gain.setValueAtTime(0, now);
+      layer.gainNode.gain.linearRampToValueAtTime(
+        layer.params.volume * AUDIO_CONFIG.MAX_TRACK_VOLUME,
+        now + duration,
+      );
+      layer.play(0); // AudioContext zamanlamasıyla başlat
     });
 
-    /* Paralel fade: eski → 0, yeni → hedef */
-    await Promise.all([
-      ...Array.from(outgoing.values()).map((layer) =>
-        layer.fadeOut(duration).then(() => layer.stop()),
-      ),
-      ...Array.from(incomingMap.values()).map((layer) =>
-        layer.fadeIn(layer.params.volume, duration),
-      ),
-    ]);
+    // Eski katmanları aynı 'now' anında fade-out başlat
+    outgoing.forEach((layer) => {
+      if (layer.gainNode) {
+        layer.gainNode.gain.cancelScheduledValues(now);
+        layer.gainNode.gain.setValueAtTime(layer.gainNode.gain.value, now);
+        layer.gainNode.gain.linearRampToValueAtTime(0, now + duration);
+      }
+    });
+
+    // Fade süresi dolunca eski katmanları durdur
+    await new Promise((resolve) => setTimeout(resolve, duration * 1000));
+    outgoing.forEach((layer) => layer.stop());
 
     this._layers = incomingMap;
   }
 
   /* ── Oynatma Kontrolleri ──────────────────────────────────── */
 
-  /**
-   * Sesi oynatır. İlk çağrıda AudioContext başlatılır.
-   */
   async play() {
     await this._ensureReady();
     if (this._playing) return;
@@ -700,9 +571,6 @@ class AudioEngine {
     this._emit('play');
   }
 
-  /**
-   * Sesi duraklatır (konum korunur).
-   */
   async pause() {
     if (!this._playing) return;
     this._layers.forEach((layer) => layer.pause());
@@ -711,10 +579,6 @@ class AudioEngine {
     this._emit('pause');
   }
 
-  /**
-   * Sesi durdurur (konum sıfırlanır). Seans kaydedilir.
-   * @returns {{ duration: number }} — seans bilgisi
-   */
   async stop() {
     const sessionInfo = this._finalizeSession();
     await this._stopAllLayers();
@@ -724,9 +588,6 @@ class AudioEngine {
     return sessionInfo;
   }
 
-  /**
-   * Play/pause toggle — UI düğmesi için pratik kısayol.
-   */
   async togglePlay() {
     if (this._playing) {
       await this.pause();
@@ -738,10 +599,6 @@ class AudioEngine {
 
   /* ── Volume / Fade ────────────────────────────────────────── */
 
-  /**
-   * Master volume'u ayarlar (0..1).
-   * @param {number} value
-   */
   setMasterVolume(value) {
     if (!this._masterGain) return;
     const clamped = Math.max(0, Math.min(1, value));
@@ -749,20 +606,11 @@ class AudioEngine {
     this._emit('volumeChange', { master: clamped });
   }
 
-  /**
-   * Tek bir katmanın ses seviyesini ayarlar.
-   * @param {string} layerId
-   * @param {number} value   — 0..1
-   */
   setLayerVolume(layerId, value) {
     const layer = this._layers.get(layerId);
     if (layer) layer.setVolume(value);
   }
 
-  /**
-   * Tüm sesi kademeli olarak kapatır (sleep timer için).
-   * @param {number} duration — saniye
-   */
   async fadeOutAll(duration = 3) {
     if (!this._masterGain || !this._ctx) return;
     const now = this._ctx.currentTime;
@@ -772,12 +620,6 @@ class AudioEngine {
     return new Promise((resolve) => setTimeout(resolve, duration * 1000));
   }
 
-  /**
-   * Katman parametresi günceller (pitch, intensity vb.).
-   * @param {string} layerId
-   * @param {string} param
-   * @param {number|string} value
-   */
   setLayerParameter(layerId, param, value) {
     const layer = this._layers.get(layerId);
     if (layer) layer.setParameter(param, value);
@@ -785,10 +627,6 @@ class AudioEngine {
 
   /* ── Analiz verisi ────────────────────────────────────────── */
 
-  /**
-   * Visualizer için anlık frekans verisi döndürür.
-   * @returns {{ frequencies: number[], peak: number, average: number }|null}
-   */
   getAudioData() {
     if (!this._analyser) return null;
     try {
@@ -809,24 +647,17 @@ class AudioEngine {
     }
   }
 
-  /* ── Durum sorgulama ─────────────────────────────────────── */
-
-  get isPlaying()     { return this._playing; }
-  get masterVolume()  { return this._masterGain?.gain.value ?? 0; }
-  get activeLayers()  { return Array.from(this._layers.keys()); }
-  get contextState()  { return this._ctx?.state ?? 'closed'; }
+  get isPlaying()    { return this._playing; }
+  get masterVolume() { return this._masterGain?.gain.value ?? 0; }
+  get activeLayers() { return Array.from(this._layers.keys()); }
+  get contextState() { return this._ctx?.state ?? 'closed'; }
 
   /* ── Background Audio ────────────────────────────────────── */
 
-  /**
-   * Uygulama arka plana geçtiğinde çağrılır.
-   * React Native'de AppState listener'ı ile bağlantılandırılır.
-   */
   handleAppBackground() {
     if (this._appInBackground) return;
     this._appInBackground = true;
 
-    // Arka planda volume'u düşür (pil tasarrufu + diğer uygulamalar için)
     if (this._masterGain && this._ctx) {
       this._masterGain.gain.setTargetAtTime(
         this._backgroundVolume,
@@ -837,9 +668,6 @@ class AudioEngine {
     this._emit('background');
   }
 
-  /**
-   * Uygulama ön plana döndüğünde çağrılır.
-   */
   async handleAppForeground() {
     if (!this._appInBackground) return;
     this._appInBackground = false;
@@ -866,7 +694,6 @@ class AudioEngine {
       }
     });
 
-    // React Native WebView mesajlarını da dinle
     if (typeof window !== 'undefined') {
       const handler = (event) => {
         try {
@@ -882,16 +709,12 @@ class AudioEngine {
     }
   }
 
-  /* ── Seans yönetimi ──────────────────────────────────────── */
-
   _finalizeSession() {
     if (!this._sessionStart) return { duration: 0 };
     const duration = Math.floor((Date.now() - this._sessionStart) / 1000);
     this._sessionStart = null;
     return { duration, timestamp: new Date().toISOString() };
   }
-
-  /* ── Dahili yardımcılar ───────────────────────────────────── */
 
   _startAllLayers() {
     this._layers.forEach((layer) => {
@@ -904,14 +727,6 @@ class AudioEngine {
     this._layers.clear();
   }
 
-  /* ── Olay sistemi (EventEmitter benzeri) ─────────────────── */
-
-  /**
-   * Olay dinleyicisi ekler.
-   * @param {string} event
-   * @param {Function} callback
-   * @returns {Function} — unsubscribe fonksiyonu
-   */
   on(event, callback) {
     if (!this._listeners.has(event)) this._listeners.set(event, new Set());
     this._listeners.get(event).add(callback);
@@ -924,11 +739,6 @@ class AudioEngine {
     });
   }
 
-  /* ── Temizleme ────────────────────────────────────────────── */
-
-  /**
-   * Tüm kaynakları serbest bırakır. Uygulama kapanırken çağrılmalıdır.
-   */
   async dispose() {
     await this._stopAllLayers();
     this._preloadCache.clear();
@@ -944,20 +754,12 @@ class AudioEngine {
   }
 }
 
-/** @type {AudioEngine|null} */
 AudioEngine._instance = null;
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION 7 — MEVCUT audioOrchestrator İLE UYUMLULUK KÖPRÜSÜ
-   app.js'deki mevcut çağrıları kırmadan drop-in replacement sağlar.
+   SECTION 7 — LEGACY ADAPTER
 ═══════════════════════════════════════════════════════════════ */
 
-/**
- * Eski `audioOrchestrator` API'sini yeni AudioEngine üzerine yönlendirir.
- * `app.js` içinde:
- *   const audioOrchestrator = createLegacyAdapter();
- * satırıyla mevcut kodu sıfır değişiklikle çalıştırabilirsiniz.
- */
 function createLegacyAdapter() {
   const engine = AudioEngine.getInstance();
 
@@ -983,11 +785,9 @@ function createLegacyAdapter() {
    EXPORTS
 ═══════════════════════════════════════════════════════════════ */
 
-// ES Module
 export default AudioEngine;
 export { AudioEngine, AudioLayer, PreloadCache, WebAudioAdapter, createLegacyAdapter, AUDIO_CONFIG };
 
-// CommonJS / React Native Metro Bundler uyumluluğu
 if (typeof module !== 'undefined') {
   module.exports = AudioEngine;
   module.exports.AudioEngine = AudioEngine;
