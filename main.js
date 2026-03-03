@@ -631,7 +631,7 @@ window.showAnalytics = function showAnalytics() {
  * @param {string} tabId — 'tab-audio' | 'tab-journal' | 'tab-premium'
  */
 window.switchTab = function switchTab(tabId) {
-  // Tüm panelleri gizle (.active class kaldır — CSS .tab-panel{display:none} ile uyumlu)
+  // Tüm panelleri gizle
   document.querySelectorAll('.tab-panel').forEach((panel) => {
     panel.classList.remove('active');
   });
@@ -1784,4 +1784,40 @@ window.addEventListener('beforeunload', () => {
     isActive : () => _ds.isActive,
   };
 
+})();
+/* ══════════════════════════════════════
+   RIPPLE (Su Dalgasi) Tiklama Efekti
+   Modelden bagimsiz — hemen calisir
+══════════════════════════════════════ */
+(function() {
+  'use strict';
+
+  function createRipple(clientX, clientY) {
+    var SIZE = 120;
+    var el = document.createElement('div');
+    el.className = 'ripple-circle';
+    el.style.cssText = [
+      'left:' + clientX + 'px',
+      'top:' + clientY + 'px',
+      'width:' + SIZE + 'px',
+      'height:' + SIZE + 'px'
+    ].join(';');
+    document.body.appendChild(el);
+    // Remove after animation completes
+    el.addEventListener('animationend', function() {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+
+  function onPointerDown(e) {
+    var x = e.touches ? e.touches[0].clientX : e.clientX;
+    var y = e.touches ? e.touches[0].clientY : e.clientY;
+    // Don't create ripple on interactive elements (button, a, textarea, input)
+    var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
+    createRipple(x, y);
+  }
+
+  document.addEventListener('mousedown', onPointerDown, { passive: true });
+  document.addEventListener('touchstart', onPointerDown, { passive: true });
 })();
