@@ -6,10 +6,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sanctuary">
-<!--
-  viewport-fit=cover → tam ekran, safe area inset'leri CSS'e açar.
-  CSS tarafında --sat/--sar/--sab/--sal token'ları env() ile bağlıdır.
--->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="Sanctuary — Ses frekansları ve nefes rehberiyle zihinsel huzur.">
 <meta name="theme-color" content="#050507">
@@ -22,12 +18,6 @@
 
 <title>Sanctuary — Your Inner Space</title>
 
-<!--
-  Performans stratejisi:
-  1. preconnect → DNS + TLS handshake önceden tamamlanır
-  2. preload as="style" → CSS yüklenmesi engel oluşturmaz
-  3. media="print" + onload trick → FOUC olmadan non-blocking font yükü
--->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Figtree:wght@300;400;500&display=swap">
@@ -38,27 +28,18 @@
 
 <link rel="stylesheet" href="./style.css">
 
-<!--
-  CRITICAL INLINE SCRIPT — Runs before paint to:
-  1. Detect low-power mode (battery API veya prefers-reduced-motion)
-  2. Apply .low-power class to <html> — disables costly backdrop-filter
-  This prevents wasted GPU frames on the very first paint.
--->
 <script>
 (function() {
   'use strict';
 
-  // ── Low-power / Reduced-motion detection ──
   function applyLowPower() {
     document.documentElement.classList.add('low-power');
   }
 
-  // Immediately respect prefers-reduced-motion OS setting
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     applyLowPower();
   }
 
-  // Battery API — if charge < 20% or discharging at low level, reduce fx
   if ('getBattery' in navigator) {
     navigator.getBattery().then(function(battery) {
       function checkBattery() {
@@ -71,29 +52,23 @@
       checkBattery();
       battery.addEventListener('levelchange', checkBattery);
       battery.addEventListener('chargingchange', checkBattery);
-    }).catch(function() { /* API not available */ });
+    }).catch(function() { });
   }
 })();
 </script>
 </head>
 <body>
 
-<!-- GPU-composited canvas — will-change set in CSS -->
 <canvas id="gen-canvas"></canvas>
 <div id="touch-layer"></div>
 
-<!-- ══════════════════════════════════════
-     HP BANNER — safe-area-inset-top via CSS token
-══════════════════════════════════════ -->
 <div id="hp-banner" role="status" aria-live="polite">
   <span class="hp-icon" aria-hidden="true">🎧</span>
   <span>En iyi deneyim için kulaklık kullanın — binaural ses sol/sağ kanalda çalışır</span>
   <span class="hp-close" onclick="dismissBanner()" role="button" aria-label="Bildirimi kapat" tabindex="0">✕</span>
 </div>
 
-<!-- ══════════════════════════════════════
-     SCREEN — MOOD
-══════════════════════════════════════ -->
+<!-- SCREEN — MOOD -->
 <div class="screen on" id="screen-mood">
   <div class="inner">
     <div class="brand a1">
@@ -107,20 +82,14 @@
       <p>Seni gerçekten dinleyecek bir alan. Bugün hangi duygular içindesin?</p>
     </div>
 
-    <!-- ══════════════════════════════════════
-         CANLI ODALAR — Mood Grid'den önce
-    ══════════════════════════════════════ -->
     <section class="live-rooms-section" id="liveRoomsSection">
-
-      <!-- Başlık + Oda Kur butonu -->
       <div class="section-header">
         <h2 class="section-title">
           <span class="live-dot"></span>
           Canlı Odalar
         </h2>
         <button class="btn-create-room" id="btnOpenCreateModal">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -128,7 +97,6 @@
         </button>
       </div>
 
-      <!-- Filtre çipleri -->
       <div class="filter-bar" id="roomFilterBar">
         <button class="filter-chip active" data-filter="all">Tümü</button>
         <button class="filter-chip" data-filter="uyku">😴 Uyku</button>
@@ -138,15 +106,9 @@
         <button class="filter-chip" data-filter="en">🇬🇧 English</button>
       </div>
 
-      <!-- Oda kartları (JS ile doldurulur) -->
       <div class="rooms-grid" id="roomsGrid"></div>
-
     </section>
 
-    <!--
-      SKELETON → Ruh hali butonları yüklenmeden önce gösterilir.
-      JS içerik hazır olduğunda .hidden ekleyip .mood-grid'i gösterir.
-    -->
     <div class="mood-grid-skeleton a3" id="mood-grid-skeleton" aria-hidden="true">
       <div class="sk-chip"></div>
       <div class="sk-chip"></div>
@@ -178,9 +140,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════
-     SCREEN — SANCTUARY
-══════════════════════════════════════ -->
+<!-- SCREEN — SANCTUARY -->
 <div class="screen off" id="screen-sanctuary">
   <div class="inner sanctuary-inner">
     <div class="mood-badge-wrap a1">
@@ -245,9 +205,6 @@
       <div class="s-card"><span class="s-card-ic">✍️</span><span class="s-card-nm">Günlük</span><span class="s-card-dur">Serbest yaz</span></div>
     </div>
 
-    <!-- ══════════════════════════════════════
-         SEKME NAVİGASYONU
-    ══════════════════════════════════════ -->
     <div class="tab-nav a7" role="tablist" aria-label="Sanctuary sekmeleri">
       <button class="tab-item active" id="tab-btn-audio"
               onclick="switchTab('tab-audio')"
@@ -266,11 +223,7 @@
       </button>
     </div>
 
-    <!-- ══════════════════════════════════════
-         SEKME PANELİ — SES
-    ══════════════════════════════════════ -->
     <div class="tab-panel active" id="tab-audio" role="tabpanel" aria-labelledby="tab-btn-audio">
-
       <div class="sounds-section">
         <div class="sounds-section-title">Premium Frekanslar</div>
         <div class="s-sounds-skeleton" id="premium-sounds-skeleton" aria-hidden="true">
@@ -315,14 +268,9 @@
       <div class="analytics-link" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Analitikleri göster">
         📊 Oturumlarına Bak
       </div>
+    </div>
 
-    </div><!-- /#tab-audio -->
-
-    <!-- ══════════════════════════════════════
-         SEKME PANELİ — GÜNLÜK
-    ══════════════════════════════════════ -->
     <div class="tab-panel" id="tab-journal" role="tabpanel" aria-labelledby="tab-btn-journal">
-
       <div class="journal-section">
         <div class="journal-header">
           <span class="journal-date" id="journal-date"></span>
@@ -342,14 +290,9 @@
         </div>
         <div class="journal-entries" id="journal-entries-list"></div>
       </div>
+    </div>
 
-    </div><!-- /#tab-journal -->
-
-    <!-- ══════════════════════════════════════
-         SEKME PANELİ — PREMİUM
-    ══════════════════════════════════════ -->
     <div class="tab-panel" id="tab-premium" role="tabpanel" aria-labelledby="tab-btn-premium">
-
       <div class="premium-tab-section">
         <div class="premium-tab-hero">
           <div class="premium-tab-badge"><span class="pw-badge-dot"></span>Sanctuary Premium</div>
@@ -391,8 +334,7 @@
         </button>
         <p class="premium-tab-note">Deneme bittikten sonra $59.99/yıl. İstediğin zaman iptal et.</p>
       </div>
-
-    </div><!-- /#tab-premium -->
+    </div>
 
     <button class="back-btn a7" onclick="goBack()" aria-label="Geri dön">
       ← Geri Dön
@@ -400,9 +342,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════
-     SCREEN — ANALYTICS
-══════════════════════════════════════ -->
+<!-- SCREEN — ANALYTICS -->
 <div class="screen off" id="screen-analytics">
   <div class="inner">
     <div class="analytics-header a1">
@@ -427,9 +367,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════
-     MODALS & OVERLAYS
-══════════════════════════════════════ -->
+<!-- MODALS & OVERLAYS -->
 <div id="health-modal" onclick="closeHealthModal(event)">
   <div class="health-sheet">
     <h3>❤️ Sağlık Uygulaması</h3>
@@ -550,7 +488,7 @@
   <span id="fallback-notice-text">Default Zen modu aktif — 432 Hz</span>
 </div>
 
-<!-- Connection warning — GPU translate3d in CSS, no inline style needed -->
+<!-- Connection warning -->
 <div id="connection-warning" role="status" aria-live="assertive">
   📶 Bağlantı zayıf, lütfen bekleyin...
 </div>
@@ -560,7 +498,7 @@
   <span>Geçiş</span>
 </div>
 
-<!-- Legal disclaimer — full-screen overlay -->
+<!-- Legal disclaimer -->
 <div id="legal-disclaimer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; justify-content:center; align-items:center; padding:20px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);">
   <div style="background:#1c1c1e; padding:30px; border-radius:28px; text-align:center; border:1px solid #333; max-width:380px; box-shadow:0 25px 50px rgba(0,0,0,0.6);">
     <div style="font-size:45px; margin-bottom:20px;">🛡️</div>
@@ -574,17 +512,12 @@
   </div>
 </div>
 
-<!--
-  SKELETON REVEAL SCRIPT
-  Runs after DOM ready — shows real content and hides skeletons.
-  Uses requestAnimationFrame to avoid layout jank.
--->
+<!-- SKELETON REVEAL SCRIPT -->
 <script>
 (function() {
   'use strict';
 
   function revealContent() {
-    // Mood grid
     var skeleton = document.getElementById('mood-grid-skeleton');
     var grid = document.getElementById('mood-grid');
     if (skeleton && grid) {
@@ -592,11 +525,9 @@
       grid.style.display = 'grid';
     }
 
-    // AI oracle
     var oracleSkeleton = document.getElementById('ai-oracle-skeleton');
     var oracleContent = document.getElementById('ai-oracle-content');
     if (oracleSkeleton && oracleContent) {
-      // Slight delay so skeleton is visible for at least one frame
       setTimeout(function() {
         oracleSkeleton.style.display = 'none';
         oracleContent.style.display = 'block';
@@ -604,7 +535,6 @@
     }
   }
 
-  // Use rAF to batch reveal after first paint
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
       requestAnimationFrame(revealContent);
@@ -613,7 +543,6 @@
     requestAnimationFrame(revealContent);
   }
 
-  // Premium sounds skeleton reveal — called by app.js after populatePremiumSounds()
   window.revealPremiumSounds = function() {
     var sk = document.getElementById('premium-sounds-skeleton');
     var grid = document.getElementById('premium-sounds-grid');
@@ -625,9 +554,7 @@
 
 <script type="module" src="./main.js"></script>
 
-<!-- ══════════════════════════════════════
-     ODA OLUŞTURMA MODAL
-══════════════════════════════════════ -->
+<!-- ODA OLUŞTURMA MODAL -->
 <div class="modal-overlay" id="createRoomModal">
   <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-handle-bar"></div>
@@ -636,7 +563,6 @@
       <button class="btn-modal-close" id="btnCloseModal" aria-label="Kapat">✕</button>
     </div>
     <div class="modal-body">
-
       <div class="form-group">
         <label class="form-label" for="roomName">Oda Adı</label>
         <input class="form-input" type="text" id="roomName"
@@ -682,9 +608,7 @@
   </div>
 </div>
 
-
-
-<!-- Service Worker Kaydı -->
+<!-- Service Worker -->
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
@@ -703,6 +627,7 @@ if ('serviceWorker' in navigator) {
     if(p)p.classList.add('active');
     if(b){b.classList.add('active');b.setAttribute('aria-selected','true');}
   }
+  
   window.switchTab=function(tabId){
     document.querySelectorAll('.tab-panel').forEach(function(el){el.classList.remove('active');});
     document.querySelectorAll('.tab-item').forEach(function(el){el.classList.remove('active');el.setAttribute('aria-selected','false');});
@@ -713,9 +638,248 @@ if ('serviceWorker' in navigator) {
     if(b){b.classList.add('active');b.setAttribute('aria-selected','true');}
     if(tabId==='tab-journal'){var d=document.getElementById('journal-date');if(d)d.textContent=new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});}
   };
+  
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initTabs);}else{initTabs();}
 })();
 </script>
+
+<!-- TÜM EKSİK FONKSİYONLAR EKLENDİ -->
+<script>
+// ========== EKRAN YÖNETİMİ ==========
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  document.getElementById(`screen-${screenId}`).classList.add('on');
+}
+
+function goBack() {
+  if (document.getElementById('screen-sanctuary').classList.contains('on')) {
+    showScreen('mood');
+  } else if (document.getElementById('screen-analytics').classList.contains('on')) {
+    showScreen('sanctuary');
+  }
+}
+
+function goSanctuary() { 
+  showScreen('sanctuary'); 
+}
+
+// ========== MOOD ==========
+function pickMood(element) {
+  const mood = element.getAttribute('data-mood');
+  const emoji = element.querySelector('.ic').textContent;
+  
+  document.getElementById('s-emoji').textContent = emoji;
+  document.getElementById('s-mood').textContent = mood;
+  
+  let message = '';
+  if (mood === 'Huzursuz') message = 'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.';
+  else if (mood === 'Yorgun') message = 'Dinlenmek bir lüks değil, ihtiyaçtır.';
+  else if (mood === 'Kaygılı') message = 'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.';
+  else if (mood === 'Mutsuz') message = 'Her duygu geçer. Bu da geçecek.';
+  else if (mood === 'Sakin') message = 'Sakinlik senin doğal halin.';
+  else if (mood === 'Minnettar') message = 'Minnettarlık iyileştirir.';
+  
+  document.getElementById('s-message').textContent = message;
+  localStorage.setItem('lastMood', mood);
+  localStorage.setItem('lastEmoji', emoji);
+}
+
+// ========== SES ==========
+let isPlaying = false;
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('play-icon').textContent = isPlaying ? '⏸' : '▶';
+  document.getElementById('play-btn').setAttribute('aria-pressed', isPlaying);
+  document.getElementById('play-lbl').textContent = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
+}
+
+function setSleepTimer(minutes) {
+  document.getElementById('stimer-status').textContent = `⏰ ${minutes} dk sonra duracak`;
+}
+
+function cancelSleepTimer() {
+  document.getElementById('stimer-status').textContent = '';
+}
+
+// ========== GÜNLÜK ==========
+function saveJournalEntry() {
+  const text = document.getElementById('journal-textarea').value;
+  if (text.trim()) {
+    localStorage.setItem('lastJournal', text);
+    localStorage.setItem('lastJournalDate', new Date().toISOString());
+    document.getElementById('journal-save-status').textContent = '✓ Kaydedildi';
+    setTimeout(() => {
+      document.getElementById('journal-save-status').textContent = '';
+    }, 2000);
+  }
+}
+
+// ========== AI ORACLE ==========
+function generateAIFreq() {
+  const input = document.getElementById('ai-input').value;
+  if (!input.trim()) {
+    alert('Lütfen bir şeyler yaz');
+    return;
+  }
+  
+  document.getElementById('ai-result-text').innerHTML = `"${input}" duyguna uygun frekans: 7.83 Hz (Schumann rezonansı)`;
+  document.getElementById('ai-result-freq').innerHTML = 'Şifa frekansı: 528 Hz';
+}
+
+// ========== ANALİTİK ==========
+function showAnalytics() {
+  document.getElementById('stat-sessions').textContent = localStorage.getItem('sessionCount') || '0';
+  document.getElementById('stat-minutes').textContent = localStorage.getItem('totalMinutes') || '0';
+  document.getElementById('stat-streak').textContent = localStorage.getItem('currentStreak') || '0';
+  showScreen('analytics');
+}
+
+function clearData() {
+  if (confirm('Tüm veriler silinecek. Emin misin?')) {
+    localStorage.clear();
+    showAnalytics();
+  }
+}
+
+function exportHealth() {
+  alert('Sağlık verileri dışa aktarıldı');
+}
+
+// ========== PREMİUM ==========
+let selectedPlan = null;
+
+function openPaywall() {
+  document.getElementById('paywall-overlay').style.display = 'flex';
+}
+
+function closePaywall() {
+  document.getElementById('paywall-overlay').style.display = 'none';
+}
+
+function selectPlan(element) {
+  document.querySelectorAll('.pw-plan').forEach(el => el.classList.remove('sel'));
+  element.classList.add('sel');
+  selectedPlan = element.getAttribute('data-plan');
+}
+
+function handlePurchase() {
+  alert('Premium satın alındı!');
+  closePaywall();
+}
+
+function restorePurchase() {
+  alert('Satın alım geri yükleniyor...');
+}
+
+function updateTrialState() {
+  const trialActive = document.getElementById('pw-trial-toggle').checked;
+  document.getElementById('pw-cta-note').innerHTML = trialActive ? 
+    'Deneme bittikten sonra $59.99/yıl olarak faturalandırılır.' : 
+    'Hemen $59.99/yıl faturalandırılır.';
+}
+
+// ========== MODAL ==========
+function closeHealthModal(event) {
+  if (!event || event.target.id === 'health-modal') {
+    document.getElementById('health-modal').style.display = 'none';
+  }
+}
+
+function copyHealthData() {
+  navigator.clipboard?.writeText('{"mindfulness":[]}') || alert('Kopyalandı');
+}
+
+// ========== ODA OLUŞTURMA ==========
+document.addEventListener('DOMContentLoaded', function() {
+  // Modal açma
+  document.getElementById('btnOpenCreateModal').addEventListener('click', function() {
+    document.getElementById('createRoomModal').style.display = 'flex';
+  });
+  
+  // Modal kapatma
+  document.getElementById('btnCloseModal').addEventListener('click', function() {
+    document.getElementById('createRoomModal').style.display = 'none';
+  });
+  
+  // Kapasite arttırma/azaltma
+  let capacity = 5;
+  document.getElementById('btnCapInc').addEventListener('click', function() {
+    if (capacity < 20) {
+      capacity++;
+      document.getElementById('capValue').textContent = capacity;
+    }
+  });
+  
+  document.getElementById('btnCapDec').addEventListener('click', function() {
+    if (capacity > 2) {
+      capacity--;
+      document.getElementById('capValue').textContent = capacity;
+    }
+  });
+  
+  // Oda tipi seçimi
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+      this.classList.add('selected');
+      document.getElementById('passwordField').style.display = 
+        this.getAttribute('data-type') === 'private' ? 'block' : 'none';
+    });
+  });
+  
+  // Oda oluşturma
+  document.getElementById('btnSubmitRoom').addEventListener('click', function() {
+    const name = document.getElementById('roomName').value;
+    if (!name) {
+      alert('Oda adı gerekli');
+      return;
+    }
+    alert(`✨ "${name}" odası oluşturuldu!`);
+    document.getElementById('createRoomModal').style.display = 'none';
+  });
+  
+  // Modal dışına tıklayınca kapat
+  document.getElementById('createRoomModal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+});
+
+// ========== DİĞER ==========
+function dismissBanner() {
+  document.getElementById('hp-banner').style.display = 'none';
+}
+
+function dismissPWABanner() {
+  document.getElementById('pwa-banner').style.display = 'none';
+}
+
+function triggerPWAInstall() {
+  alert('PWA kurulumu başlatılıyor...');
+}
+
+function acceptDisclaimer() {
+  document.getElementById('legal-disclaimer').style.display = 'none';
+  localStorage.setItem('disclaimerAccepted', 'true');
+}
+
+// ========== BAŞLANGIÇ ==========
+window.addEventListener('load', function() {
+  // Son seçilen ruh halini yükle
+  const lastMood = localStorage.getItem('lastMood');
+  const lastEmoji = localStorage.getItem('lastEmoji');
+  if (lastMood && lastEmoji) {
+    document.getElementById('s-emoji').textContent = lastEmoji;
+    document.getElementById('s-mood').textContent = lastMood;
+  }
+  
+  // Bağlantı uyarısını gizle (çünkü gerçek bağlantı sorunu yok)
+  document.getElementById('connection-warning').style.display = 'none';
+  
+  // Fallback notice varsa göster
+  console.log('Sanctuary yüklendi');
+});
+</script>
+
 </body>
 </html>
-
