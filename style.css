@@ -3044,3 +3044,4 @@ html.low-power .detox-exit__progress {
 }
 .premium-tab-cta:active { transform: scale(0.98); box-shadow: 0 0 0 4px rgba(201,169,110,0.15); }
 .premium-tab-note { font-family: var(--font-ui,-apple-system,sans-serif); font-size: 12px; color: rgba(255,255,255,0.3); text-align: center; margin: -8px 0 0; }
+
