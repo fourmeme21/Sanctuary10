@@ -1,13 +1,7 @@
-/**
- * sanctuary-bundle.js
- * Tüm modüller tek dosyada birleştirildi — import hatası yok
- */
-(function() {
+/* sanctuary-bundle.js — auto-generated */
 'use strict';
 
-/* ═══════════════════════════════════
-   1. AudioEngine
-═══════════════════════════════════ */
+/* === AudioEngine === */
 /**
  * AudioEngine.js
  * ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +20,6 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-'use strict';
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 1 — SABİTLER
@@ -1006,9 +999,7 @@ if (typeof module !== 'undefined') {
   module.exports.AUDIO_CONFIG = AUDIO_CONFIG;
 }
 
-/* ═══════════════════════════════════
-   2. StateManager
-═══════════════════════════════════ */
+/* === StateManager === */
 /**
  * StateManager.js
  * ================
@@ -1767,9 +1758,7 @@ function _resetStateManagerSingleton() {
   _instance = null;
 }
 
-/* ═══════════════════════════════════
-   3. RoomManager
-═══════════════════════════════════ */
+/* === RoomManager === */
 /**
  * RoomManager.js
  * Oda Yönetim Sistemi - StateManager ile tam entegre çalışır.
@@ -2024,15 +2013,12 @@ class RoomManager {
 const roomManagerInstance = new RoomManager();
 
 
-/* ═══════════════════════════════════
-   4. main-room-additions
-═══════════════════════════════════ */
+/* === main-room-additions === */
 /* =============================================================
    main-room-additions.js
    Sanctuary Oda Sistemi — UI mantığı
    main.js içindeki init() tarafından initRoomUI() çağrısıyla başlatılır.
    ============================================================= */
-
 
 
 // ── Durum
@@ -2239,7 +2225,7 @@ function bindRoomEvents() {
 }
 
 // ── Public init — main.js'teki init() tarafından çağrılır
-async function initRoomUI() {
+function initRoomUI() {
   bindRoomEvents();
   renderSkeletons(3);
 
@@ -2255,9 +2241,7 @@ async function initRoomUI() {
   renderRooms(mockRooms);
 }
 
-/* ═══════════════════════════════════
-   5. main
-═══════════════════════════════════ */
+/* === main === */
 /**
  * main.js — Sanctuary Ana Giriş Noktası
  * ═══════════════════════════════════════════════════════════════════════════
@@ -2273,10 +2257,6 @@ async function initRoomUI() {
  *  6. Skeleton Reveal → Her şey hazır olduğunda revealContent() çağrısı
  * ═══════════════════════════════════════════════════════════════════════════
  */
-
-
-
-
 
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -4075,6 +4055,4 @@ window.addEventListener('beforeunload', () => {
 
   document.addEventListener('mousedown', onPointerDown, { passive: true });
   document.addEventListener('touchstart', onPointerDown, { passive: true });
-})();
-
 })();
