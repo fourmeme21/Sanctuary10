@@ -245,59 +245,154 @@
       <div class="s-card"><span class="s-card-ic">✍️</span><span class="s-card-nm">Günlük</span><span class="s-card-dur">Serbest yaz</span></div>
     </div>
 
-    <div class="sounds-section a7">
-      <div class="sounds-section-title">Premium Frekanslar</div>
-      <!--
-        SKELETON → Premium ses kartları yüklenmeden önce gösterilir.
-        JS populatePremiumSounds() çağrıldığında skeleton gizlenir,
-        gerçek grid gösterilir.
-      -->
-      <div class="s-sounds-skeleton" id="premium-sounds-skeleton" aria-hidden="true">
-        <div class="sk-card"></div>
-        <div class="sk-card"></div>
-        <div class="sk-card"></div>
-        <div class="sk-card"></div>
-      </div>
-      <div class="s-sounds-grid" id="premium-sounds-grid" style="display:none"></div>
+    <!-- ══════════════════════════════════════
+         SEKME NAVİGASYONU
+    ══════════════════════════════════════ -->
+    <div class="tab-nav a7" role="tablist" aria-label="Sanctuary sekmeleri">
+      <button class="tab-item active" id="tab-btn-audio"
+              onclick="switchTab('tab-audio')"
+              role="tab" aria-selected="true" aria-controls="tab-audio">
+        🎵 Ses
+      </button>
+      <button class="tab-item" id="tab-btn-journal"
+              onclick="switchTab('tab-journal')"
+              role="tab" aria-selected="false" aria-controls="tab-journal">
+        ✍️ Günlük
+      </button>
+      <button class="tab-item" id="tab-btn-premium"
+              onclick="switchTab('tab-premium')"
+              role="tab" aria-selected="false" aria-controls="tab-premium">
+        ✨ Premium
+      </button>
     </div>
 
-    <div class="ai-oracle a7" id="ai-oracle-section">
-      <div class="ai-oracle-header">
-        <span class="ai-oracle-title">AI Oracle</span>
-        <span class="ai-oracle-badge">✦ Free</span>
-      </div>
-      <div class="ai-card">
-        <!--
-          SKELETON → AI Oracle metni yüklenmeden gösterilir.
-          Yanıt geldiğinde .ai-oracle-skeleton gizlenir, içerik açılır.
-        -->
-        <div class="ai-oracle-skeleton" id="ai-oracle-skeleton" aria-hidden="true">
-          <div class="sk-line"></div>
-          <div class="sk-line"></div>
-          <div class="sk-line"></div>
+    <!-- ══════════════════════════════════════
+         SEKME PANELİ — SES
+    ══════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-audio" role="tabpanel" aria-labelledby="tab-btn-audio">
+
+      <div class="sounds-section">
+        <div class="sounds-section-title">Premium Frekanslar</div>
+        <div class="s-sounds-skeleton" id="premium-sounds-skeleton" aria-hidden="true">
+          <div class="sk-card"></div>
+          <div class="sk-card"></div>
+          <div class="sk-card"></div>
+          <div class="sk-card"></div>
         </div>
-        <div id="ai-oracle-content" style="display:none">
-          <div class="ai-textarea-wrap">
-            <span class="ai-textarea-label">Zihninden geçenler</span>
-            <textarea class="ai-textarea" id="ai-input" rows="3"
-              placeholder="Bugün nasıl hissediyorsun? Oracle sana özel bir frekans tasarlasın..."></textarea>
-            <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Sesli giriş">🎙</button>
+        <div class="s-sounds-grid" id="premium-sounds-grid" style="display:none"></div>
+      </div>
+
+      <div class="ai-oracle" id="ai-oracle-section">
+        <div class="ai-oracle-header">
+          <span class="ai-oracle-title">AI Oracle</span>
+          <span class="ai-oracle-badge">✦ Free</span>
+        </div>
+        <div class="ai-card">
+          <div class="ai-oracle-skeleton" id="ai-oracle-skeleton" aria-hidden="true">
+            <div class="sk-line"></div>
+            <div class="sk-line"></div>
+            <div class="sk-line"></div>
           </div>
-          <button class="ai-generate-btn" id="ai-generate-btn" onclick="generateAIFreq()">
-            ✦ Oracle'ı Uyandır
+          <div id="ai-oracle-content" style="display:none">
+            <div class="ai-textarea-wrap">
+              <span class="ai-textarea-label">Zihninden geçenler</span>
+              <textarea class="ai-textarea" id="ai-input" rows="3"
+                placeholder="Bugün nasıl hissediyorsun? Oracle sana özel bir frekans tasarlasın..."></textarea>
+              <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Sesli giriş">🎙</button>
+            </div>
+            <button class="ai-generate-btn" id="ai-generate-btn" onclick="generateAIFreq()">
+              ✦ Oracle'ı Uyandır
+            </button>
+            <div class="ai-result" id="ai-result">
+              <span class="ai-result-label">Oracle Mesajı</span>
+              <div class="ai-result-text" id="ai-result-text"></div>
+              <div class="ai-result-freq" id="ai-result-freq"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="analytics-link" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Analitikleri göster">
+        📊 Oturumlarına Bak
+      </div>
+
+    </div><!-- /#tab-audio -->
+
+    <!-- ══════════════════════════════════════
+         SEKME PANELİ — GÜNLÜK
+    ══════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-journal" role="tabpanel" aria-labelledby="tab-btn-journal" style="display:none">
+
+      <div class="journal-section">
+        <div class="journal-header">
+          <span class="journal-date" id="journal-date"></span>
+          <span class="journal-title">Günlük Notun</span>
+        </div>
+        <div class="textarea-wrap">
+          <span class="textarea-label" id="journal-label">Bugün ne hissediyorsun?</span>
+          <textarea class="mood-textarea journal-textarea" id="journal-textarea" rows="6"
+            aria-labelledby="journal-label"
+            placeholder="Düşüncelerini, duygularını, minnetlerini buraya yaz. Bu alan yalnızca sana ait..."></textarea>
+        </div>
+        <div class="journal-actions">
+          <button class="journal-save-btn" onclick="saveJournalEntry()">
+            💾 Kaydet
           </button>
-          <div class="ai-result" id="ai-result">
-            <span class="ai-result-label">Oracle Mesajı</span>
-            <div class="ai-result-text" id="ai-result-text"></div>
-            <div class="ai-result-freq" id="ai-result-freq"></div>
+          <span class="journal-save-status" id="journal-save-status"></span>
+        </div>
+        <div class="journal-entries" id="journal-entries-list"></div>
+      </div>
+
+    </div><!-- /#tab-journal -->
+
+    <!-- ══════════════════════════════════════
+         SEKME PANELİ — PREMİUM
+    ══════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-premium" role="tabpanel" aria-labelledby="tab-btn-premium" style="display:none">
+
+      <div class="premium-tab-section">
+        <div class="premium-tab-hero">
+          <div class="premium-tab-badge"><span class="pw-badge-dot"></span>Sanctuary Premium</div>
+          <h3 class="premium-tab-title">Daha Derin Bir <em>Huzur</em></h3>
+          <p class="premium-tab-sub">Bilim destekli ses frekanslarıyla zihin ve bedeninizin tam potansiyelini açın.</p>
+        </div>
+        <div class="premium-tab-features">
+          <div class="premium-tab-feat">
+            <span class="premium-feat-ic">🎛️</span>
+            <div>
+              <div class="premium-feat-title">AI Destekli Özel Ritimler</div>
+              <div class="premium-feat-sub">Ruh halinize özel, gerçek zamanlı üretilen binaural beat kompozisyonları.</div>
+            </div>
+          </div>
+          <div class="premium-tab-feat">
+            <span class="premium-feat-ic">🌙</span>
+            <div>
+              <div class="premium-feat-title">Çevrimdışı Erişim</div>
+              <div class="premium-feat-sub">İnternet olmadan, uçakta bile tüm premium seanslara erişin.</div>
+            </div>
+          </div>
+          <div class="premium-tab-feat">
+            <span class="premium-feat-ic">❤️</span>
+            <div>
+              <div class="premium-feat-title">Sağlık Verisi Senkronizasyonu</div>
+              <div class="premium-feat-sub">Apple Health &amp; Google Fit ile otomatik mindfulness takibi.</div>
+            </div>
+          </div>
+          <div class="premium-tab-feat">
+            <span class="premium-feat-ic">📊</span>
+            <div>
+              <div class="premium-feat-title">Gelişmiş Analitik</div>
+              <div class="premium-feat-sub">Zihinsel örüntülerinizi haftalık ve aylık grafiklerle takip edin.</div>
+            </div>
           </div>
         </div>
+        <button class="premium-tab-cta" onclick="openPaywall()">
+          ✨ Premium'a Geç — 7 Gün Ücretsiz
+        </button>
+        <p class="premium-tab-note">Deneme bittikten sonra $59.99/yıl. İstediğin zaman iptal et.</p>
       </div>
-    </div>
 
-    <div class="analytics-link a7" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Analitikleri göster">
-      📊 Oturumlarına Bak
-    </div>
+    </div><!-- /#tab-premium -->
 
     <button class="back-btn a7" onclick="goBack()" aria-label="Geri dön">
       ← Geri Dön
