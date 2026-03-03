@@ -22,11 +22,12 @@
 
 /** @enum {string} */
 export const Mood = Object.freeze({
-  NEUTRAL:    'neutral',
-  FOCUS:      'odaklanma',
-  RELAX:      'rahatlama',
-  MEDITATION: 'meditasyon',
-  SLEEP:      'uyku',
+  HUZURSUZ:   'Huzursuz',
+  YORGUN:     'Yorgun',
+  KAYGILI:    'Kaygılı',
+  MUTSUZ:     'Mutsuz',
+  SAKIN:      'Sakin',
+  MINNETTAR:  'Minnettar',
 });
 
 /** @enum {string} */
@@ -53,7 +54,7 @@ const DEFAULT_STATE = Object.freeze({
   intensity:            0.5,
 
   // ── Ruh Hali ─────────────────────────────────────────────────────────────
-  selectedMood:         Mood.NEUTRAL,
+  selectedMood:         Mood.SAKIN,
 
   // ── Seans ────────────────────────────────────────────────────────────────
   sessionStartTime:     null,         // epoch ms | null
