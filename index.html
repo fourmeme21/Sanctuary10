@@ -2,30 +2,31 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sanctuary">
 <!--
-  viewport-fit=cover â†’ tam ekran, safe area inset'leri CSS'e aÃ§ar.
-  CSS tarafÄ±nda --sat/--sar/--sab/--sal token'larÄ± env() ile baÄŸlÄ±dÄ±r.
+  viewport-fit=cover → tam ekran, safe area inset'leri CSS'e açar.
+  CSS tarafında --sat/--sar/--sab/--sal token'ları env() ile bağlıdır.
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="description" content="Sanctuary â€” Ses frekanslarÄ± ve nefes rehberiyle zihinsel huzur.">
+<meta name="description" content="Sanctuary — Ses frekansları ve nefes rehberiyle zihinsel huzur.">
 <meta name="theme-color" content="#050507">
 
 <!-- PWA Manifest -->
-<link rel="manifest" href="./manifest.json">
+<link rel="manifest" href="manifest.json">
 
-<!-- App icon â€” inline SVG base64, no HTTP request -->
+<!-- App icon — inline SVG base64, no HTTP request -->
 <link rel="apple-touch-icon" sizes="192x192" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+CiAgPCEtLSBCYWNrZ3JvdW5kIC0tPgogIDxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjMDUwNTA3Ii8+CiAgPCEtLSBPdXRlciByaW5nIC0tPgogIDxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMTQwIiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMjAxLDE2OSwxMTAsMC4yNSkiIHN0cm9rZS13aWR0aD0iMS41Ii8+CiAgPCEtLSBNaWRkbGUgcmluZyAtLT4KICA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjEwMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDIwMSwxNjksMTEwLDAuMTgpIiBzdHJva2Utd2lkdGg9IjEiLz4KICA8IS0tIElubmVyIGdsb3cgcmluZyAtLT4KICA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjY0IiBmaWxsPSJyZ2JhKDIwMSwxNjksMTEwLDAuMDYpIi8+CiAgPCEtLSBSYWRpYWwgZ3JhZGllbnQgZm9yIGNlbnRlciBnbG93IC0tPgogIDxkZWZzPgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJkb3RHcmFkIiBjeD0iNDAlIiBjeT0iMzUlIiByPSI2MCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZjBkMDkwIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2M5YTk2ZSIvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iZ2xvd0dyYWQiIGN4PSI1MCUiIGN5PSI1MCUiIHI9IjUwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9InJnYmEoMjAxLDE2OSwxMTAsMC41KSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9InJnYmEoMjAxLDE2OSwxMTAsMCkiLz4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CiAgPC9kZWZzPgogIDwhLS0gT3V0ZXIgZ2xvdyBibG9iIC0tPgogIDxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iNDQiIGZpbGw9InVybCgjZ2xvd0dyYWQpIi8+CiAgPCEtLSBDZW50ZXIgZG90IC0tPgogIDxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMTgiIGZpbGw9InVybCgjZG90R3JhZCkiLz4KICA8IS0tIFRvcCBzcGVjdWxhciBoaWdobGlnaHQgb24gZG90IC0tPgogIDxlbGxpcHNlIGN4PSIyNDkiIGN5PSIyNDkiIHJ4PSI3IiByeT0iNSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjM1KSIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwIDI0OSAyNDkpIi8+CiAgPCEtLSBTQU5DVFVBUlkgd29yZG1hcmsgLS0+CiAgPHRleHQgeD0iMjU2IiB5PSI0MDYiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC1zaXplPSIzMCIgZm9udC13ZWlnaHQ9IjMwMCIgbGV0dGVyLXNwYWNpbmc9IjEwIiBmaWxsPSJyZ2JhKDIwMSwxNjksMTEwLDAuNzUpIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TQU5DVFVBUlk8L3RleHQ+Cjwvc3ZnPgo=">
 
-<title>Sanctuary â€” Your Inner Space</title>
+<title>Sanctuary — Your Inner Space</title>
 
 <!--
   Performans stratejisi:
-  1. preconnect â†’ DNS + TLS handshake Ã¶nceden tamamlanÄ±r
-  2. preload as="style" â†’ CSS yÃ¼klenmesi engel oluÅŸturmaz
-  3. media="print" + onload trick â†’ FOUC olmadan non-blocking font yÃ¼kÃ¼
+  1. preconnect → DNS + TLS handshake önceden tamamlanır
+  2. preload as="style" → CSS yüklenmesi engel oluşturmaz
+  3. media="print" + onload trick → FOUC olmadan non-blocking font yükü
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,16 +39,16 @@
 <link rel="stylesheet" href="style.css">
 
 <!--
-  CRITICAL INLINE SCRIPT â€” Runs before paint to:
+  CRITICAL INLINE SCRIPT — Runs before paint to:
   1. Detect low-power mode (battery API veya prefers-reduced-motion)
-  2. Apply .low-power class to <html> â€” disables costly backdrop-filter
+  2. Apply .low-power class to <html> — disables costly backdrop-filter
   This prevents wasted GPU frames on the very first paint.
 -->
 <script>
 (function() {
   'use strict';
 
-  // â”€â”€ Low-power / Reduced-motion detection â”€â”€
+  // ── Low-power / Reduced-motion detection ──
   function applyLowPower() {
     document.documentElement.classList.add('low-power');
   }
@@ -57,7 +58,7 @@
     applyLowPower();
   }
 
-  // Battery API â€” if charge < 20% or discharging at low level, reduce fx
+  // Battery API — if charge < 20% or discharging at low level, reduce fx
   if ('getBattery' in navigator) {
     navigator.getBattery().then(function(battery) {
       function checkBattery() {
@@ -77,22 +78,22 @@
 </head>
 <body>
 
-<!-- GPU-composited canvas â€” will-change set in CSS -->
+<!-- GPU-composited canvas — will-change set in CSS -->
 <canvas id="gen-canvas"></canvas>
 <div id="touch-layer"></div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     HP BANNER â€” safe-area-inset-top via CSS token
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ══════════════════════════════════════
+     HP BANNER — safe-area-inset-top via CSS token
+══════════════════════════════════════ -->
 <div id="hp-banner" role="status" aria-live="polite">
-  <span class="hp-icon" aria-hidden="true">ðŸŽ§</span>
-  <span>En iyi deneyim iÃ§in kulaklÄ±k kullanÄ±n â€” binaural ses sol/saÄŸ kanalda Ã§alÄ±ÅŸÄ±r</span>
-  <span class="hp-close" onclick="dismissBanner()" role="button" aria-label="Bildirimi kapat" tabindex="0">âœ•</span>
+  <span class="hp-icon" aria-hidden="true">🎧</span>
+  <span>En iyi deneyim için kulaklık kullanın — binaural ses sol/sağ kanalda çalışır</span>
+  <span class="hp-close" onclick="dismissBanner()" role="button" aria-label="Bildirimi kapat" tabindex="0">✕</span>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     SCREEN â€” MOOD
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ══════════════════════════════════════
+     SCREEN — MOOD
+══════════════════════════════════════ -->
 <div class="screen on" id="screen-mood">
   <div class="inner">
     <div class="brand a1">
@@ -101,21 +102,21 @@
     </div>
 
     <div class="mood-question a2">
-      <p class="eyebrow">GÃ¼nÃ¼n Tonu</p>
-      <h1 class="display">Åžu an nasÄ±l<br><em>hissediyorsun?</em></h1>
-      <p>Seni gerÃ§ekten dinleyecek bir alan. BugÃ¼n hangi duygular iÃ§indesin?</p>
+      <p class="eyebrow">Günün Tonu</p>
+      <h1 class="display">Şu an nasıl<br><em>hissediyorsun?</em></h1>
+      <p>Seni gerçekten dinleyecek bir alan. Bugün hangi duygular içindesin?</p>
     </div>
 
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-         CANLI ODALAR â€” Mood Grid'den Ã¶nce
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <!-- ══════════════════════════════════════
+         CANLI ODALAR — Mood Grid'den önce
+    ══════════════════════════════════════ -->
     <section class="live-rooms-section" id="liveRoomsSection">
 
-      <!-- BaÅŸlÄ±k + Oda Kur butonu -->
+      <!-- Başlık + Oda Kur butonu -->
       <div class="section-header">
         <h2 class="section-title">
           <span class="live-dot"></span>
-          CanlÄ± Odalar
+          Canlı Odalar
         </h2>
         <button class="btn-create-room" id="btnOpenCreateModal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -127,24 +128,24 @@
         </button>
       </div>
 
-      <!-- Filtre Ã§ipleri -->
+      <!-- Filtre çipleri -->
       <div class="filter-bar" id="roomFilterBar">
-        <button class="filter-chip active" data-filter="all">TÃ¼mÃ¼</button>
-        <button class="filter-chip" data-filter="uyku">ðŸ˜´ Uyku</button>
-        <button class="filter-chip" data-filter="odak">ðŸŽ¯ Odak</button>
-        <button class="filter-chip" data-filter="meditasyon">ðŸ§˜ Meditasyon</button>
-        <button class="filter-chip" data-filter="tr">ðŸ‡¹ðŸ‡· TÃ¼rkÃ§e</button>
-        <button class="filter-chip" data-filter="en">ðŸ‡¬ðŸ‡§ English</button>
+        <button class="filter-chip active" data-filter="all">Tümü</button>
+        <button class="filter-chip" data-filter="uyku">😴 Uyku</button>
+        <button class="filter-chip" data-filter="odak">🎯 Odak</button>
+        <button class="filter-chip" data-filter="meditasyon">🧘 Meditasyon</button>
+        <button class="filter-chip" data-filter="tr">🇹🇷 Türkçe</button>
+        <button class="filter-chip" data-filter="en">🇬🇧 English</button>
       </div>
 
-      <!-- Oda kartlarÄ± (JS ile doldurulur) -->
+      <!-- Oda kartları (JS ile doldurulur) -->
       <div class="rooms-grid" id="roomsGrid"></div>
 
     </section>
 
     <!--
-      SKELETON â†’ Ruh hali butonlarÄ± yÃ¼klenmeden Ã¶nce gÃ¶sterilir.
-      JS iÃ§erik hazÄ±r olduÄŸunda .hidden ekleyip .mood-grid'i gÃ¶sterir.
+      SKELETON → Ruh hali butonları yüklenmeden önce gösterilir.
+      JS içerik hazır olduğunda .hidden ekleyip .mood-grid'i gösterir.
     -->
     <div class="mood-grid-skeleton a3" id="mood-grid-skeleton" aria-hidden="true">
       <div class="sk-chip"></div>
@@ -155,36 +156,36 @@
       <div class="sk-chip"></div>
     </div>
 
-    <div class="mood-grid a3" id="mood-grid" role="group" aria-label="Ruh hali seÃ§" style="display:none">
-      <div class="mood-chip" data-mood="Huzursuz" onclick="pickMood(this)" role="button" aria-label="Huzursuz" tabindex="0"><span class="ic" aria-hidden="true">ðŸŒŠ</span><span class="lbl">Huzursuz</span></div>
-      <div class="mood-chip" data-mood="Yorgun"   onclick="pickMood(this)" role="button" aria-label="Yorgun"   tabindex="0"><span class="ic" aria-hidden="true">ðŸŒ™</span><span class="lbl">Yorgun</span></div>
-      <div class="mood-chip" data-mood="KaygÄ±lÄ±"  onclick="pickMood(this)" role="button" aria-label="KaygÄ±lÄ±"  tabindex="0"><span class="ic" aria-hidden="true">ðŸŒª</span><span class="lbl">KaygÄ±lÄ±</span></div>
-      <div class="mood-chip" data-mood="Mutsuz"   onclick="pickMood(this)" role="button" aria-label="Mutsuz"   tabindex="0"><span class="ic" aria-hidden="true">ðŸŒ§</span><span class="lbl">Mutsuz</span></div>
-      <div class="mood-chip" data-mood="Sakin"    onclick="pickMood(this)" role="button" aria-label="Sakin"    tabindex="0"><span class="ic" aria-hidden="true">ðŸ•¯</span><span class="lbl">Sakin</span></div>
-      <div class="mood-chip" data-mood="Minnettar" onclick="pickMood(this)" role="button" aria-label="Minnettar" tabindex="0"><span class="ic" aria-hidden="true">âœ¨</span><span class="lbl">Minnettar</span></div>
+    <div class="mood-grid a3" id="mood-grid" role="group" aria-label="Ruh hali seç" style="display:none">
+      <div class="mood-chip" data-mood="Huzursuz" onclick="pickMood(this)" role="button" aria-label="Huzursuz" tabindex="0"><span class="ic" aria-hidden="true">🌊</span><span class="lbl">Huzursuz</span></div>
+      <div class="mood-chip" data-mood="Yorgun"   onclick="pickMood(this)" role="button" aria-label="Yorgun"   tabindex="0"><span class="ic" aria-hidden="true">🌙</span><span class="lbl">Yorgun</span></div>
+      <div class="mood-chip" data-mood="Kaygılı"  onclick="pickMood(this)" role="button" aria-label="Kaygılı"  tabindex="0"><span class="ic" aria-hidden="true">🌪</span><span class="lbl">Kaygılı</span></div>
+      <div class="mood-chip" data-mood="Mutsuz"   onclick="pickMood(this)" role="button" aria-label="Mutsuz"   tabindex="0"><span class="ic" aria-hidden="true">🌧</span><span class="lbl">Mutsuz</span></div>
+      <div class="mood-chip" data-mood="Sakin"    onclick="pickMood(this)" role="button" aria-label="Sakin"    tabindex="0"><span class="ic" aria-hidden="true">🕯</span><span class="lbl">Sakin</span></div>
+      <div class="mood-chip" data-mood="Minnettar" onclick="pickMood(this)" role="button" aria-label="Minnettar" tabindex="0"><span class="ic" aria-hidden="true">✨</span><span class="lbl">Minnettar</span></div>
     </div>
 
     <div class="textarea-wrap a4">
       <span class="textarea-label" id="textarea-label">Biraz daha anlat</span>
       <textarea class="mood-textarea" id="mood-textarea" rows="3"
         aria-labelledby="textarea-label"
-        placeholder="BugÃ¼n aklÄ±nda neler var? Yazmak zorunda deÄŸilsin..."></textarea>
+        placeholder="Bugün aklında neler var? Yazmak zorunda değilsin..."></textarea>
     </div>
 
-    <button class="cta-btn a5" onclick="goSanctuary()" aria-label="Sanctuary ekranÄ±na geÃ§">
+    <button class="cta-btn a5" onclick="goSanctuary()" aria-label="Sanctuary ekranına geç">
       Sanctuary'ye Gir
     </button>
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     SCREEN â€” SANCTUARY
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ══════════════════════════════════════
+     SCREEN — SANCTUARY
+══════════════════════════════════════ -->
 <div class="screen off" id="screen-sanctuary">
   <div class="inner sanctuary-inner">
     <div class="mood-badge-wrap a1">
       <div class="mood-badge">
-        <span id="s-emoji">ðŸŒŠ</span>
+        <span id="s-emoji">🌊</span>
         <span id="s-mood">Huzursuz</span>
       </div>
     </div>
@@ -192,7 +193,7 @@
     <div class="freq-badge-wrap a2">
       <div class="freq-badge" id="freq-badge">
         <div class="freq-dot"></div>
-        <span id="freq-label">Frekans SeÃ§ildi</span>
+        <span id="freq-label">Frekans Seçildi</span>
       </div>
     </div>
 
@@ -200,56 +201,56 @@
       <div class="b-ring b-ring-1"></div>
       <div class="b-ring b-ring-2"></div>
       <div class="b-ring b-ring-3"></div>
-      <div class="b-core" id="b-core">â˜½</div>
-      <span id="ai-thinking-label">âœ¦ AI DÃ¼ÅŸÃ¼nÃ¼yor</span>
+      <div class="b-core" id="b-core">☽</div>
+      <span id="ai-thinking-label">✦ AI Düşünüyor</span>
     </div>
 
     <div class="breath-guide-wrap a4">
-      <span class="breath-guide" id="breath-guide">HazÄ±r olduÄŸunda butona dokun</span>
+      <span class="breath-guide" id="breath-guide">Hazır olduğunda butona dokun</span>
     </div>
 
     <div class="waveform a4" id="waveform"></div>
 
     <div class="play-wrap a5">
       <button class="play-btn" id="play-btn" onclick="togglePlay()"
-        aria-label="FrekansÄ± baÅŸlat" aria-pressed="false">
-        <span class="play-icon" id="play-icon" aria-hidden="true">â–¶</span>
+        aria-label="Frekansı başlat" aria-pressed="false">
+        <span class="play-icon" id="play-icon" aria-hidden="true">▶</span>
       </button>
-      <span class="play-lbl" id="play-lbl">FrekansÄ± BaÅŸlat</span>
+      <span class="play-lbl" id="play-lbl">Frekansı Başlat</span>
     </div>
 
     <div class="pills-row a5">
-      <div class="pill"   id="pill-h"><span class="pill-icon">ðŸ“³</span><span>Haptik</span></div>
-      <div class="pill pill-b" id="pill-b"><span class="pill-icon">ã€°ï¸</span><span>Binaural</span></div>
+      <div class="pill"   id="pill-h"><span class="pill-icon">📳</span><span>Haptik</span></div>
+      <div class="pill pill-b" id="pill-b"><span class="pill-icon">〰️</span><span>Binaural</span></div>
     </div>
 
-    <div class="sleep-timer-row a5" role="group" aria-label="Uyku sayacÄ±">
-      <span class="sleep-timer-label" aria-hidden="true">ðŸŒ™ Uyku SayacÄ±</span>
+    <div class="sleep-timer-row a5" role="group" aria-label="Uyku sayacı">
+      <span class="sleep-timer-label" aria-hidden="true">🌙 Uyku Sayacı</span>
       <button class="stimer-btn" onclick="setSleepTimer(10)"  aria-label="10 dakika">10dk</button>
       <button class="stimer-btn" onclick="setSleepTimer(20)"  aria-label="20 dakika">20dk</button>
       <button class="stimer-btn" onclick="setSleepTimer(30)"  aria-label="30 dakika">30dk</button>
       <button class="stimer-btn" onclick="setSleepTimer(45)"  aria-label="45 dakika">45dk</button>
       <button class="stimer-btn" id="stimer-cancel-btn" onclick="cancelSleepTimer()"
-        aria-label="SayacÄ± iptal et" style="display:none">âœ• Ä°ptal</button>
+        aria-label="Sayacı iptal et" style="display:none">✕ İptal</button>
       <div id="stimer-status" aria-live="polite"></div>
     </div>
 
     <div class="div-line a6"></div>
-    <h1 class="display sanc-title a6">HoÅŸ geldin,<br><em>burasÄ± senin alanÄ±n</em></h1>
-    <p class="sanc-sub a6" id="s-message">Hissettiklerin tamamen geÃ§erli. Åžu an iÃ§in tek yapman gereken bir nefes almak.</p>
+    <h1 class="display sanc-title a6">Hoş geldin,<br><em>burası senin alanın</em></h1>
+    <p class="sanc-sub a6" id="s-message">Hissettiklerin tamamen geçerli. Şu an için tek yapman gereken bir nefes almak.</p>
 
     <div class="s-cards a7">
-      <div class="s-card"><span class="s-card-ic">ðŸ«</span><span class="s-card-nm">Nefes</span><span class="s-card-dur">4 Â· 7 Â· 8</span></div>
-      <div class="s-card"><span class="s-card-ic">ðŸŽµ</span><span class="s-card-nm">Ses</span><span class="s-card-dur">Ambiyans</span></div>
-      <div class="s-card"><span class="s-card-ic">âœï¸</span><span class="s-card-nm">GÃ¼nlÃ¼k</span><span class="s-card-dur">Serbest yaz</span></div>
+      <div class="s-card"><span class="s-card-ic">🫁</span><span class="s-card-nm">Nefes</span><span class="s-card-dur">4 · 7 · 8</span></div>
+      <div class="s-card"><span class="s-card-ic">🎵</span><span class="s-card-nm">Ses</span><span class="s-card-dur">Ambiyans</span></div>
+      <div class="s-card"><span class="s-card-ic">✍️</span><span class="s-card-nm">Günlük</span><span class="s-card-dur">Serbest yaz</span></div>
     </div>
 
     <div class="sounds-section a7">
       <div class="sounds-section-title">Premium Frekanslar</div>
       <!--
-        SKELETON â†’ Premium ses kartlarÄ± yÃ¼klenmeden Ã¶nce gÃ¶sterilir.
-        JS populatePremiumSounds() Ã§aÄŸrÄ±ldÄ±ÄŸÄ±nda skeleton gizlenir,
-        gerÃ§ek grid gÃ¶sterilir.
+        SKELETON → Premium ses kartları yüklenmeden önce gösterilir.
+        JS populatePremiumSounds() çağrıldığında skeleton gizlenir,
+        gerçek grid gösterilir.
       -->
       <div class="s-sounds-skeleton" id="premium-sounds-skeleton" aria-hidden="true">
         <div class="sk-card"></div>
@@ -263,12 +264,12 @@
     <div class="ai-oracle a7" id="ai-oracle-section">
       <div class="ai-oracle-header">
         <span class="ai-oracle-title">AI Oracle</span>
-        <span class="ai-oracle-badge">âœ¦ Free</span>
+        <span class="ai-oracle-badge">✦ Free</span>
       </div>
       <div class="ai-card">
         <!--
-          SKELETON â†’ AI Oracle metni yÃ¼klenmeden gÃ¶sterilir.
-          YanÄ±t geldiÄŸinde .ai-oracle-skeleton gizlenir, iÃ§erik aÃ§Ä±lÄ±r.
+          SKELETON → AI Oracle metni yüklenmeden gösterilir.
+          Yanıt geldiğinde .ai-oracle-skeleton gizlenir, içerik açılır.
         -->
         <div class="ai-oracle-skeleton" id="ai-oracle-skeleton" aria-hidden="true">
           <div class="sk-line"></div>
@@ -277,16 +278,16 @@
         </div>
         <div id="ai-oracle-content" style="display:none">
           <div class="ai-textarea-wrap">
-            <span class="ai-textarea-label">Zihninden geÃ§enler</span>
+            <span class="ai-textarea-label">Zihninden geçenler</span>
             <textarea class="ai-textarea" id="ai-input" rows="3"
-              placeholder="BugÃ¼n nasÄ±l hissediyorsun? Oracle sana Ã¶zel bir frekans tasarlasÄ±n..."></textarea>
-            <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Sesli giriÅŸ">ðŸŽ™</button>
+              placeholder="Bugün nasıl hissediyorsun? Oracle sana özel bir frekans tasarlasın..."></textarea>
+            <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Sesli giriş">🎙</button>
           </div>
           <button class="ai-generate-btn" id="ai-generate-btn" onclick="generateAIFreq()">
-            âœ¦ Oracle'Ä± UyandÄ±r
+            ✦ Oracle'ı Uyandır
           </button>
           <div class="ai-result" id="ai-result">
-            <span class="ai-result-label">Oracle MesajÄ±</span>
+            <span class="ai-result-label">Oracle Mesajı</span>
             <div class="ai-result-text" id="ai-result-text"></div>
             <div class="ai-result-freq" id="ai-result-freq"></div>
           </div>
@@ -294,24 +295,24 @@
       </div>
     </div>
 
-    <div class="analytics-link a7" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Analitikleri gÃ¶ster">
-      ðŸ“Š OturumlarÄ±na Bak
+    <div class="analytics-link a7" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Analitikleri göster">
+      📊 Oturumlarına Bak
     </div>
 
-    <button class="back-btn a7" onclick="goBack()" aria-label="Geri dÃ¶n">
-      â† Geri DÃ¶n
+    <button class="back-btn a7" onclick="goBack()" aria-label="Geri dön">
+      ← Geri Dön
     </button>
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     SCREEN â€” ANALYTICS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ══════════════════════════════════════
+     SCREEN — ANALYTICS
+══════════════════════════════════════ -->
 <div class="screen off" id="screen-analytics">
   <div class="inner">
     <div class="analytics-header a1">
-      <h2 class="display">Zihin<br><em>HaritanÄ±</em> GÃ¶r</h2>
-      <p>OturumlarÄ±n ve duygusal Ã¶rÃ¼ntÃ¼lerin</p>
+      <h2 class="display">Zihin<br><em>Haritanı</em> Gör</h2>
+      <p>Oturumların ve duygusal örüntülerin</p>
     </div>
     <div class="analytics-grid a2">
       <div class="astat"><span class="astat-val" id="stat-sessions">0</span><span class="astat-lbl">Oturum</span></div>
@@ -319,25 +320,25 @@
       <div class="astat"><span class="astat-val" id="stat-streak">0</span><span class="astat-lbl">Seri</span></div>
     </div>
     <div class="chart-wrap a3">
-      <div class="chart-title">Son 7 GÃ¼n</div>
+      <div class="chart-title">Son 7 Gün</div>
       <canvas id="analytics-canvas" height="120"></canvas>
     </div>
     <div class="mood-log-list a4" id="mood-log-list"></div>
     <button class="clear-data-btn a5" onclick="clearData()">Verileri Temizle</button>
-    <div class="analytics-link a5" onclick="exportHealth()" role="button" tabindex="0" aria-label="SaÄŸlÄ±k uygulamasÄ±na aktar">
-      â¤ï¸ SaÄŸlÄ±k UygulamasÄ±na Aktar
+    <div class="analytics-link a5" onclick="exportHealth()" role="button" tabindex="0" aria-label="Sağlık uygulamasına aktar">
+      ❤️ Sağlık Uygulamasına Aktar
     </div>
-    <button class="back-btn a6" onclick="goBack()" aria-label="Geri dÃ¶n">â† Geri DÃ¶n</button>
+    <button class="back-btn a6" onclick="goBack()" aria-label="Geri dön">← Geri Dön</button>
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- ══════════════════════════════════════
      MODALS & OVERLAYS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+══════════════════════════════════════ -->
 <div id="health-modal" onclick="closeHealthModal(event)">
   <div class="health-sheet">
-    <h3>â¤ï¸ SaÄŸlÄ±k UygulamasÄ±</h3>
-    <p class="hs-sub">Apple Health / Google Fit formatÄ±nda dÄ±ÅŸa aktar</p>
+    <h3>❤️ Sağlık Uygulaması</h3>
+    <p class="hs-sub">Apple Health / Google Fit formatında dışa aktar</p>
     <div class="health-json" id="health-json-content"></div>
     <div class="hs-actions">
       <button class="hs-copy"  onclick="copyHealthData()">Kopyala</button>
@@ -346,7 +347,7 @@
   </div>
 </div>
 
-<div id="ai-processing" role="status" aria-label="AI frekans oluÅŸturuyor" aria-live="polite">
+<div id="ai-processing" role="status" aria-label="AI frekans oluşturuyor" aria-live="polite">
   <div class="ai-stars" id="ai-stars"></div>
   <div class="ai-proc-inner">
     <div class="ai-orb">
@@ -359,8 +360,8 @@
     <div>
       <div class="ai-proc-title">Oracle <em>dinliyor</em></div>
       <p class="ai-proc-sub">
-        BilinÃ§dÄ±ÅŸÄ±nÄ±n frekansÄ±na ayarlanÄ±yor<br>
-        <span class="ai-proc-dots"><span>Â·</span><span>Â·</span><span>Â·</span></span>
+        Bilinçdışının frekansına ayarlanıyor<br>
+        <span class="ai-proc-dots"><span>·</span><span>·</span><span>·</span></span>
       </p>
     </div>
   </div>
@@ -368,119 +369,119 @@
 
 <div id="paywall-overlay" role="dialog" aria-modal="true" aria-label="Sanctuary Premium">
   <div class="paywall-sheet">
-    <button class="pw-close" onclick="closePaywall()" aria-label="Kapat">âœ•</button>
+    <button class="pw-close" onclick="closePaywall()" aria-label="Kapat">✕</button>
     <div class="pw-hero">
       <div class="pw-badge"><span class="pw-badge-dot"></span>Sanctuary Premium</div>
       <h2 class="display">Daha Derin<br>Bir <em>Huzur</em></h2>
-      <p>Bilim destekli ses frekanslarÄ±yla zihin ve bedeninizin tam potansiyelini aÃ§Ä±n.</p>
+      <p>Bilim destekli ses frekanslarıyla zihin ve bedeninizin tam potansiyelini açın.</p>
     </div>
     <div class="pw-features">
       <div class="pw-feat">
-        <div class="pw-feat-ic">ðŸŽ›ï¸</div>
+        <div class="pw-feat-ic">🎛️</div>
         <div class="pw-feat-text">
-          <div class="pw-feat-title">AI Destekli Ã–zel Ritimler</div>
-          <div class="pw-feat-sub">Ruh halinize Ã¶zel, gerÃ§ek zamanlÄ± Ã¼retilen binaural beat kompozisyonlarÄ±.</div>
+          <div class="pw-feat-title">AI Destekli Özel Ritimler</div>
+          <div class="pw-feat-sub">Ruh halinize özel, gerçek zamanlı üretilen binaural beat kompozisyonları.</div>
         </div>
       </div>
       <div class="pw-feat">
-        <div class="pw-feat-ic">ðŸŒ™</div>
+        <div class="pw-feat-ic">🌙</div>
         <div class="pw-feat-text">
-          <div class="pw-feat-title">Ã‡evrimdÄ±ÅŸÄ± EriÅŸim</div>
-          <div class="pw-feat-sub">Ä°nternet olmadan, uÃ§akta bile tÃ¼m premium seanslara eriÅŸin.</div>
+          <div class="pw-feat-title">Çevrimdışı Erişim</div>
+          <div class="pw-feat-sub">İnternet olmadan, uçakta bile tüm premium seanslara erişin.</div>
         </div>
       </div>
       <div class="pw-feat">
-        <div class="pw-feat-ic">â¤ï¸</div>
+        <div class="pw-feat-ic">❤️</div>
         <div class="pw-feat-text">
-          <div class="pw-feat-title">SaÄŸlÄ±k Verisi Senkronizasyonu</div>
+          <div class="pw-feat-title">Sağlık Verisi Senkronizasyonu</div>
           <div class="pw-feat-sub">Apple Health &amp; Google Fit ile otomatik mindfulness takibi.</div>
         </div>
       </div>
     </div>
     <div class="pw-trial-row" id="pw-trial-row">
-      <label class="pw-toggle" aria-label="7 GÃ¼nlÃ¼k Ãœcretsiz Deneme">
+      <label class="pw-toggle" aria-label="7 Günlük Ücretsiz Deneme">
         <input type="checkbox" id="pw-trial-toggle" checked onchange="updateTrialState()">
         <div class="pw-toggle-track"></div>
         <div class="pw-toggle-thumb"></div>
       </label>
       <div class="pw-trial-label" id="pw-trial-label">
-        <strong>7 GÃ¼nlÃ¼k Ãœcretsiz Deneme</strong> â€” Ä°stediÄŸin zaman iptal et
+        <strong>7 Günlük Ücretsiz Deneme</strong> — İstediğin zaman iptal et
       </div>
     </div>
     <div class="pw-plans" id="pw-plans">
       <div class="pw-plan" data-plan="monthly" onclick="selectPlan(this)">
-        <div class="pw-plan-period">AylÄ±k</div>
+        <div class="pw-plan-period">Aylık</div>
         <div class="pw-plan-price">$9.99</div>
-        <div class="pw-plan-sub">aylÄ±k faturalanÄ±r</div>
+        <div class="pw-plan-sub">aylık faturalanır</div>
       </div>
       <div class="pw-plan sel" data-plan="yearly" onclick="selectPlan(this)">
-        <div class="pw-plan-badge">En PopÃ¼ler</div>
-        <div class="pw-plan-period">YÄ±llÄ±k</div>
+        <div class="pw-plan-badge">En Popüler</div>
+        <div class="pw-plan-period">Yıllık</div>
         <div class="pw-plan-price">$59.99</div>
-        <div class="pw-plan-sub">$5.00 / ay Â· %50 tasarruf</div>
+        <div class="pw-plan-sub">$5.00 / ay · %50 tasarruf</div>
       </div>
       <div class="pw-plan" data-plan="lifetime" onclick="selectPlan(this)">
-        <div class="pw-plan-period">Ã–mÃ¼rlÃ¼k</div>
+        <div class="pw-plan-period">Ömürlük</div>
         <div class="pw-plan-price">$199</div>
-        <div class="pw-plan-sub">tek seferlik Ã¶deme</div>
+        <div class="pw-plan-sub">tek seferlik ödeme</div>
       </div>
     </div>
     <div class="pw-cta-wrap">
       <button class="pw-cta" id="pw-cta-btn" onclick="handlePurchase()">
-        Ãœcretsiz Dene â€” 7 GÃ¼n
+        Ücretsiz Dene — 7 Gün
       </button>
       <div class="pw-cta-note" id="pw-cta-note">
-        Deneme bittikten sonra $59.99/yÄ±l olarak faturalandÄ±rÄ±lÄ±r. Ä°ptal edilebilir.
+        Deneme bittikten sonra $59.99/yıl olarak faturalandırılır. İptal edilebilir.
       </div>
     </div>
     <div class="pw-legal">
-      <button onclick="restorePurchase()">SatÄ±n AlÄ±mÄ± Geri YÃ¼kle</button>
-      <span class="pw-sep">Â·</span>
-      <a href="#" onclick="return false;">KullanÄ±m KoÅŸullarÄ±</a>
-      <span class="pw-sep">Â·</span>
-      <a href="#" onclick="return false;">Gizlilik PolitikasÄ±</a>
+      <button onclick="restorePurchase()">Satın Alımı Geri Yükle</button>
+      <span class="pw-sep">·</span>
+      <a href="#" onclick="return false;">Kullanım Koşulları</a>
+      <span class="pw-sep">·</span>
+      <a href="#" onclick="return false;">Gizlilik Politikası</a>
     </div>
   </div>
 </div>
 
 <div id="pwa-banner">
-  <div class="pb-text">ðŸ“± Sanctuary'yi ana ekrana ekle â€” UÃ§ak modunda bile Ã§alÄ±ÅŸÄ±r</div>
+  <div class="pb-text">📱 Sanctuary'yi ana ekrana ekle — Uçak modunda bile çalışır</div>
   <button class="pb-install" id="pwa-install-btn" onclick="triggerPWAInstall()">Ekle</button>
-  <span class="pb-close" onclick="dismissPWABanner()">âœ•</span>
+  <span class="pb-close" onclick="dismissPWABanner()">✕</span>
 </div>
 
 <div id="fallback-notice" role="status" aria-live="polite">
-  <span class="fn-icon">ðŸŒ¿</span>
-  <span id="fallback-notice-text">Default Zen modu aktif â€” 432 Hz</span>
+  <span class="fn-icon">🌿</span>
+  <span id="fallback-notice-text">Default Zen modu aktif — 432 Hz</span>
 </div>
 
-<!-- Connection warning â€” GPU translate3d in CSS, no inline style needed -->
+<!-- Connection warning — GPU translate3d in CSS, no inline style needed -->
 <div id="connection-warning" role="status" aria-live="assertive">
-  ðŸ“¶ BaÄŸlantÄ± zayÄ±f, lÃ¼tfen bekleyin...
+  📶 Bağlantı zayıf, lütfen bekleyin...
 </div>
 
 <div id="crossfade-indicator" aria-hidden="true">
   <div class="cf-dot"></div>
-  <span>GeÃ§iÅŸ</span>
+  <span>Geçiş</span>
 </div>
 
-<!-- Legal disclaimer â€” full-screen overlay -->
+<!-- Legal disclaimer — full-screen overlay -->
 <div id="legal-disclaimer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; justify-content:center; align-items:center; padding:20px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);">
   <div style="background:#1c1c1e; padding:30px; border-radius:28px; text-align:center; border:1px solid #333; max-width:380px; box-shadow:0 25px 50px rgba(0,0,0,0.6);">
-    <div style="font-size:45px; margin-bottom:20px;">ðŸ›¡ï¸</div>
-    <h3 style="color:#fff; font-family:-apple-system,sans-serif; margin-bottom:15px;">Ã–nemli Bilgilendirme</h3>
+    <div style="font-size:45px; margin-bottom:20px;">🛡️</div>
+    <h3 style="color:#fff; font-family:-apple-system,sans-serif; margin-bottom:15px;">Önemli Bilgilendirme</h3>
     <p style="color:#a1a1a6; font-family:-apple-system,sans-serif; font-size:14px; line-height:1.6; margin-bottom:30px;">
-      Sanctuary bir zihinsel huzur rehberidir. TÄ±bbi bir cihaz deÄŸildir. SaÄŸlÄ±k durumlarÄ±nÄ±z iÃ§in lÃ¼tfen bir doktora danÄ±ÅŸÄ±n.
+      Sanctuary bir zihinsel huzur rehberidir. Tıbbi bir cihaz değildir. Sağlık durumlarınız için lütfen bir doktora danışın.
     </p>
     <button onclick="acceptDisclaimer()" style="background:#fff; color:#000; border:none; padding:14px; border-radius:14px; font-weight:700; font-family:-apple-system,sans-serif; width:100%; cursor:pointer; font-size:16px; touch-action:manipulation;">
-      AnladÄ±m ve Kabul Ediyorum
+      Anladım ve Kabul Ediyorum
     </button>
   </div>
 </div>
 
 <!--
   SKELETON REVEAL SCRIPT
-  Runs after DOM ready â€” shows real content and hides skeletons.
+  Runs after DOM ready — shows real content and hides skeletons.
   Uses requestAnimationFrame to avoid layout jank.
 -->
 <script>
@@ -517,7 +518,7 @@
     requestAnimationFrame(revealContent);
   }
 
-  // Premium sounds skeleton reveal â€” called by app.js after populatePremiumSounds()
+  // Premium sounds skeleton reveal — called by app.js after populatePremiumSounds()
   window.revealPremiumSounds = function() {
     var sk = document.getElementById('premium-sounds-skeleton');
     var grid = document.getElementById('premium-sounds-grid');
@@ -527,74 +528,77 @@
 })();
 </script>
 
-<script type="module" src="./main.js"></script>
+<script type="module" src="main.js"></script>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     ODA OLUÅžTURMA MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ══════════════════════════════════════
+     ODA OLUŞTURMA MODAL
+══════════════════════════════════════ -->
 <div class="modal-overlay" id="createRoomModal">
   <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-handle-bar"></div>
     <div class="modal-header">
       <h3 class="modal-title" id="modalTitle">Yeni Oda Kur</h3>
-      <button class="btn-modal-close" id="btnCloseModal" aria-label="Kapat">âœ•</button>
+      <button class="btn-modal-close" id="btnCloseModal" aria-label="Kapat">✕</button>
     </div>
     <div class="modal-body">
 
       <div class="form-group">
-        <label class="form-label" for="roomName">Oda AdÄ±</label>
+        <label class="form-label" for="roomName">Oda Adı</label>
         <input class="form-input" type="text" id="roomName"
-               placeholder="Ã¶rn. Gece Odak SeansÄ±" maxlength="50" autocomplete="off">
+               placeholder="örn. Gece Odak Seansı" maxlength="50" autocomplete="off">
       </div>
 
       <div class="form-group">
         <label class="form-label">Tip</label>
         <div class="type-toggle">
-          <button class="type-btn selected" data-type="public">ðŸŒ Halka AÃ§Ä±k</button>
-          <button class="type-btn" data-type="private">ðŸ”’ Ã–zel</button>
+          <button class="type-btn selected" data-type="public">🌍 Halka Açık</button>
+          <button class="type-btn" data-type="private">🔒 Özel</button>
         </div>
       </div>
 
       <div class="form-group">
         <label class="form-label">Kapasite</label>
         <div class="capacity-stepper">
-          <button class="stepper-btn" id="btnCapDec">âˆ’</button>
+          <button class="stepper-btn" id="btnCapDec">−</button>
           <span class="stepper-value" id="capValue">5</span>
           <button class="stepper-btn" id="btnCapInc">+</button>
-          <span style="font-size:13px;color:var(--text-muted)">kiÅŸi</span>
+          <span style="font-size:13px;color:var(--text-muted)">kişi</span>
         </div>
       </div>
 
       <div class="form-group">
         <label class="form-label" for="roomCategory">Kategori</label>
         <select class="form-input" id="roomCategory">
-          <option value="uyku">ðŸ˜´ Uyku</option>
-          <option value="odak">ðŸŽ¯ Odak</option>
-          <option value="meditasyon">ðŸ§˜ Meditasyon</option>
-          <option value="doga">ðŸŒ¿ DoÄŸa</option>
+          <option value="uyku">😴 Uyku</option>
+          <option value="odak">🎯 Odak</option>
+          <option value="meditasyon">🧘 Meditasyon</option>
+          <option value="doga">🌿 Doğa</option>
         </select>
       </div>
 
       <div class="form-group password-field" id="passwordField">
-        <label class="form-label" for="roomPassword">Åžifre</label>
+        <label class="form-label" for="roomPassword">Şifre</label>
         <input class="form-input" type="password" id="roomPassword"
-               placeholder="Oda ÅŸifresi" autocomplete="new-password">
+               placeholder="Oda şifresi" autocomplete="new-password">
       </div>
 
-      <button class="btn-submit-room" id="btnSubmitRoom">OdayÄ± BaÅŸlat âœ¨</button>
+      <button class="btn-submit-room" id="btnSubmitRoom">Odayı Başlat ✨</button>
     </div>
   </div>
 </div>
 
-<!-- Service Worker KaydÄ± -->
+
+
+<!-- Service Worker Kaydı -->
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('./sw.js')
-      .then(function(reg) { console.log('[SW] KayÄ±t baÅŸarÄ±lÄ±:', reg.scope); })
-      .catch(function(err) { console.warn('[SW] KayÄ±t baÅŸarÄ±sÄ±z:', err); });
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) { console.log('[SW] Kayıt başarılı:', reg.scope); })
+      .catch(function(err) { console.warn('[SW] Kayıt başarısız:', err); });
   });
 }
 </script>
 </body>
 </html>
+
