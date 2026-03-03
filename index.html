@@ -647,15 +647,12 @@ if ('serviceWorker' in navigator) {
 <script>
 // ========== EKRAN YÖNETİMİ ==========
 function showScreen(screenId) {
-  document.querySelectorAll('.screen').forEach(s => {
+  document.querySelectorAll('.screen').forEach(function(s) {
     s.classList.remove('on');
     s.classList.add('off');
   });
-  var target = document.getElementById('screen-' + screenId);
-  if (target) {
-    target.classList.remove('off');
-    target.classList.add('on');
-  }
+  var t = document.getElementById('screen-' + screenId);
+  if (t) { t.classList.remove('off'); t.classList.add('on'); }
 }
 
 function goBack() {
@@ -888,25 +885,5 @@ window.addEventListener('load', function() {
 });
 </script>
 
-
-<!-- RIPPLE EFEKT -->
-<script>
-(function(){
-  function spawnRipple(x, y) {
-    var el = document.createElement('div');
-    el.className = 'ripple-circle';
-    el.style.cssText = 'width:80px;height:80px;left:' + x + 'px;top:' + y + 'px;';
-    document.body.appendChild(el);
-    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 700);
-  }
-  document.addEventListener('touchstart', function(e){
-    var t = e.touches[0];
-    spawnRipple(t.clientX, t.clientY);
-  }, { passive: true });
-  document.addEventListener('click', function(e){
-    spawnRipple(e.clientX, e.clientY);
-  });
-})();
-</script>
 </body>
 </html>
