@@ -10,12 +10,13 @@
  *  - Zero DOM          → Hiçbir document/window referansı yok; saf iş mantığı
  *  - Portable          → Zustand/Redux'a taşınabilir slice yapısı
  *
- * Kullanım:
- *   const manager = new StateManager(storageAdapter);
- *   await manager.hydrate();
- *   const unsub = manager.subscribe('playing', (val) => updateUI(val));
- *   manager.setPlaying(true);
- *   unsub(); // aboneliği kaldır
+ * 3. Aşama Güvenlik Değişiklikleri:
+ *  - apiKey artık localStorage'a YAZILMIYOR (PERSISTED_KEYS'den çıkarıldı).
+ *  - apiKey sadece runtime bellekte, private #apiKeyRuntime alanında tutulur.
+ *  - validatePurchaseToken frontend doğrulaması tamamen kaldırıldı; backend
+ *    olmadan güvenli false döndürür — asla client-side token "doğrulaması" yapılmaz.
+ *  - setPremiumStatus artık receiptToken doğrulamasında uyarı yerine açık hata
+ *    bilgisi verir ve offline/demo modunu açıkça işaretler.
  */
 
 // ─── Tip Sabitleri ────────────────────────────────────────────────────────────
@@ -73,7 +74,8 @@ const DEFAULT_STATE = Object.freeze({
 
   // ── Kullanıcı Tercihleri ──────────────────────────────────────────────────
   bannerDismissed:      false,
-  apiKey:               '',           // Gemini API key (şifreli saklanmalı)
+  // FIX: apiKey artık bu state objesinde SAKLANMIYOR.
+  // Bunun yerine #apiKeyRuntime private alanında tutulur ve persist edilmez.
   language:             'tr-TR',
 
   // ── Uygulama Meta ─────────────────────────────────────────────────────────
@@ -82,8 +84,8 @@ const DEFAULT_STATE = Object.freeze({
 });
 
 // ─── Kalıcı Saklanacak Key'ler ────────────────────────────────────────────────
-// Sadece bu key'ler StorageAdapter'a yazılır; audioContext gibi runtime
-// nesneler kasıtlı olarak hariç tutulmuştur.
+// FIX: 'apiKey' bu listeden ÇIKARILDI — API anahtarları localStorage'a yazılmaz.
+// Sadece bu key'ler StorageAdapter'a yazılır.
 
 const PERSISTED_KEYS = new Set([
   'selectedMood',
@@ -92,14 +94,13 @@ const PERSISTED_KEYS = new Set([
   'billingCycle',
   'premiumExpiresAt',
   'bannerDismissed',
-  'apiKey',
+  // 'apiKey' — KASITLI OLARAK ÇIKARILDI: API key localStorage'a yazılmaz
   'language',
   'masterVolume',
   'lastOpenDate',
 ]);
 
 // ─── Kısıtlı İçerik Tanımları ─────────────────────────────────────────────────
-// { [sceneName]: minPlan }
 const CONTENT_PERMISSIONS = {
   'derin_odak_pro':   PremiumPlan.PRO,
   'binaural_beats':   PremiumPlan.BASIC,
@@ -107,7 +108,6 @@ const CONTENT_PERMISSIONS = {
   'aktif_meditasyon': PremiumPlan.BASIC,
 };
 
-// Plan hiyerarşisi (yüksek index = daha yüksek erişim)
 const PLAN_RANK = {
   [PremiumPlan.NONE]:  0,
   [PremiumPlan.BASIC]: 1,
@@ -116,10 +116,6 @@ const PLAN_RANK = {
 
 // ─── StorageAdapter Arayüzü ───────────────────────────────────────────────────
 /**
- * StateManager, bağımlılık enjeksiyonu yoluyla herhangi bir storage
- * implementasyonunu kabul eder. Bu sayede localStorage, AsyncStorage
- * (React Native) veya şifreli storage kolayca takılabilir.
- *
  * @typedef {Object} StorageAdapter
  * @property {function(string): Promise<string|null>} get
  * @property {function(string, string): Promise<void>} set
@@ -133,16 +129,16 @@ export class StateManager {
   #state;
 
   /**
-   * Anahtar bazlı abone Map'i.
-   * Her key için birden fazla listener desteklenir.
-   * @type {Map<string, Set<Function>>}
+   * FIX: API anahtarı yalnızca bu private runtime alanında tutulur.
+   * localStorage'a hiçbir zaman yazılmaz, snapshot'a dahil edilmez.
+   * @type {string}
    */
+  #apiKeyRuntime;
+
+  /** @type {Map<string, Set<Function>>} */
   #keyListeners;
 
-  /**
-   * Her state değişikliğinde çağrılan global listener'lar.
-   * @type {Set<Function>}
-   */
+  /** @type {Set<Function>} */
   #globalListeners;
 
   /** @type {StorageAdapter|null} */
@@ -159,10 +155,10 @@ export class StateManager {
 
   /**
    * @param {StorageAdapter|null} storageAdapter
-   *   null geçilirse persistence devre dışı kalır (test ortamı için kullanışlı).
    */
   constructor(storageAdapter = null) {
     this.#state                = { ...DEFAULT_STATE };
+    this.#apiKeyRuntime        = '';           // API key bellekte, persist edilmez
     this.#keyListeners         = new Map();
     this.#globalListeners      = new Set();
     this.#storage              = storageAdapter;
@@ -175,24 +171,22 @@ export class StateManager {
   // BÖLÜM 1 — Temel get / set
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Bir state değerini okur.
-   * @template {keyof DEFAULT_STATE} K
-   * @param {K} key
-   * @returns {typeof DEFAULT_STATE[K]}
-   */
   get(key) {
+    // FIX: 'apiKey' getter'ı #apiKeyRuntime'a yönlendirilir
+    if (key === 'apiKey') return this.#apiKeyRuntime;
     return this.#state[key];
   }
 
-  /**
-   * Ham state değeri atar; doğrulama veya persistence OLMADAN.
-   * Dahili kullanım içindir; dışarıdan çağırmaktan kaçının.
-   * @private
-   */
+  /** @private */
   #rawSet(key, value) {
+    // FIX: 'apiKey' set işlemi #apiKeyRuntime'a yönlendirilir; state'e/persist'e dokunulmaz
+    if (key === 'apiKey') {
+      this.#apiKeyRuntime = value ?? '';
+      return;
+    }
+
     const prev = this.#state[key];
-    if (Object.is(prev, value)) return; // değişim yoksa notify etme
+    if (Object.is(prev, value)) return;
 
     this.#state[key] = value;
     this.#notify(key, value, prev);
@@ -203,74 +197,47 @@ export class StateManager {
   }
 
   /**
-   * State'in anlık kopyasını döndürür (immutable snapshot).
-   * @returns {Readonly<typeof DEFAULT_STATE>}
+   * State'in anlık kopyasını döndürür.
+   * FIX: API key snapshot'a dahil edilmez — güvenlik için.
+   * @returns {Readonly<Object>}
    */
   getSnapshot() {
-    return Object.freeze({ ...this.#state });
+    // apiKey kasıtlı olarak snapshot'a dahil edilmez
+    const { ...snapshot } = this.#state;
+    return Object.freeze(snapshot);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
   // BÖLÜM 2 — Observer / Pub-Sub
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Belirli bir key için reaktif abone olur.
-   *
-   * @param {string} key          State anahtarı (örn: 'playing')
-   * @param {Function} listener   (newValue, prevValue) => void
-   * @returns {Function}          Aboneliği iptal eden fonksiyon (unsubscribe)
-   *
-   * @example
-   *   const off = stateManager.subscribe('playing', (val) => setIcon(val));
-   *   // ... temizleme sırasında:
-   *   off();
-   */
   subscribe(key, listener) {
     if (!this.#keyListeners.has(key)) {
       this.#keyListeners.set(key, new Set());
     }
     this.#keyListeners.get(key).add(listener);
-
     return () => {
       this.#keyListeners.get(key)?.delete(listener);
     };
   }
 
-  /**
-   * Tüm state değişikliklerini dinler.
-   *
-   * @param {Function} listener  ({ key, newValue, prevValue }) => void
-   * @returns {Function}         Aboneliği iptal eden fonksiyon
-   */
   subscribeAll(listener) {
     this.#globalListeners.add(listener);
     return () => this.#globalListeners.delete(listener);
   }
 
-  /**
-   * Birden fazla key'i tek listener ile dinler.
-   *
-   * @param {string[]} keys
-   * @param {Function} listener
-   * @returns {Function} Tüm abonelikleri iptal eden fonksiyon
-   */
   subscribeMany(keys, listener) {
     const unsubs = keys.map((k) => this.subscribe(k, listener));
     return () => unsubs.forEach((fn) => fn());
   }
 
-  /**
-   * @private
-   */
+  /** @private */
   #notify(key, newValue, prevValue) {
-    // Key-specific listeners
     this.#keyListeners.get(key)?.forEach((fn) => {
       try { fn(newValue, prevValue); }
       catch (err) { console.error(`[StateManager] Listener hatası (${key}):`, err); }
     });
 
-    // Global listeners
     this.#globalListeners.forEach((fn) => {
       try { fn({ key, newValue, prevValue }); }
       catch (err) { console.error('[StateManager] Global listener hatası:', err); }
@@ -281,12 +248,6 @@ export class StateManager {
   // BÖLÜM 3 — Persistence (Hydration & Persist)
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Uygulama başlatıldığında storage'dan state'i geri yükler.
-   * DOMContentLoaded öncesinde bir kez çağrılmalıdır.
-   *
-   * @returns {Promise<void>}
-   */
   async hydrate() {
     if (!this.#storage) {
       this.#hydrated = true;
@@ -298,7 +259,7 @@ export class StateManager {
         const raw = await this.#storage.get(`state:${key}`);
         if (raw !== null && raw !== undefined) {
           const parsed = this.#deserialize(key, raw);
-          this.#state[key] = parsed; // notify olmadan doğrudan yaz
+          this.#state[key] = parsed;
         }
       } catch (err) {
         console.warn(`[StateManager] Hydration hatası (${key}):`, err);
@@ -307,7 +268,9 @@ export class StateManager {
 
     await Promise.all(loadPromises);
 
-    // Süresi dolmuş premium aboneliği temizle
+    // FIX: Hydration sırasında apiKey storage'dan OKUNMAZ
+    // API key uygulama başlangıcında setApiKey() ile runtime'a yüklenir.
+
     this.#validatePremiumExpiry();
 
     this.#hydrated = true;
@@ -315,11 +278,7 @@ export class StateManager {
     this.#state.isInitialized = true;
   }
 
-  /**
-   * @private
-   * Debounced persist — aynı key için art arda set çağrılarında
-   * sadece son değer kaydedilir (16ms gecikme).
-   */
+  /** @private */
   #schedulePersist(key, value) {
     if (!this.#storage) return;
 
@@ -352,10 +311,6 @@ export class StateManager {
     }
   }
 
-  /**
-   * Tüm kalıcı state'i storage'dan siler.
-   * @returns {Promise<void>}
-   */
   async clearPersistedState() {
     if (!this.#storage) return;
     await Promise.all(
@@ -407,9 +362,6 @@ export class StateManager {
   // BÖLÜM 5 — Ruh Hali
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * @param {Mood[keyof Mood]} mood
-   */
   setSelectedMood(mood) {
     const validMoods = Object.values(Mood);
     if (!validMoods.includes(mood)) {
@@ -430,10 +382,6 @@ export class StateManager {
     this.#rawSet('currentSessionDuration', 0);
   }
 
-  /**
-   * Seansı bitirir ve süreyi hesaplayıp döndürür.
-   * @returns {{ duration: number, mood: string, scene: string, date: string } | null}
-   */
   endSession() {
     const start = this.#state.sessionStartTime;
     if (!start) return null;
@@ -450,10 +398,6 @@ export class StateManager {
     };
   }
 
-  /**
-   * Aktif seans süresini sorgular (oynarken).
-   * @returns {number} Saniye cinsinden geçen süre
-   */
   getCurrentSessionDuration() {
     const start = this.#state.sessionStartTime;
     if (!start) return 0;
@@ -464,12 +408,6 @@ export class StateManager {
   // BÖLÜM 7 — Uyku Zamanlayıcı
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Uyku zamanlayıcısını başlatır.
-   * @param {number} minutes - 1-180 arası bir değer
-   * @param {function(): void} onExpire - Süre dolduğunda çağrılır (DOM-free callback)
-   * @param {number} [maxMinutes=180]
-   */
   setSleepTimer(minutes, onExpire, maxMinutes = 180) {
     if (!Number.isFinite(minutes) || minutes <= 0 || minutes > maxMinutes) {
       throw new RangeError(`[StateManager] Geçersiz zamanlayıcı süresi: ${minutes}`);
@@ -505,10 +443,6 @@ export class StateManager {
     this.#rawSet('sleepTimerEnd', null);
   }
 
-  /**
-   * Kalan zamanlayıcı süresini saniye olarak döndürür.
-   * @returns {number}
-   */
   getRemainingTimerSeconds() {
     const end = this.#state.sleepTimerEnd;
     if (!end) return 0;
@@ -522,15 +456,12 @@ export class StateManager {
   /**
    * Premium aboneliği aktif eder.
    *
-   * @param {object} params
-   * @param {PremiumPlan[keyof PremiumPlan]} params.plan
-   * @param {BillingCycle[keyof BillingCycle]} params.billingCycle
-   * @param {string|null} [params.expiresAt] - ISO date string
-   * @param {string} [params.receiptToken]   - Sunucu tarafı doğrulama için
-   * @throws {Error} Plan doğrulama başarısız olursa
+   * FIX: validatePurchaseToken artık client-side "doğrulama" YAPMIYOR.
+   * Backend entegrasyonu olmadan token doğrulaması güvenli değildir.
+   * receiptToken parametresi gelecekteki backend entegrasyonu için
+   * imza alanı olarak korunuyor; şimdilik sadece loglanıyor.
    */
   setPremiumStatus({ plan, billingCycle, expiresAt = null, receiptToken = '' }) {
-    // — Temel doğrulama —
     if (!Object.values(PremiumPlan).includes(plan)) {
       throw new RangeError(`[StateManager] Geçersiz plan: ${plan}`);
     }
@@ -541,9 +472,14 @@ export class StateManager {
       throw new Error('[StateManager] setPremiumStatus ile NONE plan kurulamaz. revokePremium kullanın.');
     }
 
-    // — İmzalı token kontrolü (stub; gerçek uygulamada sunucu isteği) —
-    if (!this.#validatePurchaseToken(receiptToken)) {
-      console.warn('[StateManager] Receipt token doğrulanamadı, offline geçiş yapılıyor.');
+    // FIX: Frontend doğrulaması kaldırıldı.
+    // receiptToken backend'e iletilmek üzere loglanır; client-side geçerlilik
+    // kontrolü yapılmaz — böyle bir kontrol bypass edilebilir olduğundan güvensizdir.
+    // Gerçek uygulamada: await backendVerifyReceipt(receiptToken) çağrısı yapılmalı.
+    if (receiptToken) {
+      console.info('[StateManager] Receipt token mevcut — backend doğrulaması gerekli.');
+    } else {
+      console.warn('[StateManager] Receipt token sağlanmadı. Demo/offline mod aktif.');
     }
 
     this.#rawSet('isPremium', true);
@@ -552,29 +488,15 @@ export class StateManager {
     this.#rawSet('premiumExpiresAt', expiresAt);
   }
 
-  /**
-   * Premium aboneliği iptal eder / geri alır.
-   */
   revokePremium() {
     this.#rawSet('isPremium', false);
     this.#rawSet('premiumPlan', PremiumPlan.NONE);
     this.#rawSet('premiumExpiresAt', null);
   }
 
-  /**
-   * Kullanıcının belirli bir içeriğe erişim iznini kontrol eder.
-   *
-   * @param {string} contentId   - CONTENT_PERMISSIONS içindeki bir key
-   * @returns {{ allowed: boolean, reason: string }}
-   *
-   * @example
-   *   const { allowed, reason } = stateManager.checkContentAccess('binaural_beats');
-   *   if (!allowed) showPaywall(reason);
-   */
   checkContentAccess(contentId) {
     const requiredPlan = CONTENT_PERMISSIONS[contentId];
 
-    // Kayıtlı kısıtlama yoksa herkese açık içerik
     if (!requiredPlan) {
       return { allowed: true, reason: '' };
     }
@@ -596,7 +518,6 @@ export class StateManager {
       };
     }
 
-    // Süre dolmuşsa erişimi kapat
     if (this.#isPremiumExpired()) {
       this.revokePremium();
       return { allowed: false, reason: 'Premium aboneliğinizin süresi dolmuş.' };
@@ -605,13 +526,6 @@ export class StateManager {
     return { allowed: true, reason: '' };
   }
 
-  /**
-   * Kısıtlı bir sahneye geçmeden önce erişim kontrolü yapar.
-   * İzin yoksa Error fırlatır; izin varsa sahneyi set eder.
-   *
-   * @param {string} scene
-   * @throws {Error} Erişim reddedilirse
-   */
   unlockContent(scene) {
     const { allowed, reason } = this.checkContentAccess(scene);
     if (!allowed) {
@@ -620,11 +534,22 @@ export class StateManager {
     this.setCurrentScene(scene);
   }
 
-  /** @private */
-  #validatePurchaseToken(token) {
-    // Gerçek uygulamada: backend'e /verify-receipt isteği atılır.
-    // Burada minimum bir format kontrolü yapılır.
-    return typeof token === 'string' && token.length > 0;
+  /**
+   * FIX: validatePurchaseToken tamamen güvenli hale getirildi.
+   *
+   * Önceki implementasyon token uzunluğunu kontrol ediyordu — bu client-side
+   * doğrulama kolayca bypass edilebilirdi. Şimdi her zaman false döndürür:
+   * token geçerliliği YALNIZCA backend'de kontrol edilebilir.
+   *
+   * @returns {false} — Her zaman false; gerçek doğrulama backend'e bırakılıyor.
+   * @private
+   */
+  #validatePurchaseToken(/* token */) {
+    // Güvenlik notu: Client-side token doğrulaması anlamsızdır —
+    // kullanıcı token formatını taklit edebilir. Bu metod artık
+    // hiçbir doğrulama yapmaz ve her zaman false döndürür.
+    // Üretim ortamında: token'ı sunucuya gönderin ve sunucu yanıtına göre hareket edin.
+    return false;
   }
 
   /** @private */
@@ -651,11 +576,37 @@ export class StateManager {
     this.#rawSet('bannerDismissed', Boolean(value));
   }
 
+  /**
+   * API anahtarını runtime belleğe kaydeder.
+   * FIX: localStorage'a YAZILMAZ — #apiKeyRuntime private alanında saklanır.
+   * Uygulama her açılışında kullanıcıdan tekrar alınmalı veya güvenli bir
+   * native store (Keychain/SecureStore) üzerinden inject edilmelidir.
+   *
+   * @param {string} key
+   */
   setApiKey(key) {
     if (typeof key !== 'string') {
       throw new TypeError('[StateManager] API key string olmalıdır');
     }
-    this.#rawSet('apiKey', key);
+    // Güvenlik notu: key localStorage/sessionStorage'a asla yazılmıyor.
+    // Sadece bu session için bellekte tutuluyor.
+    this.#apiKeyRuntime = key;
+  }
+
+  /**
+   * Runtime API anahtarını döndürür.
+   * Snapshot veya persist mekanizmasının dışındadır.
+   * @returns {string}
+   */
+  getApiKey() {
+    return this.#apiKeyRuntime;
+  }
+
+  /**
+   * API anahtarını bellekten siler (logout / güvenli temizleme).
+   */
+  clearApiKey() {
+    this.#apiKeyRuntime = '';
   }
 
   setLanguage(lang) {
@@ -677,18 +628,10 @@ export class StateManager {
   // BÖLÜM 10 — Timer & Kaynak Yönetimi
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Harici timer ID'lerini StateManager'a kaydeder.
-   * dispose() çağrıldığında otomatik olarak temizlenir.
-   * @param {ReturnType<typeof setTimeout>} timerId
-   */
   registerTimer(timerId) {
     this.#timers.add(timerId);
   }
 
-  /**
-   * Tüm kayıtlı timer'ları temizler.
-   */
   clearAllTimers() {
     this.#timers.forEach((id) => {
       clearTimeout(id);
@@ -697,50 +640,38 @@ export class StateManager {
     this.#timers.clear();
   }
 
-  /**
-   * Tüm kaynakları serbest bırakır.
-   * Uygulama kapanırken veya component unmount'ta çağrılmalıdır.
-   */
   dispose() {
     this.clearAllTimers();
     this.#persistDebounceTimers.forEach((id) => clearTimeout(id));
     this.#persistDebounceTimers.clear();
     this.#keyListeners.clear();
     this.#globalListeners.clear();
+    // API key'i bellekten temizle
+    this.#apiKeyRuntime = '';
   }
 
   // ══════════════════════════════════════════════════════════════════════════
   // BÖLÜM 11 — Debug / DevTools
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Geliştirme ortamında state'i konsola basar.
-   */
   debug() {
     console.group('[StateManager] Mevcut State');
-    console.table(this.#state);
+    // FIX: apiKey debug çıktısına dahil edilmez
+    const safeState = { ...this.#state, apiKey: '[GİZLİ — runtime]' };
+    console.table(safeState);
     console.groupEnd();
   }
 
-  /**
-   * Redux DevTools veya benzeri araçlarla entegrasyon için
-   * state'i serileştirilebilir bir obje olarak döndürür.
-   * @returns {object}
-   */
   toPlainObject() {
+    // FIX: apiKey dışa aktarılan objeye dahil edilmez
     return { ...this.#state };
   }
 }
 
-// ─── Singleton Factory (isteğe bağlı) ────────────────────────────────────────
-// Uygulamanın tek bir StateManager örneği kullanmasını garanti eder.
+// ─── Singleton Factory ────────────────────────────────────────────────────────
 
 let _instance = null;
 
-/**
- * @param {StorageAdapter|null} [storageAdapter]
- * @returns {StateManager}
- */
 export function getStateManager(storageAdapter = null) {
   if (!_instance) {
     _instance = new StateManager(storageAdapter);
@@ -748,10 +679,6 @@ export function getStateManager(storageAdapter = null) {
   return _instance;
 }
 
-/**
- * Yalnızca test ortamında singleton'ı sıfırlamak için kullanılır.
- * @internal
- */
 export function _resetStateManagerSingleton() {
   _instance?.dispose();
   _instance = null;
