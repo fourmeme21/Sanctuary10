@@ -295,8 +295,8 @@ body::after {
 
 /* Idle breath — scale only, no reflow */
 @keyframes idlePulse {
-  0%, 100% { transform: scale3d(1,    1, 1); opacity: 0.35; }
-  50%      { transform: scale3d(1.04, 1.04, 1); opacity: 0.65; }
+  0%, 100% { transform: translate(-50%, -50%) scale3d(1,    1, 1); opacity: 0.3; }
+  50%      { transform: translate(-50%, -50%) scale3d(1.15, 1.15, 1); opacity: 0.75; }
 }
 
 /* Ring pulse — GPU scale expand + fade out */
@@ -733,9 +733,10 @@ body::after {
 }
 .b-ring {
   position: absolute;
+  top: 50%; left: 50%;
   border-radius: 50%;
   border: 1px solid var(--gold-ghost);
-  transform: scale3d(1, 1, 1);
+  transform: translate(-50%, -50%) scale3d(1, 1, 1);
   opacity: 0.45;
   will-change: transform, opacity;
 }
@@ -760,9 +761,9 @@ body::after {
     transform var(--breath-dur, 4s) ease-in-out 0.24s,
     opacity   var(--breath-dur, 4s) ease-in-out 0.24s;
 }
-.breath-wrap.breath-inhale .b-ring { transform: scale3d(1.14, 1.14, 1); opacity: 1; }
-.breath-wrap.breath-exhale .b-ring { transform: scale3d(0.86, 0.86, 1); opacity: 0.35; }
-.breath-wrap.breath-hold   .b-ring { transform: scale3d(1.0,  1.0,  1); opacity: 0.65; }
+.breath-wrap.breath-inhale .b-ring { transform: translate(-50%, -50%) scale3d(1.14, 1.14, 1); opacity: 1; }
+.breath-wrap.breath-exhale .b-ring { transform: translate(-50%, -50%) scale3d(0.86, 0.86, 1); opacity: 0.35; }
+.breath-wrap.breath-hold   .b-ring { transform: translate(-50%, -50%) scale3d(1.0,  1.0,  1); opacity: 0.65; }
 .breath-wrap.breath-idle .b-ring-1 { animation: idlePulse 5s ease-in-out infinite; }
 .breath-wrap.breath-idle .b-ring-2 { animation: idlePulse 5s ease-in-out infinite 0.4s; }
 .breath-wrap.breath-idle .b-ring-3 { animation: idlePulse 5s ease-in-out infinite 0.8s; }
@@ -3037,9 +3038,9 @@ html.low-power .detox-exit__progress {
   will-change: transform, opacity;
 }
 @keyframes ripple {
-  0%   { transform: translate(-50%,-50%) scale(0); opacity:1; }
-  70%  { opacity: 0.4; }
-  100% { transform: translate(-50%,-50%) scale(1); opacity:0; }
+  0%   { transform: translate(-50%,-50%) scale(0); opacity: 0.8; }
+  60%  { opacity: 0.35; }
+  100% { transform: translate(-50%,-50%) scale(5); opacity: 0; }
 }
 @keyframes tabFadeIn {
   from { opacity: 0; transform: translateY(6px); }
