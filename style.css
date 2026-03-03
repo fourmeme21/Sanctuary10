@@ -3007,9 +3007,15 @@ html.low-power .detox-exit__progress {
   box-shadow: 0 0 0 1px rgba(201,169,110,0.25) inset;
 }
 
+/* Aktif olmayan paneller gizlenir; .active class ile gösterilir */
 .tab-panel {
+  display: none;
   width: 100%;
   margin-top: 20px;
+}
+
+.tab-panel.active {
+  display: block;
   animation: tabFadeIn 0.28s ease both;
 }
 
