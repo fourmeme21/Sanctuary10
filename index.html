@@ -269,7 +269,7 @@
     <!-- ══════════════════════════════════════
          SEKME PANELİ — SES
     ══════════════════════════════════════ -->
-    <div class="tab-panel" id="tab-audio" role="tabpanel" aria-labelledby="tab-btn-audio">
+    <div class="tab-panel active" id="tab-audio" role="tabpanel" aria-labelledby="tab-btn-audio">
 
       <div class="sounds-section">
         <div class="sounds-section-title">Premium Frekanslar</div>
@@ -321,7 +321,7 @@
     <!-- ══════════════════════════════════════
          SEKME PANELİ — GÜNLÜK
     ══════════════════════════════════════ -->
-    <div class="tab-panel" id="tab-journal" role="tabpanel" aria-labelledby="tab-btn-journal" style="display:none">
+    <div class="tab-panel" id="tab-journal" role="tabpanel" aria-labelledby="tab-btn-journal">
 
       <div class="journal-section">
         <div class="journal-header">
@@ -348,7 +348,7 @@
     <!-- ══════════════════════════════════════
          SEKME PANELİ — PREMİUM
     ══════════════════════════════════════ -->
-    <div class="tab-panel" id="tab-premium" role="tabpanel" aria-labelledby="tab-btn-premium" style="display:none">
+    <div class="tab-panel" id="tab-premium" role="tabpanel" aria-labelledby="tab-btn-premium">
 
       <div class="premium-tab-section">
         <div class="premium-tab-hero">
@@ -623,6 +623,37 @@
 })();
 </script>
 
+<script>
+/* ── SEKME GEÇİŞ FONKSİYONU — modül yüklenmeden önce tanımlanır ──
+   main.js bir ES Module olduğundan import hatası olursa switchTab
+   hiç tanımlanmaz. Bu inline script bunu güvence altına alır. */
+window.switchTab = function(tabId) {
+  // 1. Tüm panelleri gizle (CSS class kaldır)
+  document.querySelectorAll(".tab-panel").forEach(function(p) {
+    p.classList.remove("active");
+  });
+  // 2. Tüm butonlardan active + aria-selected kaldır
+  document.querySelectorAll(".tab-item").forEach(function(b) {
+    b.classList.remove("active");
+    b.setAttribute("aria-selected", "false");
+  });
+  // 3. Hedef paneli göster
+  var panel = document.getElementById(tabId);
+  if (panel) panel.classList.add("active");
+  // 4. İlgili butona active ekle
+  var btnId = "tab-btn-" + tabId.replace("tab-", "");
+  var btn = document.getElementById(btnId);
+  if (btn) { btn.classList.add("active"); btn.setAttribute("aria-selected", "true"); }
+  // 5. Günlük sekmesi açıldığında tarihi güncelle
+  if (tabId === "tab-journal") {
+    var el = document.getElementById("journal-date");
+    if (el) {
+      var now = new Date();
+      el.textContent = now.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    }
+  }
+};
+</script>
 <script type="module" src="main.js"></script>
 
 <!-- ══════════════════════════════════════
