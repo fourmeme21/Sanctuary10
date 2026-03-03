@@ -28,6 +28,48 @@
 
 <link rel="stylesheet" href="./style.css">
 
+<style>
+/* ═══════════════════════════════════════════════════════
+   KRİTİK CSS — style.css yüklenmese bile çalışır
+   ═══════════════════════════════════════════════════════ */
+
+/* Ekran Sistemi */
+.screen { display: none; position: fixed; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 1; }
+.screen.on { display: block; }
+.screen.off { display: none; }
+
+/* Sekme Panelleri */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: tabFadeIn 0.25s ease forwards; }
+@keyframes tabFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Sekme Butonları */
+.tab-nav { display: flex; gap: 8px; margin: 16px 0 8px; }
+.tab-item { flex: 1; padding: 10px 8px; border: 1px solid rgba(201,169,110,0.2); border-radius: 10px; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5); font-size: 13px; cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent; }
+.tab-item.active, .tab-item[aria-selected="true"] { background: rgba(201,169,110,0.15); border-color: rgba(201,169,110,0.5); color: rgba(201,169,110,1); font-weight: 500; }
+.tab-item:active { transform: scale(0.97); }
+
+/* Giris Animasyonlari */
+.a1,.a2,.a3,.a4,.a5,.a6,.a7 { opacity: 0; animation: fadeUp 0.6s ease forwards; }
+.a1 { animation-delay: 0.05s; } .a2 { animation-delay: 0.15s; } .a3 { animation-delay: 0.25s; }
+.a4 { animation-delay: 0.35s; } .a5 { animation-delay: 0.45s; } .a6 { animation-delay: 0.55s; } .a7 { animation-delay: 0.65s; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Nefes Halkasi */
+@keyframes breathePulse { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.18); opacity: 1; } }
+.b-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(201,169,110,0.3); animation: breathePulse 4s ease-in-out infinite; }
+.b-ring-1 { width: 120px; height: 120px; top: 50%; left: 50%; margin: -60px 0 0 -60px; animation-delay: 0s; }
+.b-ring-2 { width: 160px; height: 160px; top: 50%; left: 50%; margin: -80px 0 0 -80px; animation-delay: 0.4s; }
+.b-ring-3 { width: 200px; height: 200px; top: 50%; left: 50%; margin: -100px 0 0 -100px; animation-delay: 0.8s; }
+
+/* Canli Nokta */
+@keyframes livePulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #c9a96e; margin-right: 6px; animation: livePulse 1.6s ease-in-out infinite; }
+
+/* Paywall */
+#paywall-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9000; justify-content: center; align-items: flex-end; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+</style>
+
 <script>
 (function() {
   'use strict';
