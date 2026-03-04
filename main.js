@@ -1,5 +1,5 @@
 /**
- * main.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
+ * main.js — Sanctuary 11. Aşama (Performans & Bellek Optimizasyonu)
  * ─────────────────────────────────────────────────────────────────────────────
  * 4. Aşama korundu. Ek değişiklikler (Phase 5):
  *   1. PageVisibilityManager — Sekme gizlenince Ripple/Waveform durur, CPU tasarrufu
@@ -697,12 +697,20 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
     }
   }
 
+  /* PHASE 11 — Haptic helper: mobilde kısa titreşim */
+  function _haptic(ms) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(ms || 20);
+    } catch (e) { /* iOS Safari desteklemez, sessizce geç */ }
+  }
+
   function runCycle() {
     if (stopped) return;
 
     setBreathClass('breath-inhale');
     setGuide('Nefes al…');
     syncVolume(volInhale, inhale);
+    _haptic(20); /* PHASE 11 — Nefes Al titreşimi */
 
     timers.push(setTimeout(function () {
       if (stopped) return;
@@ -714,6 +722,7 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
         setBreathClass('breath-exhale');
         setGuide('Nefes ver…');
         syncVolume(volExhale, exhale);
+        _haptic(20); /* PHASE 11 — Nefes Ver titreşimi */
 
         timers.push(setTimeout(function () {
           if (stopped) return;
@@ -1118,6 +1127,45 @@ document.addEventListener('DOMContentLoaded', function () {
         /* Sekme görünür — ripple'ı yeniden etkinleştir */
         window._rippleDisabled = false;
         console.debug('[main] Ripple etkin (sekme görünür)');
+      }
+    );
+
+    /* PHASE 11 — Canvas animasyonlarını sekme görünürlüğüne bağla
+     * Sekme arka plana geçince waveform + particles durur → pil/ısı tasarrufu
+     * Ses kesintisiz devam eder */
+    PageVisibilityManager.register(
+      function onHide() {
+        /* Waveform RAF durdur */
+        try { stopWaveformLoop(); } catch (e) {}
+        /* Gen canvas dondur */
+        var canvas = document.getElementById('gen-canvas');
+        if (canvas) canvas.style.animationPlayState = 'paused';
+        /* Particle animasyonlarını dondur */
+        document.querySelectorAll('.detox-particle, .ai-star').forEach(function (el) {
+          el.style.animationPlayState = 'paused';
+        });
+        window._canvasPaused = true;
+        console.debug('[main] Canvas animasyonları durduruldu (arka plan)');
+      },
+      function onShow() {
+        /* Waveform tekrar başlat — AudioEngine aktifse */
+        try {
+          if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+            var eng = AudioEngine.getInstance();
+            if (eng.isPlaying && eng.startWaveformLoop) {
+              /* Waveform callback'i varsa yeniden başlat */
+              eng.startWaveformLoop(eng._lastWaveformCallback || function () {});
+            }
+          }
+        } catch (e) {}
+        /* Gen canvas ve particle animasyonlarını devam ettir */
+        var canvas = document.getElementById('gen-canvas');
+        if (canvas) canvas.style.animationPlayState = 'running';
+        document.querySelectorAll('.detox-particle, .ai-star').forEach(function (el) {
+          el.style.animationPlayState = 'running';
+        });
+        window._canvasPaused = false;
+        console.debug('[main] Canvas animasyonları devam ediyor');
       }
     );
   } catch (e) {
