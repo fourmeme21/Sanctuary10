@@ -3251,3 +3251,470 @@ html.low-power .play-btn {
   background-color: var(--surface) !important;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════
+   4. AŞAMA — Hata Yönetimi, Toast Bildirimleri & Loading UX
+   Phase 4: Error Management, Notifications & Feedback
+═══════════════════════════════════════════════════════════════ */
+
+
+/* ─────────────────────────────────────────
+   TOAST NOTIFICATION SYSTEM
+   Cam efektli, 4 tipli bildirim sistemi
+───────────────────────────────────────── */
+
+#toast-container {
+  position: fixed;
+  bottom: calc(28px + var(--sab));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 48px);
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px 14px 18px;
+  border-radius: 18px;
+  pointer-events: all;
+  overflow: hidden;
+
+  /* Cam efekti */
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(14, 14, 20, 0.90);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.07) inset,
+    0 12px 40px rgba(0,0,0,0.60),
+    0 2px 8px rgba(0,0,0,0.35);
+
+  /* GPU slide-up */
+  transform: translate3d(0, 80px, 0);
+  opacity: 0;
+  transition:
+    transform 0.44s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)),
+    opacity   0.44s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+  will-change: transform, opacity;
+}
+
+.toast.toast-show {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.toast.toast-hide {
+  transform: translate3d(0, -16px, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.28s ease,
+    opacity   0.28s ease;
+}
+
+/* Toast icon */
+.toast-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+  width: 20px;
+  text-align: center;
+}
+
+/* Toast metin alanı */
+.toast-body  { flex: 1; min-width: 0; }
+.toast-title {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-prime, #f0eee8);
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+.toast-msg {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11.5px;
+  color: var(--text-dim, #7a7890);
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+/* Toast kapat butonu */
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-ghost, #3a3850);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  flex-shrink: 0;
+  margin-top: -1px;
+  transition: color 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.toast-close:hover { color: var(--text-dim, #7a7890); }
+
+/* Toast progress bar */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left center;
+  border-radius: 0 0 0 18px;
+  animation: toastProgress linear forwards;
+  opacity: 0.55;
+}
+
+@keyframes toastProgress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+/* ── SUCCESS ── */
+.toast-success {
+  border-color: rgba(110, 205, 196, 0.26);
+  background: linear-gradient(135deg,
+    rgba(110, 205, 196, 0.11) 0%,
+    rgba(14, 14, 20, 0.92) 55%);
+}
+.toast-success .toast-icon  { color: var(--teal, #6ecdc4); filter: drop-shadow(0 0 6px rgba(110,205,196,0.6)); }
+.toast-success .toast-title { color: var(--teal, #6ecdc4); }
+.toast-success .toast-progress { background: var(--teal, #6ecdc4); }
+
+/* ── ERROR ── */
+.toast-error {
+  border-color: rgba(255, 80, 80, 0.28);
+  background: linear-gradient(135deg,
+    rgba(255, 55, 75, 0.12) 0%,
+    rgba(14, 14, 20, 0.92) 55%);
+}
+.toast-error .toast-icon  { color: #ff6070; filter: drop-shadow(0 0 6px rgba(255,80,80,0.6)); }
+.toast-error .toast-title { color: #ff6070; }
+.toast-error .toast-progress { background: #ff6070; }
+
+/* ── WARNING ── */
+.toast-warning {
+  border-color: rgba(201, 169, 110, 0.30);
+  background: linear-gradient(135deg,
+    rgba(201, 169, 110, 0.12) 0%,
+    rgba(14, 14, 20, 0.92) 55%);
+}
+.toast-warning .toast-icon  { color: var(--gold, #c9a96e); filter: drop-shadow(0 0 6px rgba(201,169,110,0.6)); }
+.toast-warning .toast-title { color: var(--gold, #c9a96e); }
+.toast-warning .toast-progress { background: var(--gold, #c9a96e); }
+
+/* ── INFO ── */
+.toast-info {
+  border-color: rgba(155, 142, 196, 0.26);
+  background: linear-gradient(135deg,
+    rgba(155, 142, 196, 0.10) 0%,
+    rgba(14, 14, 20, 0.92) 55%);
+}
+.toast-info .toast-icon  { color: var(--violet, #9b8ec4); filter: drop-shadow(0 0 6px rgba(155,142,196,0.6)); }
+.toast-info .toast-title { color: var(--violet, #9b8ec4); }
+.toast-info .toast-progress { background: var(--violet, #9b8ec4); }
+
+
+/* ─────────────────────────────────────────
+   OFFLINE PANEL — İnternet Kesilince
+───────────────────────────────────────── */
+
+#offline-panel {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 8500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: calc(12px + var(--sat, 0px)) 20px 12px;
+
+  background: linear-gradient(135deg,
+    rgba(200, 40, 55, 0.20) 0%,
+    rgba(14, 14, 20, 0.94) 100%);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 70, 80, 0.24);
+  box-shadow: 0 4px 28px rgba(0,0,0,0.5);
+
+  /* GPU slide */
+  transform: translate3d(0, -100%, 0);
+  transition: transform 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+#offline-panel.show {
+  transform: translate3d(0, 0, 0);
+}
+
+.offline-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ff4055;
+  box-shadow: 0 0 12px rgba(255,60,80,0.75);
+  flex-shrink: 0;
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+.offline-text  { flex: 1; min-width: 0; }
+.offline-title {
+  display: block;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: #ff7080;
+  letter-spacing: 0.05em;
+}
+.offline-sub {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 10.5px;
+  color: var(--text-dim, #7a7890);
+  letter-spacing: 0.02em;
+}
+.offline-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  opacity: 0.8;
+  animation: blink 2.2s ease-in-out infinite;
+}
+
+/* Bağlantı Yeniden Sağlandı flash */
+#online-flash {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 8600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: calc(10px + var(--sat, 0px)) 20px 10px;
+
+  background: linear-gradient(135deg,
+    rgba(110, 205, 196, 0.22) 0%,
+    rgba(14, 14, 20, 0.94) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(110, 205, 196, 0.26);
+
+  transform: translate3d(0, -100%, 0);
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+  pointer-events: none;
+}
+#online-flash.show {
+  transform: translate3d(0, 0, 0);
+}
+.online-flash-text {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal, #6ecdc4);
+  letter-spacing: 0.06em;
+}
+
+
+/* ─────────────────────────────────────────
+   LOADING SPINNERS
+───────────────────────────────────────── */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(201, 169, 110, 0.18);
+  border-top-color: var(--gold, #c9a96e);
+  animation: spin 0.72s linear infinite;
+  will-change: transform;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.spinner-sm  { width: 14px; height: 14px; border-width: 2px; }
+.spinner-lg  { width: 28px; height: 28px; border-width: 3px; }
+
+.spinner-gold {
+  border-color: rgba(201, 169, 110, 0.18);
+  border-top-color: var(--gold, #c9a96e);
+}
+
+.spinner-teal {
+  border-color: rgba(110, 205, 196, 0.18);
+  border-top-color: var(--teal, #6ecdc4);
+}
+
+.spinner-violet {
+  border-color: rgba(155, 142, 196, 0.18);
+  border-top-color: var(--violet, #9b8ec4);
+}
+
+.spinner-white {
+  border-color: rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(255, 255, 255, 0.85);
+}
+
+/* Play butonu içi spinner */
+.play-spinner {
+  width: 22px; height: 22px;
+  border-width: 2.5px;
+  border-color: rgba(201, 169, 110, 0.22);
+  border-top-color: var(--gold, #c9a96e);
+  display: none;
+}
+
+
+/* ─────────────────────────────────────────
+   LOADING OVERLAY (element üzerinde)
+───────────────────────────────────────── */
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(5, 5, 8, 0.60);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fadeIn 0.22s ease both;
+}
+
+.loading-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.loading-overlay-text {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim, #7a7890);
+}
+
+
+/* ─────────────────────────────────────────
+   SKELETON CARDS — Oda listesi yüklenirken
+   (mevcut .skeleton sınıfını genişletir)
+───────────────────────────────────────── */
+
+.skeleton-card {
+  background: var(--night-card, #161d2e);
+  border: 1px solid var(--night-border, #1e2a40);
+  border-radius: 16px;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.sk-line {
+  height: 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background: linear-gradient(
+    90deg,
+    var(--night-card, #161d2e) 25%,
+    rgba(255,255,255,0.06) 50%,
+    var(--night-card, #161d2e) 75%
+  );
+  background-size: 200% 100%;
+  animation: rm-shimmer 1.6s infinite;
+}
+
+.sk-line.short { width: 40%; }
+.sk-line.mid   { width: 65%; }
+.sk-line.long  { width: 88%; }
+
+.sk-circle {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(
+    90deg,
+    var(--night-card, #161d2e) 25%,
+    rgba(255,255,255,0.06) 50%,
+    var(--night-card, #161d2e) 75%
+  );
+  background-size: 200% 100%;
+  animation: rm-shimmer 1.6s infinite;
+  flex-shrink: 0;
+}
+
+
+/* ─────────────────────────────────────────
+   BUTTON LOADING STATE
+   Buton disabled iken opaklık + cursor
+───────────────────────────────────────── */
+
+button:disabled,
+.btn-submit-room:disabled,
+.cta-btn:disabled,
+.ai-generate-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed !important;
+  transform: none !important;
+  pointer-events: none;
+}
+
+/* Loading içerikli buton düzeni */
+button:disabled .spinner,
+button[disabled] .spinner {
+  pointer-events: none;
+}
+
+
+/* ─────────────────────────────────────────
+   LOW POWER — Yeni efektleri de kapat
+───────────────────────────────────────── */
+
+html.low-power .toast,
+html.low-power #offline-panel,
+html.low-power #online-flash,
+html.low-power .loading-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.low-power .toast {
+  background: var(--surface, #111118) !important;
+}
+
+html.low-power .spinner {
+  animation-duration: 1s; /* biraz yavaşlat, pil tasarrufu */
+}
+
+/* Tüm animasyonları durdur — prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast-progress,
+  .spinner,
+  #offline-panel,
+  #online-flash,
+  .sk-line,
+  .sk-circle {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+  .toast-show { transform: none !important; opacity: 1 !important; }
+}
