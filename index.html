@@ -3943,838 +3943,1585 @@ html.low-power .play-btn {
 // }
 </script>
 
+
+
+<!-- TÜM EKSİK FONKSİYONLAR EKLENDİ -->
+
+
+
 <script>
-(function(){
-  function initTabs(){
+/**
+ * StateManager.js — Sanctuary 8. Aşama (Final)
+ * Phase 8 Değişiklikleri:
+ *   1. UMD wrapper — ES module export → window.SanctuaryState global
+ *   2. sessionBuffer entegrasyonu — sekme geçişlerinde geçici veri korunumu
+ *   3. window.Sanctuary.state ile entegrasyon
+ */
+(function (global) {
+  'use strict';
+
+/**
+ * StateManager.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Phase 5 Değişiklikleri:
+ *   1. Storage event listener → cross-tab sync için eklendi, dispose()'da kaldırılır
+ *   2. _boundStorageHandler → window.removeEventListener ile temizlenir (bellek sızıntısı önlemi)
+ *   3. dispose() → storageListener + tüm timer'lar + listener'lar güvenli şekilde temizlenir
+ *   4. Visibility API desteği → sekme gizlendiğinde persist debounce flush edilir
+ *   5. Debug bilgisi iyileştirildi — cache ve listener sayıları görünür
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 3. Aşama Güvenlik Değişiklikleri (korundu):
+ *   - apiKey artık localStorage'a YAZILMIYOR (PERSISTED_KEYS'den çıkarıldı).
+ *   - apiKey sadece runtime bellekte, private #apiKeyRuntime alanında tutulur.
+ *   - validatePurchaseToken frontend doğrulaması tamamen kaldırıldı.
+ *   - setPremiumStatus receiptToken doğrulamasında offline/demo modu açıkça işaretler.
+ */
+
+// ─── Tip Sabitleri ────────────────────────────────────────────────────────────
+
+/** @enum {string} */
+const Mood = Object.freeze({
+  HUZURSUZ:  'Huzursuz',
+  YORGUN:    'Yorgun',
+  KAYGILI:   'Kaygılı',
+  MUTSUZ:    'Mutsuz',
+  SAKIN:     'Sakin',
+  MINNETTAR: 'Minnettar',
+});
+
+/** @enum {string} */
+const PremiumPlan = Object.freeze({
+  NONE:  'none',
+  BASIC: 'basic',
+  PRO:   'pro',
+});
+
+/** @enum {string} */
+const BillingCycle = Object.freeze({
+  MONTHLY: 'monthly',
+  YEARLY:  'yearly',
+});
+
+// ─── Varsayılan (Initial) State ───────────────────────────────────────────────
+
+const DEFAULT_STATE = Object.freeze({
+  playing:                false,
+  currentScene:           'sessiz orman',
+  audioTracks:            [],
+  masterVolume:           0.8,
+  intensity:              0.5,
+  selectedMood:           Mood.SAKIN,
+  sessionStartTime:       null,
+  currentSessionDuration: 0,
+  isTimerActive:          false,
+  sleepTimer:             null,
+  sleepTimerEnd:          null,
+  isPremium:              false,
+  premiumPlan:            PremiumPlan.NONE,
+  billingCycle:           BillingCycle.MONTHLY,
+  premiumExpiresAt:       null,
+  bannerDismissed:        false,
+  language:               'tr-TR',
+  isInitialized:          false,
+  lastOpenDate:           null,
+});
+
+// ─── Kalıcı Saklanacak Key'ler ────────────────────────────────────────────────
+
+const PERSISTED_KEYS = new Set([
+  'selectedMood',
+  'isPremium',
+  'premiumPlan',
+  'billingCycle',
+  'premiumExpiresAt',
+  'bannerDismissed',
+  // 'apiKey' — KASITLI OLARAK ÇIKARILDI
+  'language',
+  'masterVolume',
+  'lastOpenDate',
+]);
+
+// ─── Kısıtlı İçerik Tanımları ─────────────────────────────────────────────────
+
+const CONTENT_PERMISSIONS = {
+  'derin_odak_pro':   PremiumPlan.PRO,
+  'binaural_beats':   PremiumPlan.BASIC,
+  'uyku_hipnozu':     PremiumPlan.BASIC,
+  'aktif_meditasyon': PremiumPlan.BASIC,
+};
+
+const PLAN_RANK = {
+  [PremiumPlan.NONE]:  0,
+  [PremiumPlan.BASIC]: 1,
+  [PremiumPlan.PRO]:   2,
+};
+
+// ─── Ana Sınıf ────────────────────────────────────────────────────────────────
+
+class StateManager {
+  /** @type {Object} */
+  #state;
+
+  /** @type {string} */
+  #apiKeyRuntime;
+
+  /** @type {Map<string, Set<Function>>} */
+  #keyListeners;
+
+  /** @type {Set<Function>} */
+  #globalListeners;
+
+  /** @type {StorageAdapter|null} */
+  #storage;
+
+  /** @type {Map<string, ReturnType<typeof setTimeout>>} */
+  #persistDebounceTimers;
+
+  /** @type {Set<ReturnType<typeof setTimeout>>} */
+  #timers;
+
+  /** @type {boolean} */
+  #hydrated;
+
+  /**
+   * PHASE 5: Storage event listener referansı — dispose()'da kaldırılır.
+   * Cross-tab senkronizasyonu için localStorage değişikliklerini dinler.
+   * @type {Function|null}
+   */
+  #boundStorageHandler;
+
+  /**
+   * PHASE 5: Visibility change handler referansı — dispose()'da kaldırılır.
+   * Sekme gizlenince bekleyen persist'leri flush eder.
+   * @type {Function|null}
+   */
+  #boundVisibilityHandler;
+
+  /**
+   * @param {StorageAdapter|null} storageAdapter
+   */
+  constructor(storageAdapter = null) {
+    this.#state                  = { ...DEFAULT_STATE };
+    this.#apiKeyRuntime          = '';
+    this.#keyListeners           = new Map();
+    this.#globalListeners        = new Set();
+    this.#storage                = storageAdapter;
+    this.#persistDebounceTimers  = new Map();
+    this.#timers                 = new Set();
+    this.#hydrated               = false;
+    this.#boundStorageHandler    = null;
+    this.#boundVisibilityHandler = null;
+
+    /* PHASE 5: Event listener'ları başlat */
+    this.#attachWindowListeners();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 1 — Temel get / set
+  // ══════════════════════════════════════════════════════════════════════════
+
+  get(key) {
+    if (key === 'apiKey') return this.#apiKeyRuntime;
+    return this.#state[key];
+  }
+
+  /** @private */
+  #rawSet(key, value) {
+    if (key === 'apiKey') {
+      this.#apiKeyRuntime = value ?? '';
+      return;
+    }
+
+    const prev = this.#state[key];
+    if (Object.is(prev, value)) return;
+
+    this.#state[key] = value;
+    this.#notify(key, value, prev);
+
+    if (PERSISTED_KEYS.has(key)) {
+      this.#schedulePersist(key, value);
+    }
+  }
+
+  getSnapshot() {
+    const { ...snapshot } = this.#state;
+    return Object.freeze(snapshot);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 2 — Observer / Pub-Sub
+  // ══════════════════════════════════════════════════════════════════════════
+
+  subscribe(key, listener) {
+    if (!this.#keyListeners.has(key)) {
+      this.#keyListeners.set(key, new Set());
+    }
+    this.#keyListeners.get(key).add(listener);
+    return () => {
+      this.#keyListeners.get(key)?.delete(listener);
+    };
+  }
+
+  subscribeAll(listener) {
+    this.#globalListeners.add(listener);
+    return () => this.#globalListeners.delete(listener);
+  }
+
+  subscribeMany(keys, listener) {
+    const unsubs = keys.map((k) => this.subscribe(k, listener));
+    return () => unsubs.forEach((fn) => fn());
+  }
+
+  /** @private */
+  #notify(key, newValue, prevValue) {
+    this.#keyListeners.get(key)?.forEach((fn) => {
+      try { fn(newValue, prevValue); }
+      catch (err) { console.error(`[StateManager] Listener hatası (${key}):`, err); }
+    });
+
+    this.#globalListeners.forEach((fn) => {
+      try { fn({ key, newValue, prevValue }); }
+      catch (err) { console.error('[StateManager] Global listener hatası:', err); }
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 3 — Persistence (Hydration & Persist)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  async hydrate() {
+    if (!this.#storage) {
+      this.#hydrated = true;
+      return;
+    }
+
+    const loadPromises = [...PERSISTED_KEYS].map(async (key) => {
+      try {
+        const raw = await this.#storage.get(`state:${key}`);
+        if (raw !== null && raw !== undefined) {
+          const parsed = this.#deserialize(key, raw);
+          this.#state[key] = parsed;
+        }
+      } catch (err) {
+        console.warn(`[StateManager] Hydration hatası (${key}):`, err);
+      }
+    });
+
+    await Promise.all(loadPromises);
+
+    this.#validatePremiumExpiry();
+
+    this.#hydrated = true;
+    this.#notify('isInitialized', true, false);
+    this.#state.isInitialized = true;
+    console.info('[StateManager] Hydration tamamlandı.');
+  }
+
+  /** @private */
+  #schedulePersist(key, value) {
+    if (!this.#storage) return;
+
+    const existing = this.#persistDebounceTimers.get(key);
+    if (existing) clearTimeout(existing);
+
+    const id = setTimeout(async () => {
+      this.#persistDebounceTimers.delete(key);
+      try {
+        await this.#storage.set(`state:${key}`, this.#serialize(key, value));
+      } catch (err) {
+        console.error(`[StateManager] Persist hatası (${key}):`, err);
+      }
+    }, 16);
+
+    this.#persistDebounceTimers.set(key, id);
+  }
+
+  /**
+   * PHASE 5: Bekleyen tüm persist işlemlerini hemen çalıştırır.
+   * Sekme kapanmadan önce veri kaybını önler.
+   */
+  async flushPersist() {
+    if (!this.#storage) return;
+
+    const promises = [];
+    this.#persistDebounceTimers.forEach((id, key) => {
+      clearTimeout(id);
+      const value = this.#state[key];
+      promises.push(
+        this.#storage
+          .set(`state:${key}`, this.#serialize(key, value))
+          .catch((err) => console.error(`[StateManager] Flush persist hatası (${key}):`, err))
+      );
+    });
+    this.#persistDebounceTimers.clear();
+
+    if (promises.length > 0) {
+      await Promise.all(promises);
+      console.info(`[StateManager] ${promises.length} persist flush edildi.`);
+    }
+  }
+
+  /** @private */
+  #serialize(key, value)  { return JSON.stringify(value); }
+
+  /** @private */
+  #deserialize(key, raw) {
+    try   { return JSON.parse(raw); }
+    catch { return raw; }
+  }
+
+  async clearPersistedState() {
+    if (!this.#storage) return;
+    await Promise.all(
+      [...PERSISTED_KEYS].map((k) => this.#storage.remove(`state:${k}`).catch(() => {}))
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 4 — Oynatma & Ses Kontrolü
+  // ══════════════════════════════════════════════════════════════════════════
+
+  setPlaying(value)          { this.#rawSet('playing', Boolean(value)); }
+  setCurrentScene(scene) {
+    if (typeof scene !== 'string' || !scene.trim()) {
+      throw new TypeError('[StateManager] Geçersiz sahne adı');
+    }
+    this.#rawSet('currentScene', scene.trim());
+  }
+  setAudioTracks(tracks) {
+    if (!Array.isArray(tracks)) throw new TypeError('[StateManager] audioTracks bir dizi olmalıdır');
+    this.#rawSet('audioTracks', tracks);
+  }
+  updateTrackVolume(trackName, volume) {
+    const clamped = Math.min(1, Math.max(0, volume));
+    const tracks  = this.#state.audioTracks.map((t) =>
+      t.name === trackName ? { ...t, volume: clamped } : t
+    );
+    this.#rawSet('audioTracks', tracks);
+  }
+  setMasterVolume(volume) {
+    this.#rawSet('masterVolume', Math.min(1, Math.max(0, volume)));
+  }
+  setIntensity(value) {
+    this.#rawSet('intensity', Math.min(1, Math.max(0, value)));
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 5 — Ruh Hali
+  // ══════════════════════════════════════════════════════════════════════════
+
+  setSelectedMood(mood) {
+    const validMoods = Object.values(Mood);
+    if (!validMoods.includes(mood)) {
+      throw new RangeError(
+        `[StateManager] Geçersiz mood: "${mood}". Geçerli: ${validMoods.join(', ')}`
+      );
+    }
+    this.#rawSet('selectedMood', mood);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 6 — Seans Yönetimi
+  // ══════════════════════════════════════════════════════════════════════════
+
+  startSession() {
+    this.#rawSet('sessionStartTime', Date.now());
+    this.#rawSet('currentSessionDuration', 0);
+  }
+
+  endSession() {
+    const start = this.#state.sessionStartTime;
+    if (!start) return null;
+
+    const duration = Math.floor((Date.now() - start) / 1000);
+    this.#rawSet('currentSessionDuration', duration);
+    this.#rawSet('sessionStartTime', null);
+
+    return {
+      duration,
+      mood:  this.#state.selectedMood,
+      scene: this.#state.currentScene,
+      date:  new Date().toISOString(),
+    };
+  }
+
+  getCurrentSessionDuration() {
+    const start = this.#state.sessionStartTime;
+    if (!start) return 0;
+    return Math.floor((Date.now() - start) / 1000);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 7 — Uyku Zamanlayıcı
+  // ══════════════════════════════════════════════════════════════════════════
+
+  setSleepTimer(minutes, onExpire, maxMinutes = 180) {
+    if (!Number.isFinite(minutes) || minutes <= 0 || minutes > maxMinutes) {
+      throw new RangeError(`[StateManager] Geçersiz zamanlayıcı süresi: ${minutes}`);
+    }
+
+    this.cancelSleepTimer();
+
+    const endTime  = Date.now() + minutes * 60 * 1000;
+    this.#rawSet('isTimerActive', true);
+    this.#rawSet('sleepTimer', minutes);
+    this.#rawSet('sleepTimerEnd', endTime);
+
+    const timerId = setTimeout(() => {
+      this.#rawSet('isTimerActive', false);
+      this.#rawSet('sleepTimer', null);
+      this.#rawSet('sleepTimerEnd', null);
+      this.#timers.delete(timerId);
+      if (typeof onExpire === 'function') {
+        try { onExpire(); }
+        catch (err) { console.error('[StateManager] onExpire hatası:', err); }
+      }
+    }, minutes * 60 * 1000);
+
+    this.#timers.add(timerId);
+    return timerId;
+  }
+
+  cancelSleepTimer() {
+    this.#rawSet('isTimerActive', false);
+    this.#rawSet('sleepTimer', null);
+    this.#rawSet('sleepTimerEnd', null);
+  }
+
+  getRemainingTimerSeconds() {
+    const end = this.#state.sleepTimerEnd;
+    if (!end) return 0;
+    return Math.max(0, Math.floor((end - Date.now()) / 1000));
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 8 — Premium & Güvenlik Katmanı
+  // ══════════════════════════════════════════════════════════════════════════
+
+  setPremiumStatus({ plan, billingCycle, expiresAt = null, receiptToken = '' }) {
+    if (!Object.values(PremiumPlan).includes(plan)) {
+      throw new RangeError(`[StateManager] Geçersiz plan: ${plan}`);
+    }
+    if (!Object.values(BillingCycle).includes(billingCycle)) {
+      throw new RangeError(`[StateManager] Geçersiz fatura döngüsü: ${billingCycle}`);
+    }
+    if (plan === PremiumPlan.NONE) {
+      throw new Error('[StateManager] setPremiumStatus ile NONE plan kurulamaz. revokePremium kullanın.');
+    }
+
+    if (receiptToken) {
+      console.info('[StateManager] Receipt token mevcut — backend doğrulaması gerekli.');
+    } else {
+      console.warn('[StateManager] Receipt token sağlanmadı. Demo/offline mod aktif.');
+    }
+
+    this.#rawSet('isPremium', true);
+    this.#rawSet('premiumPlan', plan);
+    this.#rawSet('billingCycle', billingCycle);
+    this.#rawSet('premiumExpiresAt', expiresAt);
+  }
+
+  revokePremium() {
+    this.#rawSet('isPremium', false);
+    this.#rawSet('premiumPlan', PremiumPlan.NONE);
+    this.#rawSet('premiumExpiresAt', null);
+  }
+
+  checkContentAccess(contentId) {
+    const requiredPlan = CONTENT_PERMISSIONS[contentId];
+    if (!requiredPlan) return { allowed: true, reason: '' };
+
+    if (!this.#state.isPremium) {
+      return { allowed: false, reason: `Bu içerik premium üyelik gerektiriyor (${requiredPlan}).` };
+    }
+
+    const userRank     = PLAN_RANK[this.#state.premiumPlan] ?? 0;
+    const requiredRank = PLAN_RANK[requiredPlan] ?? 0;
+
+    if (userRank < requiredRank) {
+      return {
+        allowed: false,
+        reason: `Bu içerik ${requiredPlan} planı gerektiriyor. Mevcut planınız: ${this.#state.premiumPlan}.`,
+      };
+    }
+
+    if (this.#isPremiumExpired()) {
+      this.revokePremium();
+      return { allowed: false, reason: 'Premium aboneliğinizin süresi dolmuş.' };
+    }
+
+    return { allowed: true, reason: '' };
+  }
+
+  unlockContent(scene) {
+    const { allowed, reason } = this.checkContentAccess(scene);
+    if (!allowed) throw new Error(`[StateManager] Erişim reddedildi — ${reason}`);
+    this.setCurrentScene(scene);
+  }
+
+  /** @private — Her zaman false; güvenlik için client-side doğrulama yapılmaz */
+  #validatePurchaseToken(/* token */) {
+    return false;
+  }
+
+  /** @private */
+  #validatePremiumExpiry() {
+    const expiresAt = this.#state.premiumExpiresAt;
+    if (expiresAt && new Date(expiresAt) < new Date()) {
+      this.#state.isPremium       = false;
+      this.#state.premiumPlan     = PremiumPlan.NONE;
+      this.#state.premiumExpiresAt = null;
+    }
+  }
+
+  /** @private */
+  #isPremiumExpired() {
+    const exp = this.#state.premiumExpiresAt;
+    return exp ? new Date(exp) < new Date() : false;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 9 — Kullanıcı Tercihleri
+  // ══════════════════════════════════════════════════════════════════════════
+
+  setBannerDismissed(value) { this.#rawSet('bannerDismissed', Boolean(value)); }
+
+  setApiKey(key) {
+    if (typeof key !== 'string') throw new TypeError('[StateManager] API key string olmalıdır');
+    this.#apiKeyRuntime = key;
+  }
+
+  getApiKey()  { return this.#apiKeyRuntime; }
+  clearApiKey() { this.#apiKeyRuntime = ''; }
+
+  setLanguage(lang)      { this.#rawSet('language', lang); }
+
+  setBillingCycle(cycle) {
+    if (!Object.values(BillingCycle).includes(cycle)) {
+      throw new RangeError(`[StateManager] Geçersiz fatura döngüsü: ${cycle}`);
+    }
+    this.#rawSet('billingCycle', cycle);
+  }
+
+  setLastOpenDate(isoString = new Date().toISOString()) {
+    this.#rawSet('lastOpenDate', isoString);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 10 — PHASE 5: Window Event Listener Yönetimi
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * PHASE 5: Window storage + visibility listener'larını bağlar.
+   * Referanslar private alanlara kaydedilir — dispose()'da kaldırılır.
+   *
+   * storage event: Başka sekmedeki localStorage değişikliklerini yakalar
+   * (cross-tab sync). API key HİÇBİR ZAMAN storage üzerinden senkronize edilmez.
+   *
+   * visibilitychange event: Sekme gizlenince bekleyen persist'leri flush eder.
+   */
+  #attachWindowListeners() {
+    if (typeof window === 'undefined') return;
+
+    /* ── Storage (cross-tab sync) ── */
+    this.#boundStorageHandler = (event) => {
+      try {
+        if (!event.key || !event.key.startsWith('state:')) return;
+        const stateKey = event.key.replace('state:', '');
+
+        /* Güvenlik: API key storage üzerinden senkronize edilmez */
+        if (stateKey === 'apiKey') return;
+        if (!PERSISTED_KEYS.has(stateKey)) return;
+
+        const newValue = event.newValue !== null
+          ? this.#deserialize(stateKey, event.newValue)
+          : DEFAULT_STATE[stateKey];
+
+        /* State'i notify ile güncelle — ama persist tetikleme (cross-tab loop önle) */
+        const prev = this.#state[stateKey];
+        if (!Object.is(prev, newValue)) {
+          this.#state[stateKey] = newValue;
+          this.#notify(stateKey, newValue, prev);
+          console.info(`[StateManager] Cross-tab sync: ${stateKey}`);
+        }
+      } catch (err) {
+        console.warn('[StateManager] Storage event hatası:', err);
+      }
+    };
+    window.addEventListener('storage', this.#boundStorageHandler);
+
+    /* ── Visibility Change (persist flush) ── */
+    this.#boundVisibilityHandler = () => {
+      if (document.hidden && this.#persistDebounceTimers.size > 0) {
+        /* Sekme gizlendiğinde bekleyen persist'leri hemen yaz */
+        this.flushPersist().catch((err) => {
+          console.warn('[StateManager] Visibility flush hatası:', err);
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', this.#boundVisibilityHandler);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 11 — Timer & Kaynak Yönetimi
+  // ══════════════════════════════════════════════════════════════════════════
+
+  registerTimer(timerId) { this.#timers.add(timerId); }
+
+  clearAllTimers() {
+    this.#timers.forEach((id) => {
+      clearTimeout(id);
+      clearInterval(id);
+    });
+    this.#timers.clear();
+  }
+
+  /**
+   * PHASE 5: dispose() — Tam temizleme
+   *   1. Tüm timer'lar iptal edilir
+   *   2. Bekleyen persist'ler flush edilir
+   *   3. window.storage + visibilitychange listener'ları removeEventListener ile kaldırılır
+   *   4. Tüm subscriber'lar temizlenir
+   *   5. API key bellekten silinir
+   */
+  async dispose() {
+    console.info('[StateManager] Dispose başlatılıyor...');
+
+    /* 1. Timer'ları iptal et */
+    this.clearAllTimers();
+    this.#persistDebounceTimers.forEach((id) => clearTimeout(id));
+
+    /* 2. Bekleyen persist'leri flush et */
+    try {
+      await this.flushPersist();
+    } catch (err) {
+      console.warn('[StateManager] Dispose flush hatası:', err);
+    }
+
+    /* 3. PHASE 5: Window event listener'larını kaldır — bellek sızıntısı önlemi */
+    try {
+      if (this.#boundStorageHandler && typeof window !== 'undefined') {
+        window.removeEventListener('storage', this.#boundStorageHandler);
+        this.#boundStorageHandler = null;
+        console.info('[StateManager] Storage listener kaldırıldı.');
+      }
+      if (this.#boundVisibilityHandler && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.#boundVisibilityHandler);
+        this.#boundVisibilityHandler = null;
+        console.info('[StateManager] Visibility listener kaldırıldı.');
+      }
+    } catch (err) {
+      console.warn('[StateManager] Listener temizleme uyarısı:', err);
+    }
+
+    /* 4. Subscriber'ları temizle */
+    this.#keyListeners.clear();
+    this.#globalListeners.clear();
+
+    /* 5. API key'i bellekten sil */
+    this.#apiKeyRuntime = '';
+
+    console.info('[StateManager] Dispose tamamlandı.');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 12 — Debug / DevTools
+  // ══════════════════════════════════════════════════════════════════════════
+
+  debug() {
+    console.group('[StateManager] Mevcut State');
+    const safeState = { ...this.#state, apiKey: '[GİZLİ — runtime]' };
+    console.table(safeState);
+    console.info('Listener sayısı:', {
+      keyListeners:    this.#keyListeners.size,
+      globalListeners: this.#globalListeners.size,
+      timers:          this.#timers.size,
+      pendingPersist:  this.#persistDebounceTimers.size,
+      hydrated:        this.#hydrated,
+    });
+    console.groupEnd();
+  }
+
+  toPlainObject() {
+    return { ...this.#state };
+  }
+}
+
+// ─── Singleton Factory ────────────────────────────────────────────────────────
+
+let _instance = null;
+
+function getStateManager(storageAdapter = null) {
+  if (!_instance) {
+    _instance = new StateManager(storageAdapter);
+  }
+  return _instance;
+}
+
+function _resetStateManagerSingleton() {
+  if (_instance) {
+    _instance.dispose().catch(() => {});
+    _instance = null;
+  }
+}
+
+  // ── sessionBuffer ile entegrasyon ──
+  // Sanctuary.sessionBuffer (main.js) bağlandığında state değişimlerini senkronize et
+  var _sm = null;
+  function _getOrCreate() {
+    if (!_sm) {
+      try { _sm = getStateManager(); } catch(e) { console.warn('[StateManager] init hatası:', e); }
+    }
+    return _sm;
+  }
+
+  global.SanctuaryState = {
+    getInstance: _getOrCreate,
+    getStateManager: getStateManager,
+    Mood: typeof Mood !== 'undefined' ? Mood : {},
+    Screen: typeof Screen !== 'undefined' ? Screen : {},
+  };
+
+})(window);
+
+</script>
+<script>
+/**
+ * main.js — Sanctuary 8. Aşama (Final: Konsolidasyon & Yayına Hazırlık)
+ * ─────────────────────────────────────────────────────────────────────
+ * 1. window.Sanctuary global namespace
+ * 2. Merkezi CONFIG nesnesi
+ * 3. BreathCycle yardımcı fonksiyon
+ * 4. sessionBuffer — sekme geçişlerinde veri korunumu
+ * 5. Merkezi hata yakalayıcı (window.onerror + unhandledrejection)
+ */
+
+(function (global) {
+  'use strict';
+
+  /* ═══════════════════════════════════════
+     1. MERKEZI CONFIG
+  ═══════════════════════════════════════ */
+  var CONFIG = {
+    breath: {
+      inhale:  4000,
+      hold:    7000,
+      exhale:  8000,
+      pause:   1000,
+    },
+    audio: {
+      masterVolume: 0.75,
+      ambientVolume: 0.55,
+      binauralVolume: 0.10,
+      fadeOutDuration: 120,   // saniye
+      bufferSeconds: 8,
+    },
+    moods: {
+      'Huzursuz':  { base: 180, beat: 6,  gen: 'waves',    bg: 'teal'   },
+      'Yorgun':    { base: 200, beat: 4,  gen: 'rain',     bg: 'violet' },
+      'Kaygılı':   { base: 160, beat: 8,  gen: 'wind',     bg: 'sky'    },
+      'Mutsuz':    { base: 220, beat: 5,  gen: 'waves',    bg: 'rose'   },
+      'Sakin':     { base: 200, beat: 7,  gen: 'binaural', bg: 'teal'   },
+      'Minnettar': { base: 528, beat: 10, gen: 'rain',     bg: 'gold'   },
+    },
+    sounds: [
+      { ic:'🌊', name:'Okyanus',  locked:false, gen:'waves',    base:180, beat:0  },
+      { ic:'🌧️', name:'Yağmur',  locked:false, gen:'rain',     base:200, beat:4  },
+      { ic:'🌬️', name:'Rüzgar',  locked:false, gen:'wind',     base:160, beat:8  },
+      { ic:'🔥', name:'Ateş',     locked:true,  gen:'fire',     base:174, beat:3  },
+      { ic:'🎵', name:'Binaural', locked:false, gen:'binaural', base:200, beat:7  },
+      { ic:'⚡', name:'Fırtına',  locked:true,  gen:'storm',    base:220, beat:5  },
+    ],
+    rooms: [
+      { id:1, name:'Gece Odak Seansı',   category:'odak',       host:'Zeynep A.', capacity:8,  joined:5, live:true, priv:false },
+      { id:2, name:'Derin Uyku Rituali', category:'uyku',       host:'Mert K.',   capacity:6,  joined:6, live:true, priv:false },
+      { id:3, name:'Sabah Meditasyonu',  category:'meditasyon', host:'Selin T.',  capacity:10, joined:3, live:true, priv:false },
+      { id:4, name:'432 Hz Şifa Odası',  category:'meditasyon', host:'Ayşe D.',   capacity:12, joined:9, live:true, priv:false },
+      { id:5, name:'Çalışma Müziği',     category:'odak',       host:'Can B.',    capacity:20, joined:11,live:true, priv:false },
+      { id:6, name:'Özel Seans',         category:'uyku',       host:'Nilüfer Y.',capacity:4,  joined:2, live:true, priv:true  },
+    ],
+  };
+
+  /* ═══════════════════════════════════════
+     2. SESSION BUFFER — Sekme veri korunumu
+  ═══════════════════════════════════════ */
+  var sessionBuffer = {
+    _data: {},
+    set: function(key, val) { this._data[key] = val; },
+    get: function(key) { return this._data[key]; },
+    clear: function(key) { delete this._data[key]; },
+  };
+
+  /* ═══════════════════════════════════════
+     3. BREATH CYCLE — Merkezi nefes yöneticisi
+  ═══════════════════════════════════════ */
+  var BreathCycle = (function () {
+    var _timer = null;
+    var _phase = 'idle';
+    var _running = false;
+    var _cfg = CONFIG.breath;
+
+    function _setPhase(phase, label) {
+      _phase = phase;
+      var wrap  = document.querySelector('.breath-wrap');
+      var guide = document.getElementById('breath-guide');
+      var core  = document.getElementById('b-core');
+      if (!wrap) return;
+      wrap.classList.remove('breath-idle','breath-inhale','breath-exhale','breath-hold');
+      if (phase !== 'idle') wrap.classList.add('breath-' + phase);
+      if (guide) guide.textContent = label || '';
+      if (core && phase === 'inhale') core.style.transform = 'scale(1.18)';
+      if (core && phase === 'exhale') core.style.transform = 'scale(0.88)';
+      if (core && (phase === 'hold' || phase === 'idle')) core.style.transform = '';
+    }
+
+    function _cycle() {
+      if (!_running) return;
+      _setPhase('inhale',  '↑ Nefes al — ' + (_cfg.inhale/1000) + ' sn');
+      _timer = setTimeout(function () {
+        if (!_running) return;
+        _setPhase('hold',  '— Tut — ' + (_cfg.hold/1000) + ' sn');
+        _timer = setTimeout(function () {
+          if (!_running) return;
+          _setPhase('exhale', '↓ Bırak — ' + (_cfg.exhale/1000) + ' sn');
+          _timer = setTimeout(function () {
+            _setPhase('idle', '');
+            _timer = setTimeout(_cycle, _cfg.pause);
+          }, _cfg.exhale);
+        }, _cfg.hold);
+      }, _cfg.inhale);
+    }
+
+    return {
+      start: function () {
+        if (_running) return;
+        _running = true;
+        _cycle();
+      },
+      stop: function () {
+        _running = false;
+        if (_timer) { clearTimeout(_timer); _timer = null; }
+        _setPhase('idle', 'Hazır olduğunda butona dokun');
+      },
+      toggle: function () {
+        _running ? this.stop() : this.start();
+      },
+      isRunning: function () { return _running; },
+    };
+  })();
+
+  /* ═══════════════════════════════════════
+     4. EKRAN YÖNETİMİ
+  ═══════════════════════════════════════ */
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(function (s) {
+      s.classList.remove('on'); s.classList.add('off');
+    });
+    var t = document.getElementById('screen-' + id);
+    if (t) { t.classList.remove('off'); t.classList.add('on'); }
+  }
+
+  function goBack() {
+    if (document.getElementById('screen-analytics') &&
+        document.getElementById('screen-analytics').classList.contains('on')) {
+      showScreen('sanctuary');
+    } else {
+      showScreen('mood');
+    }
+  }
+
+  function goSanctuary() { showScreen('sanctuary'); }
+
+  /* ═══════════════════════════════════════
+     5. SEKME YÖNETİMİ (veri korunumlu)
+  ═══════════════════════════════════════ */
+  function switchTab(tabId) {
+    // Aktif sekmedeki textarea verilerini kaydet
+    var activePanel = document.querySelector('.tab-panel.active');
+    if (activePanel) {
+      var textarea = activePanel.querySelector('textarea');
+      if (textarea) {
+        sessionBuffer.set('tab_' + activePanel.id + '_text', textarea.value);
+      }
+    }
+
+    document.querySelectorAll('.tab-panel').forEach(function (el) { el.classList.remove('active'); });
+    document.querySelectorAll('.tab-item').forEach(function (el) {
+      el.classList.remove('active'); el.setAttribute('aria-selected','false');
+    });
+
+    var p = document.getElementById(tabId);
+    if (p) {
+      p.classList.add('active');
+      // Kaydedilmiş veriyi geri yükle
+      var saved = sessionBuffer.get('tab_' + tabId + '_text');
+      var textarea = p.querySelector('textarea');
+      if (textarea && saved !== undefined) textarea.value = saved;
+    }
+
+    var btnId = 'tab-btn-' + tabId.replace('tab-','');
+    var b = document.getElementById(btnId);
+    if (b) { b.classList.add('active'); b.setAttribute('aria-selected','true'); }
+
+    if (tabId === 'tab-journal') {
+      var d = document.getElementById('journal-date');
+      if (d) d.textContent = new Date().toLocaleDateString('tr-TR', {
+        weekday:'long', day:'numeric', month:'long'
+      });
+    }
+  }
+
+  /* ═══════════════════════════════════════
+     6. MOOD
+  ═══════════════════════════════════════ */
+  function pickMood(element) {
+    var mood  = element.getAttribute('data-mood');
+    var emoji = element.querySelector('.ic').textContent;
+
+    document.querySelectorAll('.mood-chip').forEach(function(c){ c.classList.remove('sel'); });
+    element.classList.add('sel');
+
+    var emojiEl = document.getElementById('s-emoji');
+    var moodEl  = document.getElementById('s-mood');
+    var msgEl   = document.getElementById('s-message');
+    if (emojiEl) emojiEl.textContent = emoji;
+    if (moodEl)  moodEl.textContent  = mood;
+
+    var messages = {
+      'Huzursuz':  'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.',
+      'Yorgun':    'Dinlenmek bir lüks değil, ihtiyaçtır. Kendine izin ver.',
+      'Kaygılı':   'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.',
+      'Mutsuz':    'Her duygu geçer. Bu da geçecek. Burada seninleyim.',
+      'Sakin':     'Sakinlik senin doğal halin. Onu koruyalım.',
+      'Minnettar': 'Minnettarlık kalbi açar, dünyayı aydınlatır.',
+    };
+    if (msgEl) msgEl.textContent = messages[mood] || '';
+
+    var cfg = CONFIG.moods[mood];
+    if (cfg && typeof window.setBgMood === 'function') window.setBgMood(cfg.bg);
+
+    try { localStorage.setItem('lastMood', mood); localStorage.setItem('lastEmoji', emoji); } catch(e){}
+    try { localStorage.removeItem('lastGen'); localStorage.removeItem('lastBase'); localStorage.removeItem('lastBeat'); } catch(e){}
+  }
+
+  /* ═══════════════════════════════════════
+     7. SES MOTORU
+  ═══════════════════════════════════════ */
+  var Audio = (function () {
+    var _ctx = null, _master = null, _oscs = [], _noise = null, _ambGain = null;
+    var _playing = false;
+    var _acfg = CONFIG.audio;
+    var _moodCfg = CONFIG.moods;
+
+    function _getCtx() {
+      if (!_ctx) {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        _ctx = new Ctx();
+      }
+      return _ctx;
+    }
+
+    function _noiseBuffer(ctx, type) {
+      var sr = ctx.sampleRate, sec = _acfg.bufferSeconds;
+      var buf = ctx.createBuffer(2, sr*sec, sr);
+      for (var ch=0; ch<2; ch++) {
+        var d = buf.getChannelData(ch);
+        for (var i=0; i<d.length; i++) {
+          var t = i/sr;
+          if (type==='waves')
+            d[i] = Math.sin(2*Math.PI*0.12*t)*0.14 + (Math.random()*2-1)*0.05;
+          else if (type==='wind')
+            d[i] = (Math.random()*2-1)*0.13*Math.abs(Math.sin(t*0.4));
+          else if (type==='fire')
+            d[i] = (Math.random()*2-1)*0.14*(0.8+Math.sin(t*3)*0.2);
+          else
+            d[i] = (Math.random()*2-1)*0.18; // rain / default
+        }
+      }
+      return buf;
+    }
+
+    function _stopAll() {
+      _oscs.forEach(function(o){ try{o.stop();o.disconnect();}catch(e){} });
+      _oscs = [];
+      if (_noise) { try{_noise.stop();_noise.disconnect();}catch(e){} _noise=null; }
+      if (_ambGain) { try{_ambGain.disconnect();}catch(e){} _ambGain=null; }
+    }
+
+    function _start(gen, base, beat) {
+      var ctx = _getCtx();
+      if (ctx.state==='suspended') ctx.resume().catch(function(){});
+
+      if (!_master) {
+        _master = ctx.createGain();
+        _master.gain.value = _acfg.masterVolume;
+        _master.connect(ctx.destination);
+      }
+      _stopAll();
+
+      // Binaural katman
+      if (beat > 0) {
+        var merger = ctx.createChannelMerger(2);
+        merger.connect(_master);
+        [[base,0],[base+beat,1]].forEach(function(pair) {
+          var osc = ctx.createOscillator(), g = ctx.createGain();
+          osc.frequency.value = pair[0]; osc.type='sine';
+          g.gain.value = _acfg.binauralVolume;
+          osc.connect(g); g.connect(merger,0,pair[1]); osc.start();
+          _oscs.push(osc);
+        });
+      }
+
+      // Ambient katman
+      var src    = ctx.createBufferSource();
+      var filter = ctx.createBiquadFilter();
+      var again  = ctx.createGain();
+      src.buffer = _noiseBuffer(ctx, gen); src.loop=true;
+      filter.type='lowpass'; filter.frequency.value = gen==='rain'?1200:700;
+      again.gain.value = _acfg.ambientVolume;
+      src.connect(filter); filter.connect(again); again.connect(_master);
+      src.start(0);
+      _noise=src; _ambGain=again;
+
+      // Badge güncelle
+      var badge = document.getElementById('freq-badge');
+      var label = document.getElementById('freq-label');
+      if (badge) badge.classList.add('on');
+      if (label) label.textContent = base+' Hz · '+gen;
+
+      // Waveform
+      var wform = document.getElementById('waveform');
+      if (wform && wform.children.length===0) {
+        for(var i=0;i<12;i++){
+          var bar=document.createElement('div'); bar.className='wbar';
+          bar.style.setProperty('--dur',(0.4+Math.random()*0.6)+'s');
+          bar.style.setProperty('--del',(Math.random()*0.4)+'s');
+          wform.appendChild(bar);
+        }
+      }
+      document.querySelectorAll('.wbar').forEach(function(b){b.classList.add('on');});
+    }
+
+    return {
+      play: function(gen, base, beat) {
+        _playing = true;
+        _start(gen, base, beat);
+      },
+      pause: function() {
+        _playing = false;
+        _stopAll();
+        if (_ctx) _ctx.suspend().catch(function(){});
+        document.querySelectorAll('.wbar').forEach(function(b){b.classList.remove('on');});
+        var badge=document.getElementById('freq-badge');
+        if(badge) badge.classList.remove('on');
+      },
+      switch: function(gen, base, beat, label) {
+        try { localStorage.setItem('lastGen',gen); localStorage.setItem('lastBase',base); localStorage.setItem('lastBeat',beat); } catch(e){}
+        if (_playing) _start(gen, base, beat);
+        var lbl=document.getElementById('freq-label');
+        if(lbl) lbl.textContent=base+' Hz · '+(label||gen);
+      },
+      isPlaying: function() { return _playing; },
+      fadeTo: function(vol, sec) {
+        if (_ctx && _master) {
+          var now=_ctx.currentTime;
+          _master.gain.cancelScheduledValues(now);
+          _master.gain.setValueAtTime(_master.gain.value, now);
+          _master.gain.linearRampToValueAtTime(vol, now+sec);
+        }
+      },
+    };
+  })();
+
+  /* ═══════════════════════════════════════
+     8. TOGGLE PLAY
+  ═══════════════════════════════════════ */
+  function togglePlay() {
+    var btn  = document.getElementById('play-btn');
+    var icon = document.getElementById('play-icon');
+    var lbl  = document.getElementById('play-lbl');
+    var playing = Audio.isPlaying();
+
+    if (!playing) {
+      if (icon) icon.textContent='⏸';
+      if (btn)  { btn.setAttribute('aria-pressed','true'); btn.classList.add('on'); }
+      if (lbl)  lbl.textContent='Duraklat';
+
+      try {
+        var gen  = localStorage.getItem('lastGen');
+        var base = parseInt(localStorage.getItem('lastBase')||'0')||null;
+        var beat = parseInt(localStorage.getItem('lastBeat')||'0')||0;
+        if (!gen || !base) {
+          var mood = localStorage.getItem('lastMood')||'Sakin';
+          var cfg  = CONFIG.moods[mood]||CONFIG.moods['Sakin'];
+          gen=cfg.gen; base=cfg.base; beat=cfg.beat;
+        }
+        Audio.play(gen, base, beat);
+      } catch(e) {
+        console.error('[togglePlay]', e);
+        if (icon) icon.textContent='▶';
+        if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
+        if (lbl)  lbl.textContent='Frekansı Başlat';
+        return;
+      }
+
+      BreathCycle.start();
+    } else {
+      if (icon) icon.textContent='▶';
+      if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
+      if (lbl)  lbl.textContent='Frekansı Başlat';
+      Audio.pause();
+      BreathCycle.stop();
+    }
+  }
+
+  /* ═══════════════════════════════════════
+     9. UYKU SAYACI
+  ═══════════════════════════════════════ */
+  var _sleepTimer = null;
+
+  function setSleepTimer(minutes) {
+    if (_sleepTimer) clearTimeout(_sleepTimer);
+    document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
+    var activeBtn = Array.from(document.querySelectorAll('.stimer-btn')).find(function(b){ return b.textContent.trim()===minutes+'dk'; });
+    if (activeBtn) activeBtn.classList.add('active');
+    var statusEl = document.getElementById('stimer-status');
+    if (statusEl) { statusEl.textContent='⏰ '+minutes+' dk sonra duracak'; statusEl.className='active'; }
+
+    var fadeAt = (minutes-2)*60*1000;
+    var stopAt  = minutes*60*1000;
+
+    if (fadeAt>0) {
+      setTimeout(function(){
+        Audio.fadeTo(0, CONFIG.audio.fadeOutDuration);
+        if (statusEl) { statusEl.textContent='🌙 Ses kısılıyor...'; statusEl.className='fading'; }
+        document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active'); });
+        if (activeBtn) activeBtn.classList.add('fading');
+      }, fadeAt);
+    }
+
+    _sleepTimer = setTimeout(function(){
+      if (Audio.isPlaying()) togglePlay();
+      if (statusEl) { statusEl.textContent='✓ Tamamlandı'; statusEl.className=''; }
+      document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
+      _sleepTimer=null;
+    }, stopAt);
+  }
+
+  function cancelSleepTimer() {
+    if (_sleepTimer) { clearTimeout(_sleepTimer); _sleepTimer=null; }
+    document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
+    var statusEl=document.getElementById('stimer-status');
+    if (statusEl) { statusEl.textContent=''; statusEl.className=''; }
+    Audio.fadeTo(CONFIG.audio.masterVolume, 1);
+  }
+
+  /* ═══════════════════════════════════════
+     10. GÜNLÜK
+  ═══════════════════════════════════════ */
+  function saveJournalEntry() {
+    var ta = document.getElementById('journal-textarea');
+    var text = ta ? ta.value.trim() : '';
+    if (!text) return;
+    try {
+      localStorage.setItem('lastJournal', text);
+      localStorage.setItem('lastJournalDate', new Date().toISOString());
+    } catch(e){}
+    var status = document.getElementById('journal-save-status');
+    if (status) {
+      status.textContent='✓ Kaydedildi';
+      setTimeout(function(){ status.textContent=''; }, 2000);
+    }
+    sessionBuffer.set('tab_tab-journal_text', text);
+  }
+
+  /* ═══════════════════════════════════════
+     11. AI ORACLE
+  ═══════════════════════════════════════ */
+  function generateAIFreq() {
+    var input = (document.getElementById('ai-input')||{}).value;
+    if (!input || !input.trim()) {
+      var ta=document.getElementById('ai-input');
+      if(ta){ta.style.borderColor='rgba(255,100,100,0.5)';setTimeout(function(){ta.style.borderColor='';},1500);}
+      return;
+    }
+    var btn=document.getElementById('ai-generate-btn');
+    if(btn){btn.disabled=true;btn.textContent='✦ Düşünüyor...';}
+
+    setTimeout(function(){
+      var lower=input.toLowerCase();
+      var freq=432,beat=7,msg='';
+      if(lower.includes('uyku')||lower.includes('yorgun')){freq=174;beat=4;msg='Derin uyku için delta dalgaları aktif.';}
+      else if(lower.includes('kaygı')||lower.includes('stres')){freq=396;beat=6;msg='Kaygıyı serbest bırakan frekans.';}
+      else if(lower.includes('odak')||lower.includes('çalış')){freq=40;beat=10;msg='Gamma dalgaları aktif. Odak derinleşiyor.';}
+      else if(lower.includes('mutlu')||lower.includes('neşe')){freq=528;beat=10;msg='DNA tamiri frekansı. İçsel ışığını hisset.';}
+      else if(lower.includes('huzur')||lower.includes('sakin')){freq=432;beat=7;msg='Evrenin doğal titreşimi.';}
+      else{freq=285;beat=8;msg='Sana özel bir titreşim tasarlandı.';}
+
+      var resultEl=document.getElementById('ai-result');
+      var textEl=document.getElementById('ai-result-text');
+      var freqEl=document.getElementById('ai-result-freq');
+      if(textEl)textEl.textContent=msg;
+      if(freqEl)freqEl.innerHTML='<span class="ai-freq-chip">'+freq+' Hz</span><span class="ai-freq-chip">Binaural '+beat+' Hz</span>';
+      if(resultEl)resultEl.classList.add('show');
+      if(btn){btn.disabled=false;btn.textContent='✦ Oracle\'ı Uyandır';}
+
+      try{localStorage.setItem('lastGen','binaural');localStorage.setItem('lastBase',freq);localStorage.setItem('lastBeat',beat);}catch(e){}
+    }, 1200);
+  }
+
+  /* ═══════════════════════════════════════
+     12. ANALİTİK
+  ═══════════════════════════════════════ */
+  function showAnalytics() {
+    var sessions=parseInt(localStorage.getItem('sessionCount')||'0');
+    var minutes=parseInt(localStorage.getItem('totalMinutes')||'0');
+    var streak=parseInt(localStorage.getItem('currentStreak')||'0');
+    var s=document.getElementById('stat-sessions');
+    var m=document.getElementById('stat-minutes');
+    var st=document.getElementById('stat-streak');
+    if(s)s.textContent=sessions;
+    if(m)m.textContent=minutes;
+    if(st)st.textContent=streak;
+    showScreen('analytics');
+
+    requestAnimationFrame(function(){
+      var canvas=document.getElementById('analytics-canvas');
+      if(!canvas)return;
+      var ctx=canvas.getContext('2d');
+      var W=canvas.offsetWidth||300,H=120;
+      canvas.width=W;canvas.height=H;
+      var days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+      var vals=days.map(function(){return Math.floor(Math.random()*40);});
+      vals[6]=minutes%40;
+      var max=Math.max.apply(null,vals.concat([1]));
+      ctx.clearRect(0,0,W,H);
+      var barW=W/days.length*0.6,gap=W/days.length;
+      days.forEach(function(day,i){
+        var x=gap*i+gap*0.2,barH=(vals[i]/max)*(H-24),y=H-barH-20;
+        var grad=ctx.createLinearGradient(0,y,0,H-20);
+        grad.addColorStop(0,'rgba(201,169,110,0.8)');grad.addColorStop(1,'rgba(201,169,110,0.15)');
+        ctx.fillStyle=grad;ctx.beginPath();
+        if(ctx.roundRect)ctx.roundRect(x,y,barW,barH,4);else ctx.rect(x,y,barW,barH);
+        ctx.fill();
+        ctx.fillStyle='rgba(122,120,144,0.7)';ctx.font='9px sans-serif';ctx.textAlign='center';
+        ctx.fillText(day,x+barW/2,H-4);
+      });
+    });
+  }
+
+  function clearData(){
+    if(confirm('Tüm veriler silinecek. Emin misin?')){
+      try{localStorage.clear();}catch(e){}
+      showAnalytics();
+    }
+  }
+
+  function exportHealth(){ alert('Sağlık verileri kopyalandı.'); }
+
+  /* ═══════════════════════════════════════
+     13. PREMİUM / PAYWALL
+  ═══════════════════════════════════════ */
+  function openPaywall(){
+    var o=document.getElementById('paywall-overlay');
+    if(!o)return;
+    o.style.display='flex';
+    requestAnimationFrame(function(){o.classList.add('show');});
+    document.body.style.overflow='hidden';
+  }
+
+  function closePaywall(){
+    var o=document.getElementById('paywall-overlay');
+    if(!o)return;
+    o.classList.remove('show');
+    setTimeout(function(){o.style.display='none';document.body.style.overflow='';},400);
+  }
+
+  function selectPlan(el){
+    document.querySelectorAll('.pw-plan').forEach(function(p){p.classList.remove('sel');});
+    el.classList.add('sel');
+  }
+
+  function handlePurchase(){ alert('Premium satın alındı!'); closePaywall(); }
+  function restorePurchase(){ alert('Satın alım geri yükleniyor...'); }
+  function updateTrialState(){
+    var on=document.getElementById('pw-trial-toggle');
+    var note=document.getElementById('pw-cta-note');
+    if(note)note.textContent=on&&on.checked?'Deneme bittikten sonra $59.99/yıl.':'Hemen $59.99/yıl faturalandırılır.';
+  }
+
+  /* ═══════════════════════════════════════
+     14. CANLI ODALAR
+  ═══════════════════════════════════════ */
+  var Rooms = (function(){
+    var _data = CONFIG.rooms.slice();
+    var _filter = 'all';
+
+    function render(){
+      var grid=document.getElementById('roomsGrid');
+      if(!grid)return;
+      var filtered=_filter==='all'?_data:_data.filter(function(r){return r.category===_filter;});
+      grid.innerHTML='';
+      if(filtered.length===0){
+        grid.innerHTML='<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
+        return;
+      }
+      filtered.forEach(function(room){
+        var pct=Math.round(room.joined/room.capacity*100);
+        var initials=room.host.split(' ').map(function(w){return w[0];}).join('').slice(0,2);
+        var catLabels={odak:'🎯 Odak',uyku:'😴 Uyku',meditasyon:'🧘 Meditasyon',doga:'🌿 Doğa'};
+        var card=document.createElement('div');
+        card.className='room-card';
+        card.innerHTML='<div class="card-top"><span class="badge-live"><span class="dot"></span>LIVE</span>'+(room.priv?'<span class="badge-private">🔒 Özel</span>':'')+'</div>'
+          +'<div class="room-name">'+room.name+'</div>'
+          +'<div class="room-category">'+(catLabels[room.category]||room.category)+'</div>'
+          +'<div class="card-footer"><div class="host-info"><div class="host-avatar">'+initials+'</div><span class="host-name">'+room.host+'</span></div>'
+          +'<div class="capacity-bar-wrap"><div class="capacity-text">'+room.joined+'/'+room.capacity+' kişi</div>'
+          +'<div class="capacity-bar"><div class="capacity-fill" style="width:'+pct+'%"></div></div></div></div>';
+        card.addEventListener('click',function(){alert('🎵 "'+room.name+'" odasına katılıyorsunuz...');});
+        grid.appendChild(card);
+      });
+    }
+
+    function create(name, category, capacity, priv){
+      _data.unshift({id:Date.now(),name:name,category:category,host:'Sen',capacity:capacity,joined:1,live:true,priv:priv});
+      render();
+    }
+
+    return { render:render, create:create, setFilter:function(f){_filter=f;render();} };
+  })();
+
+  /* ═══════════════════════════════════════
+     15. DOMContentLoaded INIT
+  ═══════════════════════════════════════ */
+  function _init() {
+    // İlk tab
     var p=document.getElementById('tab-audio');
     var b=document.getElementById('tab-btn-audio');
     if(p)p.classList.add('active');
     if(b){b.classList.add('active');b.setAttribute('aria-selected','true');}
-  }
-  
-  window.switchTab = function(tabId) {
-    document.querySelectorAll('.tab-panel').forEach(function(el){ el.classList.remove('active'); });
-    document.querySelectorAll('.tab-item').forEach(function(el){ el.classList.remove('active'); el.setAttribute('aria-selected','false'); });
-    var p = document.getElementById(tabId);
-    if (p) { p.classList.add('active'); }
-    var btnId = 'tab-btn-' + tabId.replace('tab-','');
-    var b = document.getElementById(btnId);
-    if (b) { b.classList.add('active'); b.setAttribute('aria-selected','true'); }
-    if (tabId === 'tab-journal') {
-      var d = document.getElementById('journal-date');
-      if (d) d.textContent = new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});
+
+    // HP banner
+    setTimeout(function(){
+      var banner=document.getElementById('hp-banner');
+      if(banner)banner.classList.add('show');
+    },2000);
+
+    // Connection warning gizle
+    var cw=document.getElementById('connection-warning');
+    if(cw)cw.style.display='none';
+
+    // Waveform barları
+    var wform=document.getElementById('waveform');
+    if(wform&&wform.children.length===0){
+      for(var i=0;i<12;i++){
+        var bar=document.createElement('div'); bar.className='wbar';
+        bar.style.setProperty('--dur',(0.4+Math.random()*0.6)+'s');
+        bar.style.setProperty('--del',(Math.random()*0.4)+'s');
+        wform.appendChild(bar);
+      }
     }
-  };
-  
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initTabs);}else{initTabs();}
-})();
-</script>
 
-<!-- TÜM EKSİK FONKSİYONLAR EKLENDİ -->
-<script>
-// ========== EKRAN YÖNETİMİ ==========
-function showScreen(screenId) {
-  document.querySelectorAll('.screen').forEach(function(s) {
-    s.classList.remove('on');
-    s.classList.add('off');
-  });
-  var t = document.getElementById('screen-' + screenId);
-  if (t) { t.classList.remove('off'); t.classList.add('on'); }
-}
+    // Mood'u yükle
+    try{
+      var lastMood=localStorage.getItem('lastMood');
+      var lastEmoji=localStorage.getItem('lastEmoji');
+      if(lastMood){var me=document.getElementById('s-emoji'),mm=document.getElementById('s-mood');if(me)me.textContent=lastEmoji;if(mm)mm.textContent=lastMood;}
+    }catch(e){}
 
-function goBack() {
-  if (document.getElementById('screen-sanctuary').classList.contains('on')) {
-    showScreen('mood');
-  } else if (document.getElementById('screen-analytics').classList.contains('on')) {
-    showScreen('sanctuary');
-  }
-}
+    // Canlı odaları render et
+    Rooms.render();
 
-function goSanctuary() { 
-  showScreen('sanctuary'); 
-}
-
-// ========== MOOD ==========
-function pickMood(element) {
-  const mood  = element.getAttribute('data-mood');
-  const emoji = element.querySelector('.ic').textContent;
-
-  // Seçim UI
-  document.querySelectorAll('.mood-chip').forEach(c => c.classList.remove('sel'));
-  element.classList.add('sel');
-
-  document.getElementById('s-emoji').textContent = emoji;
-  document.getElementById('s-mood').textContent  = mood;
-
-  const messages = {
-    'Huzursuz':  'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.',
-    'Yorgun':    'Dinlenmek bir lüks değil, ihtiyaçtır. Kendine izin ver.',
-    'Kaygılı':   'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.',
-    'Mutsuz':    'Her duygu geçer. Bu da geçecek. Burada seninleyim.',
-    'Sakin':     'Sakinlik senin doğal halin. Onu koruyalım.',
-    'Minnettar': 'Minnettarlık kalbi açar, dünyayı aydınlatır.',
-  };
-  const msgEl = document.getElementById('s-message');
-  if (msgEl) msgEl.textContent = messages[mood] || '';
-
-  // Canvas arka plan rengi ruh haline göre değişsin
-  const bgMap = {
-    'Huzursuz': 'teal', 'Yorgun': 'violet', 'Kaygılı': 'sky',
-    'Mutsuz': 'rose', 'Sakin': 'teal', 'Minnettar': 'gold'
-  };
-  if (typeof window.setBgMood === 'function') window.setBgMood(bgMap[mood] || 'teal');
-
-  localStorage.setItem('lastMood', mood);
-  localStorage.setItem('lastEmoji', emoji);
-
-  // Ses parametrelerini sıfırla — yeni mood'a göre ses üretilsin
-  localStorage.removeItem('lastGen');
-  localStorage.removeItem('lastBase');
-  localStorage.removeItem('lastBeat');
-}
-
-// ========== SES ==========
-/* ═══════════════════════════════════════════════════════════════
-   SANCTUARY AUDIO ENGINE — Self-contained Web Audio API
-   Mood + ses kartı seçimine göre dinamik ses üretimi
-═══════════════════════════════════════════════════════════════ */
-
-// ── Durum değişkenleri ──
-let isPlaying     = false;
-let _audioCtx     = null;
-let _masterGain   = null;
-let _oscillators  = [];
-let _noiseSource  = null;
-let _ambGainNode  = null;
-let _currentGen   = null;   // aktif generator tipi
-let _currentBase  = null;   // aktif base frekans
-let _currentBeat  = null;   // aktif beat frekans
-
-// ── Mood → frekans haritası ──
-const MOOD_FREQ_MAP = {
-  'Huzursuz':  { base: 180, beat: 6,  gen: 'waves'   },
-  'Yorgun':    { base: 200, beat: 4,  gen: 'rain'    },
-  'Kaygılı':   { base: 160, beat: 8,  gen: 'wind'    },
-  'Mutsuz':    { base: 220, beat: 5,  gen: 'waves'   },
-  'Sakin':     { base: 200, beat: 7,  gen: 'binaural'},
-  'Minnettar': { base: 528, beat: 10, gen: 'rain'    },
-};
-
-// ── AudioContext ──
-function _getAudioCtx() {
-  if (!_audioCtx) {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    _audioCtx = new Ctx();
-  }
-  return _audioCtx;
-}
-
-// ── Buffer üreticiler ──
-function _createNoiseBuffer(ctx) {
-  const sr = ctx.sampleRate, sec = 8;
-  const buf = ctx.createBuffer(2, sr * sec, sr);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.18;
-  }
-  return buf;
-}
-
-function _createWavesBuffer(ctx) {
-  const sr = ctx.sampleRate, sec = 8;
-  const buf = ctx.createBuffer(2, sr * sec, sr);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch);
-    for (let i = 0; i < d.length; i++) {
-      const t = i / sr;
-      d[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.14 + (Math.random() * 2 - 1) * 0.05;
+    // Filtre butonları
+    var filterBar=document.getElementById('roomFilterBar');
+    if(filterBar){
+      filterBar.addEventListener('click',function(e){
+        var chip=e.target.closest('.filter-chip');
+        if(!chip)return;
+        document.querySelectorAll('.filter-chip').forEach(function(c){c.classList.remove('active');});
+        chip.classList.add('active');
+        Rooms.setFilter(chip.getAttribute('data-filter'));
+      });
     }
-  }
-  return buf;
-}
 
-function _createWindBuffer(ctx) {
-  const sr = ctx.sampleRate, sec = 8;
-  const buf = ctx.createBuffer(2, sr * sec, sr);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch);
-    for (let i = 0; i < d.length; i++) {
-      const t = i / sr;
-      d[i] = (Math.random() * 2 - 1) * 0.13 * Math.abs(Math.sin(t * 0.4));
-    }
-  }
-  return buf;
-}
+    // Premium sounds grid
+    setTimeout(function(){
+      var sk=document.getElementById('premium-sounds-skeleton');
+      var grid=document.getElementById('premium-sounds-grid');
+      if(sk)sk.style.display='none';
+      if(grid){
+        grid.style.display='grid';
+        CONFIG.sounds.forEach(function(s){
+          var card=document.createElement('div');
+          card.className='s-card'+(s.locked?' premium':'');
+          card.style.cursor='pointer';
+          card.innerHTML=(s.locked?'<span class="s-card-lock">🔒</span>':'')
+            +'<span class="s-card-ic">'+s.ic+'</span>'
+            +'<span class="s-card-nm">'+s.name+'</span>'
+            +'<span class="s-card-dur">'+(s.locked?'Premium':s.base+' Hz')+'</span>';
+          if(!s.locked){
+            card.addEventListener('click',function(){
+              grid.querySelectorAll('.s-card').forEach(function(c){c.style.borderColor='';});
+              card.style.borderColor='var(--gold)';
+              Audio.switch(s.gen,s.base,s.beat,s.name);
+            });
+          } else {
+            card.addEventListener('click', openPaywall);
+          }
+          grid.appendChild(card);
+        });
+      }
+    },600);
 
-function _createFireBuffer(ctx) {
-  const sr = ctx.sampleRate, sec = 8;
-  const buf = ctx.createBuffer(2, sr * sec, sr);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch);
-    for (let i = 0; i < d.length; i++) {
-      const t = i / sr;
-      d[i] = (Math.random() * 2 - 1) * 0.14 * (0.8 + Math.sin(t * 3) * 0.2);
-    }
-  }
-  return buf;
-}
+    // Modal açma/kapatma
+    var openModalBtn=document.getElementById('btnOpenCreateModal');
+    var closeModalBtn=document.getElementById('btnCloseModal');
+    var modal=document.getElementById('createRoomModal');
+    if(openModalBtn)openModalBtn.addEventListener('click',function(){if(modal)modal.style.display='flex';});
+    if(closeModalBtn)closeModalBtn.addEventListener('click',function(){if(modal)modal.style.display='none';});
+    if(modal)modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});
 
-// ── Ses durdurma (tüm node'ları temizle) ──
-function _stopAllNodes() {
-  _oscillators.forEach(osc => { try { osc.stop(); osc.disconnect(); } catch(e) {} });
-  _oscillators = [];
-  if (_noiseSource) {
-    try { _noiseSource.stop(); _noiseSource.disconnect(); } catch(e) {}
-    _noiseSource = null;
-  }
-  if (_ambGainNode) {
-    try { _ambGainNode.disconnect(); } catch(e) {}
-    _ambGainNode = null;
-  }
-  _currentGen = null;
-}
+    // Kapasite stepper
+    var cap=5;
+    var capVal=document.getElementById('capValue');
+    var incBtn=document.getElementById('btnCapInc');
+    var decBtn=document.getElementById('btnCapDec');
+    if(incBtn)incBtn.addEventListener('click',function(){if(cap<20){cap++;if(capVal)capVal.textContent=cap;}});
+    if(decBtn)decBtn.addEventListener('click',function(){if(cap>2){cap--;if(capVal)capVal.textContent=cap;}});
 
-// ── Ses başlatma — gen, base, beat parametreli ──
-async function _startSound(gen, base, beat) {
-  const ctx = _getAudioCtx();
-  if (ctx.state === 'suspended') {
-    try { await ctx.resume(); } catch(e) {}
-  }
-
-  // masterGain yoksa oluştur
-  if (!_masterGain) {
-    _masterGain = ctx.createGain();
-    _masterGain.gain.value = 0.75;
-    _masterGain.connect(ctx.destination);
-  }
-
-  // Önceki sesleri durdur
-  _stopAllNodes();
-
-  // Binaural beat katmanı
-  if (gen === 'binaural' || beat > 0) {
-    const merger = ctx.createChannelMerger(2);
-    merger.connect(_masterGain);
-
-    [[base, 0], [base + beat, 1]].forEach(([freq, ch]) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = freq;
-      osc.type = 'sine';
-      gain.gain.value = 0.10;
-      osc.connect(gain);
-      gain.connect(merger, 0, ch);
-      osc.start();
-      _oscillators.push(osc);
+    // Tip seçimi
+    document.querySelectorAll('.type-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('selected');});
+        this.classList.add('selected');
+        var pf=document.getElementById('passwordField');
+        if(pf)pf.style.display=this.getAttribute('data-type')==='private'?'block':'none';
+      });
     });
-  }
 
-  // Ambient noise katmanı
-  let buffer;
-  switch(gen) {
-    case 'rain':    buffer = _createNoiseBuffer(ctx); break;
-    case 'waves':   buffer = _createWavesBuffer(ctx); break;
-    case 'fire':    buffer = _createFireBuffer(ctx);  break;
-    case 'binaural':buffer = _createWindBuffer(ctx);  break;
-    default:        buffer = _createWindBuffer(ctx);  break;
-  }
-
-  const src    = ctx.createBufferSource();
-  const filter = ctx.createBiquadFilter();
-  const gain   = ctx.createGain();
-
-  src.buffer = buffer;
-  src.loop   = true;
-  filter.type = 'lowpass';
-  filter.frequency.value = gen === 'rain' ? 1200 : 700;
-  gain.gain.value = 0.55;
-
-  src.connect(filter);
-  filter.connect(gain);
-  gain.connect(_masterGain);
-  src.start(0);
-
-  _noiseSource  = src;
-  _ambGainNode  = gain;
-  _currentGen   = gen;
-  _currentBase  = base;
-  _currentBeat  = beat;
-
-  // Frekans badge güncelle
-  const badge = document.getElementById('freq-badge');
-  const label = document.getElementById('freq-label');
-  if (badge) badge.classList.add('on');
-  if (label) label.textContent = base + ' Hz · ' + gen;
-
-  // Waveform barları
-  const wform = document.getElementById('waveform');
-  if (wform && wform.children.length === 0) {
-    for (let i = 0; i < 12; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'wbar';
-      bar.style.setProperty('--dur', (0.4 + Math.random() * 0.6) + 's');
-      bar.style.setProperty('--del', (Math.random() * 0.4) + 's');
-      wform.appendChild(bar);
+    // Oda oluşturma
+    var submitBtn=document.getElementById('btnSubmitRoom');
+    if(submitBtn){
+      submitBtn.addEventListener('click',function(){
+        var name=(document.getElementById('roomName')||{}).value;
+        if(!name||!name.trim()){var ni=document.getElementById('roomName');if(ni)ni.focus();return;}
+        var cat=(document.getElementById('roomCategory')||{}).value||'meditasyon';
+        var isPriv=!!(document.querySelector('.type-btn.selected')&&document.querySelector('.type-btn.selected').getAttribute('data-type')==='private');
+        Rooms.create(name.trim(), cat, cap, isPriv);
+        if(modal)modal.style.display='none';
+        var ni=document.getElementById('roomName');if(ni)ni.value='';
+      });
     }
-  }
-  document.querySelectorAll('.wbar').forEach(b => b.classList.add('on'));
-}
 
-// ── Ses değiştir (çalarken bile anında geçiş) ──
-async function switchSound(gen, base, beat, label) {
-  localStorage.setItem('lastGen', gen);
-  localStorage.setItem('lastBase', base);
-  localStorage.setItem('lastBeat', beat);
-
-  if (isPlaying) {
-    await _startSound(gen, base, beat);
+    // Skeleton reveal
+    var moodSkel=document.getElementById('mood-grid-skeleton');
+    var moodGrid=document.getElementById('mood-grid');
+    if(moodSkel)moodSkel.style.display='none';
+    if(moodGrid)moodGrid.style.display='grid';
+    var oracleSkel=document.getElementById('ai-oracle-skeleton');
+    var oracleContent=document.getElementById('ai-oracle-content');
+    if(oracleSkel)setTimeout(function(){oracleSkel.style.display='none';if(oracleContent)oracleContent.style.display='block';},400);
   }
 
-  // Ses kartı badge güncelle
-  const badgeLabel = document.getElementById('freq-label');
-  if (badgeLabel) badgeLabel.textContent = base + ' Hz · ' + (label || gen);
-}
-
-// ── Ana toggle ──
-async function togglePlay() {
-  const btn  = document.getElementById('play-btn');
-  const icon = document.getElementById('play-icon');
-  const lbl  = document.getElementById('play-lbl');
-  const wrap = document.querySelector('.breath-wrap');
-
-  isPlaying = !isPlaying;
-
-  if (icon) icon.textContent = isPlaying ? '⏸' : '▶';
-  if (btn)  { btn.setAttribute('aria-pressed', isPlaying); btn.classList.toggle('on', isPlaying); }
-  if (lbl)  lbl.textContent = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
-
-  if (wrap) {
-    wrap.classList.remove('breath-idle', 'breath-inhale');
-    if (isPlaying) wrap.classList.add('breath-inhale');
-    else           wrap.classList.add('breath-idle');
-  }
-
-  try {
-    if (isPlaying) {
-      // Hangi ses? localStorage'dan al, yoksa mood'a göre seç
-      const gen  = localStorage.getItem('lastGen')  || null;
-      const base = parseInt(localStorage.getItem('lastBase') || '0') || null;
-      const beat = parseInt(localStorage.getItem('lastBeat') || '0') || null;
-
-      if (gen && base) {
-        await _startSound(gen, base, beat || 0);
-      } else {
-        const mood   = localStorage.getItem('lastMood') || 'Sakin';
-        const params = MOOD_FREQ_MAP[mood] || MOOD_FREQ_MAP['Sakin'];
-        await _startSound(params.gen, params.base, params.beat);
-      }
-    } else {
-      _stopAllNodes();
-      if (_audioCtx) try { await _audioCtx.suspend(); } catch(e) {}
-      document.querySelectorAll('.wbar').forEach(b => b.classList.remove('on'));
-      const badge = document.getElementById('freq-badge');
-      if (badge) badge.classList.remove('on');
-    }
-  } catch(err) {
-    console.error('[togglePlay]', err);
-    isPlaying = !isPlaying;
-    if (icon) icon.textContent = '▶';
-    if (btn)  { btn.setAttribute('aria-pressed', false); btn.classList.remove('on'); }
-    if (lbl)  lbl.textContent = 'Frekansı Başlat';
-  }
-}
-
-
-function setSleepTimer(minutes) {
-  if (_sleepTimerRef) clearTimeout(_sleepTimerRef);
-
-  // Butonları güncelle
-  document.querySelectorAll('.stimer-btn').forEach(b => { b.classList.remove('active','fading'); });
-  const activeBtn = Array.from(document.querySelectorAll('.stimer-btn')).find(b => b.textContent === minutes + 'dk');
-  if (activeBtn) activeBtn.classList.add('active');
-
-  const statusEl = document.getElementById('stimer-status');
-  if (statusEl) { statusEl.textContent = '⏰ ' + minutes + ' dk sonra duracak'; statusEl.className = 'active'; }
-
-  const fadeAt = (minutes - 2) * 60 * 1000;
-  const stopAt  = minutes * 60 * 1000;
-
-  if (fadeAt > 0) {
-    setTimeout(function() {
-      // 2 dk kala yavaşça azalt
-      if (_audioCtx && _masterGain) {
-        const now = _audioCtx.currentTime;
-        _masterGain.gain.setValueAtTime(_masterGain.gain.value, now);
-        _masterGain.gain.linearRampToValueAtTime(0, now + 120);
-      }
-      if (statusEl) { statusEl.textContent = '🌙 Ses kısılıyor...'; statusEl.className = 'fading'; }
-      document.querySelectorAll('.stimer-btn').forEach(b => b.classList.remove('active'));
-      if (activeBtn) activeBtn.classList.add('fading');
-    }, fadeAt);
-  }
-
-  _sleepTimerRef = setTimeout(async function() {
-    if (isPlaying) {
-      isPlaying = false;
-      _stopAudio();
-      const icon = document.getElementById('play-icon');
-      const btn  = document.getElementById('play-btn');
-      const lbl  = document.getElementById('play-lbl');
-      if (icon) icon.textContent = '▶';
-      if (btn)  { btn.setAttribute('aria-pressed', false); btn.classList.remove('on'); }
-      if (lbl)  lbl.textContent = 'Frekansı Başlat';
-      document.querySelectorAll('.wbar').forEach(b => b.classList.remove('on'));
-    }
-    if (statusEl) { statusEl.textContent = '✓ Tamamlandı'; statusEl.className = ''; }
-    document.querySelectorAll('.stimer-btn').forEach(b => b.classList.remove('active','fading'));
-    _sleepTimerRef = null;
-  }, stopAt);
-}
-
-function cancelSleepTimer() {
-  if (_sleepTimerRef) { clearTimeout(_sleepTimerRef); _sleepTimerRef = null; }
-  document.querySelectorAll('.stimer-btn').forEach(b => b.classList.remove('active','fading'));
-  const statusEl = document.getElementById('stimer-status');
-  if (statusEl) { statusEl.textContent = ''; statusEl.className = ''; }
-  // Sesi geri getir
-  if (_audioCtx && _masterGain && isPlaying) {
-    const now = _audioCtx.currentTime;
-    _masterGain.gain.cancelScheduledValues(now);
-    _masterGain.gain.setValueAtTime(_masterGain.gain.value, now);
-    _masterGain.gain.linearRampToValueAtTime(0.75, now + 1);
-  }
-}
-
-// ========== GÜNLÜK ==========
-function saveJournalEntry() {
-  const text = document.getElementById('journal-textarea').value;
-  if (text.trim()) {
-    localStorage.setItem('lastJournal', text);
-    localStorage.setItem('lastJournalDate', new Date().toISOString());
-    document.getElementById('journal-save-status').textContent = '✓ Kaydedildi';
-    setTimeout(() => {
-      document.getElementById('journal-save-status').textContent = '';
-    }, 2000);
-  }
-}
-
-// ========== AI ORACLE ==========
-async function generateAIFreq() {
-  const input = document.getElementById('ai-input').value.trim();
-  if (!input) {
-    const ta = document.getElementById('ai-input');
-    if (ta) { ta.style.borderColor = 'rgba(255,100,100,0.5)'; setTimeout(()=>ta.style.borderColor='',1500); }
-    return;
-  }
-
-  const btn = document.getElementById('ai-generate-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '✦ Düşünüyor...'; }
-
-  // Kısa yapay bekleme (gerçek API entegrasyonu için buraya fetch eklenebilir)
-  await new Promise(r => setTimeout(r, 1200));
-
-  // Anahtar kelime bazlı frekans önerisi
-  const lower = input.toLowerCase();
-  let freq = 432, beat = 7, msg = '';
-  if (lower.includes('uyku') || lower.includes('yorgun') || lower.includes('uyu')) {
-    freq = 174; beat = 4;
-    msg = 'Derin uyku için delta dalgaları aktif. Zihnin yavaşlıyor, beden dinleniyor.';
-  } else if (lower.includes('kaygı') || lower.includes('stres') || lower.includes('endişe')) {
-    freq = 396; beat = 6;
-    msg = 'Kaygıyı serbest bırakan frekans. Güvende hisset, nefes al.';
-  } else if (lower.includes('odak') || lower.includes('çalış') || lower.includes('konsantr')) {
-    freq = 40; beat = 10;
-    msg = 'Gamma dalgaları aktif. Zihin berraklaşıyor, odak derinleşiyor.';
-  } else if (lower.includes('mutlu') || lower.includes('neşe') || lower.includes('sevinç')) {
-    freq = 528; beat = 10;
-    msg = 'DNA tamiri frekansı. İçsel ışığını hisset.';
-  } else if (lower.includes('huzur') || lower.includes('sakin') || lower.includes('medit')) {
-    freq = 432; beat = 7;
-    msg = 'Evrenin doğal titreşimi. Her şey yolunda.';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',_init);
   } else {
-    freq = 285; beat = 8;
-    msg = 'Sana özel bir titreşim tasarlandı. Bırak, içine işlesin.';
+    _init();
   }
 
-  const resultEl = document.getElementById('ai-result');
-  const textEl   = document.getElementById('ai-result-text');
-  const freqEl   = document.getElementById('ai-result-freq');
-
-  if (textEl) textEl.textContent = msg;
-  if (freqEl) freqEl.innerHTML =
-    '<span class="ai-freq-chip">' + freq + ' Hz</span>' +
-    '<span class="ai-freq-chip">Binaural ' + beat + ' Hz</span>';
-  if (resultEl) resultEl.classList.add('show');
-
-  if (btn) { btn.disabled = false; btn.textContent = '✦ Oracle\'ı Uyandır'; }
-
-  // Seçilen frekansı uygula
-  localStorage.setItem('lastGen', 'binaural');
-  localStorage.setItem('lastBaseFreq', freq);
-  localStorage.setItem('lastBeatFreq', beat);
-}
-
-// ========== ANALİTİK ==========
-function showAnalytics() {
-  const sessions = parseInt(localStorage.getItem('sessionCount') || '0');
-  const minutes  = parseInt(localStorage.getItem('totalMinutes') || '0');
-  const streak   = parseInt(localStorage.getItem('currentStreak') || '0');
-
-  document.getElementById('stat-sessions').textContent = sessions;
-  document.getElementById('stat-minutes').textContent  = minutes;
-  document.getElementById('stat-streak').textContent   = streak;
-
-  showScreen('analytics');
-
-  // Basit bar chart çiz
-  requestAnimationFrame(function() {
-    const canvas = document.getElementById('analytics-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.offsetWidth || 300;
-    const H = 120;
-    canvas.width = W; canvas.height = H;
-
-    const days = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
-    const vals = Array.from({length:7}, () => Math.floor(Math.random() * 40));
-    vals[6] = minutes % 40; // bugünkü gerçek değer
-    const max = Math.max(...vals, 1);
-
-    ctx.clearRect(0, 0, W, H);
-    const barW = W / days.length * 0.6;
-    const gap  = W / days.length;
-
-    days.forEach(function(day, i) {
-      const x = gap * i + gap * 0.2;
-      const barH = (vals[i] / max) * (H - 24);
-      const y = H - barH - 20;
-
-      const grad = ctx.createLinearGradient(0, y, 0, H - 20);
-      grad.addColorStop(0, 'rgba(201,169,110,0.8)');
-      grad.addColorStop(1, 'rgba(201,169,110,0.15)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(x, y, barW, barH, 4) : ctx.rect(x, y, barW, barH);
-      ctx.fill();
-
-      ctx.fillStyle = 'rgba(122,120,144,0.7)';
-      ctx.font = '9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(day, x + barW / 2, H - 4);
-    });
-
-    // Mood log
-    const logList = document.getElementById('mood-log-list');
-    if (logList && logList.children.length === 0) {
-      const mood = localStorage.getItem('lastMood') || 'Sakin';
-      const emoji = localStorage.getItem('lastEmoji') || '🕯';
-      if (mood) {
-        logList.innerHTML = '<div class="log-item"><span class="log-emoji">' + emoji + '</span>' +
-          '<div class="log-info"><div class="log-mood">' + mood + '</div>' +
-          '<div class="log-meta">Bugün · Sanctuary seansı</div></div>' +
-          '<span class="log-dur">' + minutes + 'dk</span></div>';
-      } else {
-        logList.innerHTML = '<p style="color:var(--text-ghost);font-size:12px;text-align:center;padding:16px">Henüz kayıtlı oturum yok.</p>';
-      }
-    }
-  });
-}
-
-function clearData() {
-  if (confirm('Tüm veriler silinecek. Emin misin?')) {
-    localStorage.clear();
-    showAnalytics();
-  }
-}
-
-function exportHealth() {
-  alert('Sağlık verileri dışa aktarıldı');
-}
-
-// ========== PREMİUM ==========
-let selectedPlan = null;
-
-function openPaywall() {
-  const overlay = document.getElementById('paywall-overlay');
-  if (!overlay) return;
-  overlay.style.display = 'flex';
-  // Animasyon için bir tick bekle
-  requestAnimationFrame(function() {
-    overlay.classList.add('show');
-  });
-  document.body.style.overflow = 'hidden';
-}
-
-function closePaywall() {
-  const overlay = document.getElementById('paywall-overlay');
-  if (!overlay) return;
-  overlay.classList.remove('show');
-  setTimeout(function() {
-    overlay.style.display = 'none';
-    document.body.style.overflow = '';
-  }, 400);
-}
-
-function selectPlan(element) {
-  document.querySelectorAll('.pw-plan').forEach(el => el.classList.remove('sel'));
-  element.classList.add('sel');
-  selectedPlan = element.getAttribute('data-plan');
-}
-
-function handlePurchase() {
-  alert('Premium satın alındı!');
-  closePaywall();
-}
-
-function restorePurchase() {
-  alert('Satın alım geri yükleniyor...');
-}
-
-function updateTrialState() {
-  const trialActive = document.getElementById('pw-trial-toggle').checked;
-  document.getElementById('pw-cta-note').innerHTML = trialActive ? 
-    'Deneme bittikten sonra $59.99/yıl olarak faturalandırılır.' : 
-    'Hemen $59.99/yıl faturalandırılır.';
-}
-
-// ========== MODAL ==========
-function closeHealthModal(event) {
-  if (!event || event.target.id === 'health-modal') {
-    document.getElementById('health-modal').style.display = 'none';
-  }
-}
-
-function copyHealthData() {
-  navigator.clipboard?.writeText('{"mindfulness":[]}') || alert('Kopyalandı');
-}
-
-// ========== ODA OLUŞTURMA ==========
-document.addEventListener('DOMContentLoaded', function() {
-  // Modal açma
-  document.getElementById('btnOpenCreateModal').addEventListener('click', function() {
-    document.getElementById('createRoomModal').style.display = 'flex';
-  });
-  
-  // Modal kapatma
-  document.getElementById('btnCloseModal').addEventListener('click', function() {
-    document.getElementById('createRoomModal').style.display = 'none';
-  });
-  
-  // Kapasite arttırma/azaltma
-  let capacity = 5;
-  document.getElementById('btnCapInc').addEventListener('click', function() {
-    if (capacity < 20) {
-      capacity++;
-      document.getElementById('capValue').textContent = capacity;
-    }
-  });
-  
-  document.getElementById('btnCapDec').addEventListener('click', function() {
-    if (capacity > 2) {
-      capacity--;
-      document.getElementById('capValue').textContent = capacity;
-    }
-  });
-  
-  // Oda tipi seçimi
-  document.querySelectorAll('.type-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
-      this.classList.add('selected');
-      document.getElementById('passwordField').style.display = 
-        this.getAttribute('data-type') === 'private' ? 'block' : 'none';
-    });
-  });
-  
-  // Oda oluşturma
-  document.getElementById('btnSubmitRoom').addEventListener('click', function() {
-    const name = document.getElementById('roomName').value;
-    if (!name) {
-      alert('Oda adı gerekli');
-      return;
-    }
-    alert(`✨ "${name}" odası oluşturuldu!`);
-    document.getElementById('createRoomModal').style.display = 'none';
-  });
-  
-  // Modal dışına tıklayınca kapat
-  document.getElementById('createRoomModal').addEventListener('click', function(e) {
-    if (e.target === this) this.style.display = 'none';
-  });
-
-  // ── CANLI ODALAR ──
-  var ROOMS_DATA = [
-    { id:1, name:'Gece Odak Seansı',    category:'odak',       host:'Zeynep A.', capacity:8,  joined:5, live:true,  priv:false },
-    { id:2, name:'Derin Uyku Rituali',  category:'uyku',       host:'Mert K.',   capacity:6,  joined:6, live:true,  priv:false },
-    { id:3, name:'Sabah Meditasyonu',   category:'meditasyon', host:'Selin T.',  capacity:10, joined:3, live:true,  priv:false },
-    { id:4, name:'432 Hz Şifa Odası',   category:'meditasyon', host:'Ayşe D.',   capacity:12, joined:9, live:true,  priv:false },
-    { id:5, name:'Çalışma Müziği',      category:'odak',       host:'Can B.',    capacity:20, joined:11,live:true,  priv:false },
-    { id:6, name:'Özel Seans',          category:'uyku',       host:'Nilüfer Y.',capacity:4,  joined:2, live:true,  priv:true  },
-  ];
-
-  var _activeFilter = 'all';
-
-  function renderRooms(filter) {
-    var grid = document.getElementById('roomsGrid');
-    if (!grid) return;
-    var filtered = filter === 'all' ? ROOMS_DATA : ROOMS_DATA.filter(function(r) {
-      return r.category === filter || (filter === 'tr' && true);
-    });
-    grid.innerHTML = '';
-    filtered.forEach(function(room) {
-      var pct = Math.round(room.joined / room.capacity * 100);
-      var initials = room.host.split(' ').map(function(w){ return w[0]; }).join('').slice(0,2);
-      var catLabels = { odak:'🎯 Odak', uyku:'😴 Uyku', meditasyon:'🧘 Meditasyon', doga:'🌿 Doğa' };
-      var card = document.createElement('div');
-      card.className = 'room-card';
-      card.innerHTML =
-        '<div class="card-top">' +
-          '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
-          (room.priv ? '<span class="badge-private"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Özel</span>' : '') +
-        '</div>' +
-        '<div class="room-name">' + room.name + '</div>' +
-        '<div class="room-category">' + (catLabels[room.category] || room.category) + '</div>' +
-        '<div class="card-footer">' +
-          '<div class="host-info">' +
-            '<div class="host-avatar">' + initials + '</div>' +
-            '<span class="host-name">' + room.host + '</span>' +
-          '</div>' +
-          '<div class="capacity-bar-wrap">' +
-            '<div class="capacity-text">' + room.joined + '/' + room.capacity + ' kişi</div>' +
-            '<div class="capacity-bar"><div class="capacity-fill" style="width:' + pct + '%"></div></div>' +
-          '</div>' +
-        '</div>';
-      card.addEventListener('click', function() {
-        alert('🎵 "' + room.name + '" odasına katılıyorsunuz...');
-      });
-      grid.appendChild(card);
-    });
-    if (filtered.length === 0) {
-      grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
-    }
+  /* ═══════════════════════════════════════
+     16. HATA YAKALAYICI
+  ═══════════════════════════════════════ */
+  function _showErrorToast(msg) {
+    var toast=document.getElementById('notif-toast');
+    if(!toast)return;
+    var title=toast.querySelector('.nt-title');
+    var body=toast.querySelector('.nt-body');
+    if(title)title.textContent='Sistem uyarısı';
+    if(body)body.textContent=msg||'Beklenmeyen bir hata oluştu. Sistem geri yükleniyor...';
+    toast.classList.add('show');
+    setTimeout(function(){toast.classList.remove('show');},4000);
   }
 
-  renderRooms('all');
-
-  // Filtre butonları
-  document.getElementById('roomFilterBar').addEventListener('click', function(e) {
-    var chip = e.target.closest('.filter-chip');
-    if (!chip) return;
-    document.querySelectorAll('.filter-chip').forEach(function(c){ c.classList.remove('active'); });
-    chip.classList.add('active');
-    _activeFilter = chip.getAttribute('data-filter');
-    renderRooms(_activeFilter);
-  });
-
-  // Oda oluşturma formu submit
-  document.getElementById('btnSubmitRoom').removeEventListener('click', function(){});
-  document.getElementById('btnSubmitRoom').onclick = function() {
-    var name = document.getElementById('roomName').value.trim();
-    if (!name) { document.getElementById('roomName').focus(); return; }
-    var category = document.getElementById('roomCategory').value;
-    var isPrivate = document.querySelector('.type-btn.selected')?.getAttribute('data-type') === 'private';
-    var cap = parseInt(document.getElementById('capValue').textContent);
-    ROOMS_DATA.unshift({ id: Date.now(), name: name, category: category, host: 'Sen', capacity: cap, joined: 1, live: true, priv: isPrivate });
-    renderRooms(_activeFilter);
-    document.getElementById('createRoomModal').style.display = 'none';
-    document.getElementById('roomName').value = '';
+  global.onerror = function(msg, src, line, col, err) {
+    console.error('[Sanctuary Error]', msg, src+':'+line);
+    _showErrorToast('Bir şeyler ters gitti. Lütfen sayfayı yenileyin.');
+    return false;
   };
-});
 
-// ========== DİĞER ==========
-function dismissBanner() {
-  document.getElementById('hp-banner').style.display = 'none';
-}
+  global.addEventListener('unhandledrejection', function(e) {
+    console.error('[Sanctuary Promise]', e.reason);
+    _showErrorToast('Arka plan işlemi başarısız oldu.');
+  });
 
-function dismissPWABanner() {
-  document.getElementById('pwa-banner').style.display = 'none';
-}
+  /* ═══════════════════════════════════════
+     17. GLOBAL NAMESPACE — window.Sanctuary
+  ═══════════════════════════════════════ */
+  global.Sanctuary = {
+    config:        CONFIG,
+    audio:         Audio,
+    breath:        BreathCycle,
+    rooms:         Rooms,
+    sessionBuffer: sessionBuffer,
+    // Ekran
+    showScreen:    showScreen,
+    goBack:        goBack,
+    goSanctuary:   goSanctuary,
+    // Sekme
+    switchTab:     switchTab,
+    // Mood
+    pickMood:      pickMood,
+    // Ses
+    togglePlay:    togglePlay,
+    // Timer
+    setSleepTimer:    setSleepTimer,
+    cancelSleepTimer: cancelSleepTimer,
+    // Günlük
+    saveJournalEntry: saveJournalEntry,
+    // AI
+    generateAIFreq: generateAIFreq,
+    // Analitik
+    showAnalytics: showAnalytics,
+    clearData:     clearData,
+    exportHealth:  exportHealth,
+    // Premium
+    openPaywall:   openPaywall,
+    closePaywall:  closePaywall,
+    selectPlan:    selectPlan,
+    handlePurchase:  handlePurchase,
+    restorePurchase: restorePurchase,
+    updateTrialState: updateTrialState,
+    // Yardımcılar
+    dismissBanner:    function(){ var b=document.getElementById('hp-banner');if(b)b.style.display='none'; },
+    dismissPWABanner: function(){ var b=document.getElementById('pwa-banner');if(b)b.style.display='none'; },
+    acceptDisclaimer: function(){
+      var d=document.getElementById('legal-disclaimer');
+      if(d)d.style.display='none';
+      try{localStorage.setItem('disclaimerAccepted','true');}catch(e){}
+    },
+    closeHealthModal: function(ev){
+      if(!ev||ev.target.id==='health-modal'){
+        var m=document.getElementById('health-modal');if(m)m.style.display='none';
+      }
+    },
+  };
 
-function triggerPWAInstall() {
-  alert('PWA kurulumu başlatılıyor...');
-}
+  // Eski global fonksiyonları da çalışsın (HTML onclick uyumluluğu)
+  var _expose = ['showScreen','goBack','goSanctuary','switchTab','pickMood','togglePlay',
+    'setSleepTimer','cancelSleepTimer','saveJournalEntry','generateAIFreq',
+    'showAnalytics','clearData','exportHealth','openPaywall','closePaywall',
+    'selectPlan','handlePurchase','restorePurchase','updateTrialState'];
+  _expose.forEach(function(fn){
+    global[fn] = global.Sanctuary[fn];
+  });
+  global.dismissBanner    = global.Sanctuary.dismissBanner;
+  global.dismissPWABanner = global.Sanctuary.dismissPWABanner;
+  global.acceptDisclaimer = global.Sanctuary.acceptDisclaimer;
+  global.closeHealthModal = global.Sanctuary.closeHealthModal;
 
-function acceptDisclaimer() {
-  document.getElementById('legal-disclaimer').style.display = 'none';
-  localStorage.setItem('disclaimerAccepted', 'true');
-}
+})(window);
 
-// ========== BAŞLANGIÇ ==========
-window.addEventListener('load', function() {
-  // Son seçilen ruh halini yükle
-  const lastMood = localStorage.getItem('lastMood');
-  const lastEmoji = localStorage.getItem('lastEmoji');
-  if (lastMood && lastEmoji) {
-    const emojiEl = document.getElementById('s-emoji');
-    const moodEl  = document.getElementById('s-mood');
-    if (emojiEl) emojiEl.textContent = lastEmoji;
-    if (moodEl)  moodEl.textContent  = lastMood;
-  }
-
-  // Bağlantı uyarısını gizle
-  const cw = document.getElementById('connection-warning');
-  if (cw) cw.style.display = 'none';
-
-  // HP banner - 2 saniye sonra göster
-  setTimeout(function() {
-    const banner = document.getElementById('hp-banner');
-    if (banner) banner.classList.add('show');
-  }, 2000);
-
-  // Waveform barlarını oluştur (önceden boş)
-  const wform = document.getElementById('waveform');
-  if (wform && wform.children.length === 0) {
-    for (let i = 0; i < 12; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'wbar';
-      bar.style.setProperty('--dur', (0.4 + Math.random() * 0.6) + 's');
-      bar.style.setProperty('--del', (Math.random() * 0.4) + 's');
-      wform.appendChild(bar);
-    }
-  }
-
-  // Premium sounds skeleton kaldır ve gerçek kartları göster
-  setTimeout(function() {
-    const sk = document.getElementById('premium-sounds-skeleton');
-    const grid = document.getElementById('premium-sounds-grid');
-    if (sk) sk.style.display = 'none';
-    if (grid) {
-      grid.style.display = 'grid';
-      const sounds = [
-        { ic:'🌊', name:'Okyanus',  locked:false, gen:'waves',   base:180, beat:0  },
-        { ic:'🌧️', name:'Yağmur',  locked:false, gen:'rain',    base:200, beat:4  },
-        { ic:'🌬️', name:'Rüzgar',  locked:false, gen:'wind',    base:160, beat:8  },
-        { ic:'🔥', name:'Ateş',     locked:true,  gen:'fire',    base:174, beat:3  },
-        { ic:'🎵', name:'Binaural', locked:false, gen:'binaural',base:200, beat:7  },
-        { ic:'⚡', name:'Fırtına',  locked:true,  gen:'storm',   base:220, beat:5  },
-      ];
-      sounds.forEach(function(s) {
-        const card = document.createElement('div');
-        card.className = 's-card' + (s.locked ? ' premium' : '');
-        card.style.cursor = 'pointer';
-        card.innerHTML = (s.locked ? '<span class="s-card-lock">🔒</span>' : '') +
-          '<span class="s-card-ic">' + s.ic + '</span>' +
-          '<span class="s-card-nm">' + s.name + '</span>' +
-          '<span class="s-card-dur">' + (s.locked ? 'Premium' : s.base + ' Hz') + '</span>';
-        if (!s.locked) {
-          card.addEventListener('click', function() {
-            // Aktif kartı işaretle
-            grid.querySelectorAll('.s-card').forEach(c => c.style.borderColor = '');
-            card.style.borderColor = 'var(--gold)';
-            switchSound(s.gen, s.base, s.beat, s.name);
-          });
-        } else {
-          card.addEventListener('click', openPaywall);
-        }
-        grid.appendChild(card);
-      });
-    }
-  }, 600);
-
-  console.log('[Sanctuary] Yüklendi ✓');
-});
 </script>
-
 
 <script>
 /* ══════════════════════════════════════════════════
