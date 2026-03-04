@@ -1,5 +1,5 @@
 /**
- * AudioEngine.js — Sanctuary 6. Aşama (Safari/iOS Uyumluluğu)
+ * AudioEngine.js — Sanctuary 11. Aşama (Safari/iOS Uyumluluğu)
  * ─────────────────────────────────────────────────────────────────────────────
  * Değişiklikler (Phase 6):
  *   1. Safari ses politikası: ilk kullanıcı etkileşiminde AudioContext.resume()
@@ -29,7 +29,7 @@ const AUDIO_CONFIG = {
   FFT_SIZE:               256,
   SMOOTHING:              0.8,
   MAX_LAYERS:             3,
-  CROSSFADE_DURATION:     2.5,
+  CROSSFADE_DURATION:     1.5,
   FADE_IN_DURATION:       1.5,
   FADE_OUT_DURATION:      1.5,
   PRELOAD_BUFFER_SECONDS: 4,
