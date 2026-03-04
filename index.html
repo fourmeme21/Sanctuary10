@@ -60,7 +60,14 @@
 <body>
 
 <canvas id="gen-canvas"></canvas>
+<div id="vignette"></div>
 <div id="touch-layer"></div>
+
+<!-- TOAST BİLDİRİMİ -->
+<div id="notif-toast" role="status" aria-live="polite">
+  <span class="nt-title">Bilgi</span>
+  <span class="nt-body"></span>
+</div>
 
 <div id="hp-banner" role="status" aria-live="polite">
   <span class="hp-icon" aria-hidden="true">🎧</span>
@@ -553,6 +560,7 @@
 </script>
 
 <script src="./sanctuary-bundle.js"></script>
+<script src="./main.js" defer></script>
 
 <!-- ODA OLUŞTURMA MODAL -->
 <div class="modal-overlay" id="createRoomModal">
@@ -608,15 +616,15 @@
   </div>
 </div>
 
-<!-- Service Worker -->
+<!-- Service Worker — production ortamında sw.js eklenince aktif edilecek -->
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('./sw.js')
-      .then(function(reg) { console.log('[SW] Kayıt başarılı:', reg.scope); })
-      .catch(function(err) { console.warn('[SW] Kayıt başarısız:', err); });
-  });
-}
+// if ('serviceWorker' in navigator) {
+//   window.addEventListener('load', function() {
+//     navigator.serviceWorker.register('./sw.js')
+//       .then(function(reg) { console.log('[SW] Kayıt başarılı:', reg.scope); })
+//       .catch(function(err) { console.warn('[SW] Kayıt başarısız:', err); });
+//   });
+// }
 </script>
 
 <script>
@@ -628,11 +636,13 @@ if ('serviceWorker' in navigator) {
     if(b){b.classList.add('active');b.setAttribute('aria-selected','true');}
   }
   
-  window.switchTab=function(tabId){
+  window.switchTab = function(tabId) {
+    // main.js'deki initTabAnimations() tarafından override edilir.
+    // Fallback (main.js yüklenmeden önce):
     document.querySelectorAll('.tab-panel').forEach(function(el){el.classList.remove('active');});
     document.querySelectorAll('.tab-item').forEach(function(el){el.classList.remove('active');el.setAttribute('aria-selected','false');});
     var p=document.getElementById(tabId);
-    if(p)p.classList.add('active');
+    if(p){ p.classList.remove('active'); requestAnimationFrame(function(){ requestAnimationFrame(function(){ p.classList.add('active'); }); }); }
     var btnId='tab-btn-'+tabId.replace('tab-','');
     var b=document.getElementById(btnId);
     if(b){b.classList.add('active');b.setAttribute('aria-selected','true');}
