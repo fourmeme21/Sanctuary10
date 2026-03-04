@@ -3870,6 +3870,7 @@ html.low-power .play-btn {
 })();
 </script>
 
+<script src="./AudioEngine.js"></script>
 <script src="./sanctuary-bundle.js"></script>
 <script src="./main.js" defer></script>
 
@@ -4012,11 +4013,70 @@ function pickMood(element) {
 // ========== SES ==========
 let isPlaying = false;
 
-function togglePlay() {
+/* Seçili ruh haline göre ses scripti */
+function _buildAudioScript() {
+  const mood = localStorage.getItem('lastMood') || 'Sakin';
+  const moodMap = {
+    'Huzursuz': { generator: 'waves',   baseFreq: 180, beatFreq: 6  },
+    'Yorgun'  : { generator: 'rain',    baseFreq: 200, beatFreq: 4  },
+    'Kaygılı' : { generator: 'wind',    baseFreq: 160, beatFreq: 8  },
+    'Mutsuz'  : { generator: 'waves',   baseFreq: 220, beatFreq: 5  },
+    'Sakin'   : { generator: 'binaural',baseFreq: 200, beatFreq: 7  },
+    'Minnettar': { generator: 'rain',   baseFreq: 528, beatFreq: 10 },
+  };
+  const params = moodMap[mood] || moodMap['Sakin'];
+  return {
+    scene: mood,
+    tracks: [
+      { id: 'ambient', type: params.generator === 'binaural' ? 'binaural' : 'granular',
+        parameters: { generator: params.generator, baseFreq: params.baseFreq,
+                      beatFreq: params.beatFreq, volume: 0.7 } },
+    ],
+    mix: { masterVolume: 0.8 }
+  };
+}
+
+/* AudioEngine'i başlat ve çal — ilk tıklamada */
+let _engineReady = false;
+
+async function _ensureEngine() {
+  if (_engineReady) return;
+  const engine = AudioEngine.getInstance();
+  await engine.initialize();
+  await engine.loadScript(_buildAudioScript());
+  _engineReady = true;
+}
+
+async function togglePlay() {
+  const btn    = document.getElementById('play-btn');
+  const icon   = document.getElementById('play-icon');
+  const lbl    = document.getElementById('play-lbl');
+
+  /* Buton görsel — hemen güncelle */
   isPlaying = !isPlaying;
-  document.getElementById('play-icon').textContent = isPlaying ? '⏸' : '▶';
-  document.getElementById('play-btn').setAttribute('aria-pressed', isPlaying);
-  document.getElementById('play-lbl').textContent = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
+  if (icon) icon.textContent = isPlaying ? '⏸' : '▶';
+  if (btn)  btn.setAttribute('aria-pressed', isPlaying);
+  if (lbl)  lbl.textContent  = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
+
+  try {
+    await _ensureEngine();
+    const engine = AudioEngine.getInstance();
+    if (isPlaying) {
+      await engine.play();
+    } else {
+      await engine.pause();
+    }
+  } catch (err) {
+    console.error('[togglePlay] AudioEngine hatası:', err);
+    /* Hata durumunda butonu geri al */
+    isPlaying = !isPlaying;
+    if (icon) icon.textContent = isPlaying ? '⏸' : '▶';
+    if (btn)  btn.setAttribute('aria-pressed', isPlaying);
+    if (lbl)  lbl.textContent  = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
+    if (typeof ToastManager !== 'undefined') {
+      ToastManager.error('Ses başlatılamadı. Lütfen tekrar deneyin.', 'Ses Hatası');
+    }
+  }
 }
 
 function setSleepTimer(minutes) {
