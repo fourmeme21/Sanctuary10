@@ -156,6 +156,10 @@ html, body {
   -webkit-text-size-adjust: 100%;
   /* Promote to GPU composite layer */
   transform: translateZ(0);
+  /* PHASE 6 — iOS Safari lastik efektini (rubber banding) engelle */
+  overscroll-behavior: none;
+  /* Yalnızca yatay + dikey kaydırmaya izin ver */
+  touch-action: pan-x pan-y;
 }
 
 /* Noise texture overlay — pointer-events none, GPU composited */
