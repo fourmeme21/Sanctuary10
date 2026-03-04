@@ -1328,3 +1328,108 @@ window.handleDeleteRoom = handleDeleteRoom;
 window.handleLeaveRoom  = handleLeaveRoom;
 window.renderRoomList   = renderRoomList;
 window.showToast        = showToast;
+
+/* ═══════════════════════════════════════════════════════════════
+   8. AŞAMA — Konsolidasyon & Yayına Hazırlık
+   1. Merkezi CONFIG
+   2. sessionBuffer — sekme geçişlerinde veri korunumu
+   3. window.Sanctuary global namespace
+   4. Merkezi hata yakalayıcı
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Merkezi CONFIG ── */
+window.SanctuaryConfig = {
+  breath: { inhale:4000, hold:7000, exhale:8000, pause:1000 },
+  audio: {
+    masterVolume:0.75, ambientVolume:0.55, binauralVolume:0.10,
+    fadeOutDuration:120, bufferSeconds:8,
+  },
+  moods: {
+    'Huzursuz':  { base:180, beat:6,  gen:'waves',    bg:'teal'   },
+    'Yorgun':    { base:200, beat:4,  gen:'rain',     bg:'violet' },
+    'Kaygılı':   { base:160, beat:8,  gen:'wind',     bg:'sky'    },
+    'Mutsuz':    { base:220, beat:5,  gen:'waves',    bg:'rose'   },
+    'Sakin':     { base:200, beat:7,  gen:'binaural', bg:'teal'   },
+    'Minnettar': { base:528, beat:10, gen:'rain',     bg:'gold'   },
+  },
+};
+
+/* ── sessionBuffer — Sekme geçişlerinde veri korunumu ── */
+window.SanctuarySessionBuffer = (function() {
+  var _data = {};
+  return {
+    set: function(k, v) { _data[k] = v; },
+    get: function(k)    { return _data[k]; },
+    clear: function(k)  { delete _data[k]; },
+  };
+})();
+
+/* ── switchTab'ı sessionBuffer ile güçlendir ── */
+(function() {
+  var _origSwitchTab = window.switchTab || window.Sanctuary && window.Sanctuary.switchTab;
+  window.switchTab = function(tabId) {
+    // Aktif sekmedeki textarea'yı kaydet
+    var active = document.querySelector('.tab-panel.active');
+    if (active) {
+      var ta = active.querySelector('textarea');
+      if (ta) window.SanctuarySessionBuffer.set('tab_' + active.id, ta.value);
+    }
+    // Orijinal switchTab'ı çağır
+    if (_origSwitchTab) _origSwitchTab(tabId);
+    // Yeni sekmedeki textarea'yı geri yükle
+    setTimeout(function() {
+      var panel = document.getElementById(tabId);
+      if (panel) {
+        var ta = panel.querySelector('textarea');
+        var saved = window.SanctuarySessionBuffer.get('tab_' + tabId);
+        if (ta && saved !== undefined) ta.value = saved;
+      }
+    }, 50);
+  };
+})();
+
+/* ── Merkezi hata yakalayıcı ── */
+(function() {
+  function _showErrorToast(msg) {
+    var toast = document.getElementById('notif-toast');
+    if (!toast) return;
+    var title = toast.querySelector('.nt-title');
+    var body  = toast.querySelector('.nt-body');
+    if (title) title.textContent = '⚠️ Sistem uyarısı';
+    if (body)  body.textContent  = msg || 'Beklenmeyen bir hata oluştu.';
+    toast.classList.add('show');
+    setTimeout(function() { toast.classList.remove('show'); }, 4000);
+  }
+
+  window.onerror = function(msg, src, line) {
+    console.error('[Sanctuary]', msg, src + ':' + line);
+    _showErrorToast('Bir şeyler ters gitti. Lütfen sayfayı yenileyin.');
+    return false;
+  };
+
+  window.addEventListener('unhandledrejection', function(e) {
+    console.error('[Sanctuary Promise]', e.reason);
+    _showErrorToast('Arka plan işlemi başarısız oldu.');
+  });
+})();
+
+/* ── window.Sanctuary global namespace ── */
+window.Sanctuary = {
+  config:        window.SanctuaryConfig,
+  sessionBuffer: window.SanctuarySessionBuffer,
+  // Mevcut fonksiyonlara referanslar
+  switchTab:        function(id) { window.switchTab(id); },
+  togglePlay:       function()   { if(window.togglePlay)   window.togglePlay();   },
+  goSanctuary:      function()   { if(window.goSanctuary)  window.goSanctuary();  },
+  goBack:           function()   { if(window.goBack)        window.goBack();       },
+  pickMood:         function(el) { if(window.pickMood)     window.pickMood(el);   },
+  openPaywall:      function()   { if(window.openPaywall)  window.openPaywall();  },
+  closePaywall:     function()   { if(window.closePaywall) window.closePaywall(); },
+  showAnalytics:    function()   { if(window.showAnalytics)window.showAnalytics();},
+  generateAIFreq:   function()   { if(window.generateAIFreq)window.generateAIFreq();},
+  saveJournalEntry: function()   { if(window.saveJournalEntry)window.saveJournalEntry();},
+  setSleepTimer:    function(m)  { if(window.setSleepTimer)window.setSleepTimer(m);},
+  cancelSleepTimer: function()   { if(window.cancelSleepTimer)window.cancelSleepTimer();},
+};
+
+console.info('[Sanctuary] 8. Aşama yüklendi ✓ — window.Sanctuary hazır');
