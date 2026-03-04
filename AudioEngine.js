@@ -1,5 +1,11 @@
 /**
- * AudioEngine.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
+ * AudioEngine.js — Sanctuary 6. Aşama (Safari/iOS Uyumluluğu)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Değişiklikler (Phase 6):
+ *   1. Safari ses politikası: ilk kullanıcı etkileşiminde AudioContext.resume()
+ *   2. AudioWorklet yükleme hatasına karşı try-catch fallback (Safari uyumlu)
+ *   3. _attachSafariAudioUnlock(): click/touchstart ile AudioContext kilidini açar
+ *   4. initialize() güçlendirildi: state 'suspended' ise otomatik resume dener
  * ─────────────────────────────────────────────────────────────────────────────
  * Değişiklikler (Phase 5):
  *   1. WebAudioAdapter.loadAudioFile → cache: 'force-cache' eklendi
@@ -180,9 +186,17 @@ class AudioLayer {
   }
 
   async _initWorklet() {
+    /* PHASE 6 — try-catch: Safari'de AudioWorklet desteklenmeyebilir veya
+     * Blob URL politikaları nedeniyle addModule() başarısız olabilir.
+     * Bu durumda _initFallbackGenerator() otomatik devreye girer. */
     const blob = new Blob([WORKLET_PROCESSOR_CODE], { type: 'application/javascript' });
     const url  = URL.createObjectURL(blob);
-    await this._ctx.audioWorklet.addModule(url);
+    try {
+      await this._ctx.audioWorklet.addModule(url);
+    } catch (workletErr) {
+      URL.revokeObjectURL(url);
+      throw workletErr; // Üst katman (initialize) fallback'e yönlendirir
+    }
     URL.revokeObjectURL(url);
 
     this._workletNode = new AudioWorkletNode(this._ctx, 'ambient-processor');
@@ -536,7 +550,19 @@ class AudioEngine {
     this._initPromise = (async () => {
       try {
         this._ctx = this._adapter.createContext();
-        await this._adapter.resumeContext(this._ctx);
+
+        /* PHASE 6 — Safari ses politikası:
+         * Safari'de AudioContext kullanıcı etkileşimi olmadan 'suspended' başlar.
+         * Önce resume dene; başarısız olursa kullanıcı etkileşimi dinleyicisi ekle. */
+        try {
+          await this._adapter.resumeContext(this._ctx);
+        } catch (resumeErr) {
+          console.warn('[AudioEngine] İlk resume başarısız (Safari bekleniyor):', resumeErr);
+        }
+
+        /* PHASE 6 — Safari AudioContext kilit açma:
+         * İlk kullanıcı etkileşiminde (click / touchstart) resume() çağrılır. */
+        this._attachSafariAudioUnlock();
 
         this._masterGain = this._ctx.createGain();
         this._masterGain.gain.value = AUDIO_CONFIG.DEFAULT_MASTER_VOLUME;
@@ -806,6 +832,37 @@ class AudioEngine {
    * dispose() içinde removeEventListener ile temizlenir.
    * Bellek sızıntısı önlenir.
    */
+  /**
+   * PHASE 6 — Safari AudioContext Kilit Açma
+   * Safari'de AudioContext kullanıcı etkileşimi olmadan 'suspended' kalır.
+   * İlk click veya touchstart olayında resume() çağrılır ve dinleyici kaldırılır.
+   * Bu yöntem iOS 15+, Safari 14+ ile tam uyumludur.
+   */
+  _attachSafariAudioUnlock() {
+    if (!this._ctx) return;
+
+    const unlock = async () => {
+      if (this._ctx && this._ctx.state === 'suspended') {
+        try {
+          await this._ctx.resume();
+          console.info('[AudioEngine] Safari AudioContext kullanıcı etkileşimiyle açıldı.');
+        } catch (err) {
+          console.warn('[AudioEngine] Safari unlock hatası:', err);
+        }
+      }
+      // Dinleyicileri tek seferlik kaldır
+      document.removeEventListener('click',      unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('touchend',   unlock, true);
+      document.removeEventListener('keydown',    unlock, true);
+    };
+
+    document.addEventListener('click',      unlock, { once: true, capture: true, passive: true });
+    document.addEventListener('touchstart', unlock, { once: true, capture: true, passive: true });
+    document.addEventListener('touchend',   unlock, { once: true, capture: true, passive: true });
+    document.addEventListener('keydown',    unlock, { once: true, capture: true, passive: true });
+  }
+
   _attachAppStateListeners() {
     if (typeof document === 'undefined') return;
 
