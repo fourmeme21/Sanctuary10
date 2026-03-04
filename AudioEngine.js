@@ -1005,6 +1005,147 @@ class AudioEngine {
 AudioEngine._instance = null;
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 8B — ROOM SYNC (Phase 10)
+   RoomManager ile ses köprüsü:
+     - syncRoomAudio()          Host sesi değişince engine'i günceller
+     - startBreathBroadcast()   Nefes başlayınca odaya bildirim
+     - stopBreathBroadcast()    Nefes bitince odaya bildirim
+     - _listenRoomEvents()      RoomManager event'lerini dinler
+═══════════════════════════════════════════════════════════════ */
+
+AudioEngine.prototype.syncRoomAudio = function syncRoomAudio(roomId, audioConfig) {
+  if (!audioConfig) return;
+  var engine = this;
+
+  // 1. RoomManager'a bildir (kaydeder + broadcast eder)
+  try {
+    if (typeof RoomManager !== 'undefined') {
+      RoomManager.syncRoomAudio(roomId, audioConfig);
+    }
+  } catch (e) { /* RoomManager yüklenmemiş olabilir */ }
+
+  // 2. Yerel AudioEngine'i yeni konfigürasyona çek (sessizce)
+  var script = {
+    scene: audioConfig.label || 'room_sync',
+    tracks: [{
+      id:   audioConfig.gen || 'binaural',
+      type: audioConfig.gen === 'rain' || audioConfig.gen === 'waves' || audioConfig.gen === 'wind' || audioConfig.gen === 'fire'
+              ? 'granular' : 'binaural',
+      parameters: {
+        generator: audioConfig.gen  || 'binaural',
+        baseFreq:  audioConfig.base || 432,
+        beatFreq:  audioConfig.beat || 7,
+        volume:    0.6,
+      },
+    }],
+    mix: { masterVolume: 0.75 },
+  };
+
+  if (engine.isInitialized && engine._playing) {
+    engine.loadScript(script, { crossfade: true, crossfadeDuration: 2.5 })
+      .then(function () {
+        console.info('[AudioEngine] Room ses senkronizasyonu tamamlandı:', audioConfig);
+        engine._emit('roomAudioSynced', { roomId: roomId, audioConfig: audioConfig });
+      })
+      .catch(function (err) {
+        console.warn('[AudioEngine] Room ses senkronizasyonu hatası:', err);
+      });
+  }
+};
+
+/**
+ * Nefes döngüsü başladığında odaya bildir.
+ * startBreathCycle() çağrısıyla birlikte kullanılır.
+ * @param {string} roomId  — Bulunulan oda ID'si
+ * @param {string} userId  — Yerel kullanıcı ID'si (varsayılan: 'user_local')
+ */
+AudioEngine.prototype.startBreathBroadcast = function startBreathBroadcast(roomId, userId) {
+  userId = userId || 'user_local';
+  try {
+    if (typeof RoomManager !== 'undefined') {
+      RoomManager.setBreathing(roomId, userId, true);
+    }
+  } catch (e) {}
+  this._emit('breathStart', { roomId: roomId, userId: userId });
+  console.info('[AudioEngine] Nefes yayını başladı:', userId);
+};
+
+/**
+ * Nefes döngüsü bittiğinde odaya bildir.
+ */
+AudioEngine.prototype.stopBreathBroadcast = function stopBreathBroadcast(roomId, userId) {
+  userId = userId || 'user_local';
+  try {
+    if (typeof RoomManager !== 'undefined') {
+      RoomManager.setBreathing(roomId, userId, false);
+    }
+  } catch (e) {}
+  this._emit('breathStop', { roomId: roomId, userId: userId });
+  console.info('[AudioEngine] Nefes yayını durduruldu:', userId);
+};
+
+/**
+ * RoomManager'ın broadcast event'lerini dinler.
+ * Başka bir host ses değiştirince bu engine otomatik güncellenir.
+ * @param {string} roomId  — Takip edilecek oda
+ */
+AudioEngine.prototype._listenRoomEvents = function _listenRoomEvents(roomId) {
+  var engine = this;
+  if (!roomId) return;
+
+  try {
+    if (typeof RoomManager === 'undefined') return;
+
+    RoomManager.on('audio_sync', function (data) {
+      if (data && data.roomId === roomId) {
+        console.info('[AudioEngine] Host ses güncellemesi alındı:', data.audioConfig);
+
+        // Kullanıcıya toast bildirimi
+        try {
+          if (window.SanctuaryToast) {
+            window.SanctuaryToast.info(
+              (data.audioConfig.base || '') + ' Hz · ' + (data.audioConfig.gen || ''),
+              '🎵 Host sesi güncelledi'
+            );
+          }
+        } catch (e) {}
+
+        // Motoru güncelle (crossfade ile sessizce geçiş)
+        if (engine.isInitialized) {
+          var script = {
+            scene: 'host_sync',
+            tracks: [{
+              id:   data.audioConfig.gen || 'binaural',
+              type: 'granular',
+              parameters: {
+                generator: data.audioConfig.gen  || 'binaural',
+                baseFreq:  data.audioConfig.base || 432,
+                beatFreq:  data.audioConfig.beat || 7,
+                volume:    0.6,
+              },
+            }],
+            mix: { masterVolume: 0.75 },
+          };
+          engine.loadScript(script, { crossfade: true, crossfadeDuration: 2.0 })
+            .catch(function (err) { console.warn('[AudioEngine] Host sync yükleme hatası:', err); });
+        }
+      }
+    });
+
+    RoomManager.on('host_changed', function (data) {
+      if (data && data.roomId === roomId) {
+        console.info('[AudioEngine] Yeni host:', data.newHost);
+        engine._emit('hostChanged', data);
+      }
+    });
+
+    console.info('[AudioEngine] Room event dinleyicileri kuruldu. OdaID:', roomId);
+  } catch (e) {
+    console.warn('[AudioEngine] _listenRoomEvents hatası:', e);
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════
    SECTION 8 — LEGACY ADAPTER
 ═══════════════════════════════════════════════════════════════ */
 
