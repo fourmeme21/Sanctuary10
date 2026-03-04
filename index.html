@@ -4026,20 +4026,31 @@ function pickMood(element) {
 
   localStorage.setItem('lastMood', mood);
   localStorage.setItem('lastEmoji', emoji);
+
+  // Ses parametrelerini sıfırla — yeni mood'a göre ses üretilsin
+  localStorage.removeItem('lastGen');
+  localStorage.removeItem('lastBase');
+  localStorage.removeItem('lastBeat');
 }
 
 // ========== SES ==========
 /* ═══════════════════════════════════════════════════════════════
-   SANCTUARY AUDIO ENGINE — Self-contained (no external deps)
-   Web Audio API ile doğrudan çalışır, sanctuary-bundle gerektirmez
+   SANCTUARY AUDIO ENGINE — Self-contained Web Audio API
+   Mood + ses kartı seçimine göre dinamik ses üretimi
 ═══════════════════════════════════════════════════════════════ */
-let isPlaying = false;
-let _audioCtx = null;
-let _masterGain = null;
-let _oscillators = [];
-let _noiseSource = null;
-let _engineReady = false;
 
+// ── Durum değişkenleri ──
+let isPlaying     = false;
+let _audioCtx     = null;
+let _masterGain   = null;
+let _oscillators  = [];
+let _noiseSource  = null;
+let _ambGainNode  = null;
+let _currentGen   = null;   // aktif generator tipi
+let _currentBase  = null;   // aktif base frekans
+let _currentBeat  = null;   // aktif beat frekans
+
+// ── Mood → frekans haritası ──
 const MOOD_FREQ_MAP = {
   'Huzursuz':  { base: 180, beat: 6,  gen: 'waves'   },
   'Yorgun':    { base: 200, beat: 4,  gen: 'rain'    },
@@ -4049,6 +4060,7 @@ const MOOD_FREQ_MAP = {
   'Minnettar': { base: 528, beat: 10, gen: 'rain'    },
 };
 
+// ── AudioContext ──
 function _getAudioCtx() {
   if (!_audioCtx) {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -4057,132 +4069,144 @@ function _getAudioCtx() {
   return _audioCtx;
 }
 
-function _createNoiseBuffer(ctx, seconds) {
-  const sampleRate = ctx.sampleRate;
-  const buffer = ctx.createBuffer(2, sampleRate * seconds, sampleRate);
+// ── Buffer üreticiler ──
+function _createNoiseBuffer(ctx) {
+  const sr = ctx.sampleRate, sec = 8;
+  const buf = ctx.createBuffer(2, sr * sec, sr);
   for (let ch = 0; ch < 2; ch++) {
-    const data = buffer.getChannelData(ch);
-    for (let i = 0; i < data.length; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.18;
-    }
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.18;
   }
-  return buffer;
+  return buf;
 }
 
-function _createWavesBuffer(ctx, seconds) {
-  const sr = ctx.sampleRate;
-  const buffer = ctx.createBuffer(2, sr * seconds, sr);
+function _createWavesBuffer(ctx) {
+  const sr = ctx.sampleRate, sec = 8;
+  const buf = ctx.createBuffer(2, sr * sec, sr);
   for (let ch = 0; ch < 2; ch++) {
-    const data = buffer.getChannelData(ch);
-    for (let i = 0; i < data.length; i++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
       const t = i / sr;
-      data[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.15 + (Math.random() * 2 - 1) * 0.06;
+      d[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.14 + (Math.random() * 2 - 1) * 0.05;
     }
   }
-  return buffer;
+  return buf;
 }
 
-function _createWindBuffer(ctx, seconds) {
-  const sr = ctx.sampleRate;
-  const buffer = ctx.createBuffer(2, sr * seconds, sr);
+function _createWindBuffer(ctx) {
+  const sr = ctx.sampleRate, sec = 8;
+  const buf = ctx.createBuffer(2, sr * sec, sr);
   for (let ch = 0; ch < 2; ch++) {
-    const data = buffer.getChannelData(ch);
-    for (let i = 0; i < data.length; i++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
       const t = i / sr;
-      data[i] = (Math.random() * 2 - 1) * 0.14 * Math.abs(Math.sin(t * 0.5));
+      d[i] = (Math.random() * 2 - 1) * 0.13 * Math.abs(Math.sin(t * 0.4));
     }
   }
-  return buffer;
+  return buf;
 }
 
-async function _initAudio() {
-  if (_engineReady) return;
+function _createFireBuffer(ctx) {
+  const sr = ctx.sampleRate, sec = 8;
+  const buf = ctx.createBuffer(2, sr * sec, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / sr;
+      d[i] = (Math.random() * 2 - 1) * 0.14 * (0.8 + Math.sin(t * 3) * 0.2);
+    }
+  }
+  return buf;
+}
+
+// ── Ses durdurma (tüm node'ları temizle) ──
+function _stopAllNodes() {
+  _oscillators.forEach(osc => { try { osc.stop(); osc.disconnect(); } catch(e) {} });
+  _oscillators = [];
+  if (_noiseSource) {
+    try { _noiseSource.stop(); _noiseSource.disconnect(); } catch(e) {}
+    _noiseSource = null;
+  }
+  if (_ambGainNode) {
+    try { _ambGainNode.disconnect(); } catch(e) {}
+    _ambGainNode = null;
+  }
+  _currentGen = null;
+}
+
+// ── Ses başlatma — gen, base, beat parametreli ──
+async function _startSound(gen, base, beat) {
   const ctx = _getAudioCtx();
-
-  // Safari: kullanıcı etkileşimi sonrası resume
   if (ctx.state === 'suspended') {
-    try { await ctx.resume(); } catch(e) { console.warn('resume:', e); }
+    try { await ctx.resume(); } catch(e) {}
   }
 
-  _masterGain = ctx.createGain();
-  _masterGain.gain.value = 0.75;
-  _masterGain.connect(ctx.destination);
+  // masterGain yoksa oluştur
+  if (!_masterGain) {
+    _masterGain = ctx.createGain();
+    _masterGain.gain.value = 0.75;
+    _masterGain.connect(ctx.destination);
+  }
 
-  const mood = localStorage.getItem('lastMood') || 'Sakin';
-  const params = MOOD_FREQ_MAP[mood] || MOOD_FREQ_MAP['Sakin'];
+  // Önceki sesleri durdur
+  _stopAllNodes();
 
-  // Binaural beats (sol/sağ farklı frekans)
-  if (params.gen === 'binaural') {
-    const freqL = params.base;
-    const freqR = params.base + params.beat;
-
+  // Binaural beat katmanı
+  if (gen === 'binaural' || beat > 0) {
     const merger = ctx.createChannelMerger(2);
     merger.connect(_masterGain);
 
-    const oscL = ctx.createOscillator();
-    const gainL = ctx.createGain();
-    oscL.frequency.value = freqL;
-    oscL.type = 'sine';
-    gainL.gain.value = 0.12;
-    oscL.connect(gainL);
-    gainL.connect(merger, 0, 0);
-    oscL.start();
-    _oscillators.push(oscL);
-
-    const oscR = ctx.createOscillator();
-    const gainR = ctx.createGain();
-    oscR.frequency.value = freqR;
-    oscR.type = 'sine';
-    gainR.gain.value = 0.12;
-    oscR.connect(gainR);
-    gainR.connect(merger, 0, 1);
-    oscR.start();
-    _oscillators.push(oscR);
+    [[base, 0], [base + beat, 1]].forEach(([freq, ch]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.value = 0.10;
+      osc.connect(gain);
+      gain.connect(merger, 0, ch);
+      osc.start();
+      _oscillators.push(osc);
+    });
   }
 
-  // Ambient ses katmanı (noise / waves / wind)
+  // Ambient noise katmanı
   let buffer;
-  if (params.gen === 'rain') {
-    buffer = _createNoiseBuffer(ctx, 8);
-  } else if (params.gen === 'waves') {
-    buffer = _createWavesBuffer(ctx, 8);
-  } else {
-    buffer = _createWindBuffer(ctx, 8);
+  switch(gen) {
+    case 'rain':    buffer = _createNoiseBuffer(ctx); break;
+    case 'waves':   buffer = _createWavesBuffer(ctx); break;
+    case 'fire':    buffer = _createFireBuffer(ctx);  break;
+    case 'binaural':buffer = _createWindBuffer(ctx);  break;
+    default:        buffer = _createWindBuffer(ctx);  break;
   }
 
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-  src.loop = true;
-
-  // Low-pass filtre: sesi yumuşat
+  const src    = ctx.createBufferSource();
   const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 800;
-  filter.Q.value = 0.5;
+  const gain   = ctx.createGain();
 
-  const ambGain = ctx.createGain();
-  ambGain.gain.value = 0.55;
+  src.buffer = buffer;
+  src.loop   = true;
+  filter.type = 'lowpass';
+  filter.frequency.value = gen === 'rain' ? 1200 : 700;
+  gain.gain.value = 0.55;
 
   src.connect(filter);
-  filter.connect(ambGain);
-  ambGain.connect(_masterGain);
+  filter.connect(gain);
+  gain.connect(_masterGain);
   src.start(0);
-  _noiseSource = src;
 
-  // Waveform görsel güncelle
-  _updateFreqBadge(mood, params);
+  _noiseSource  = src;
+  _ambGainNode  = gain;
+  _currentGen   = gen;
+  _currentBase  = base;
+  _currentBeat  = beat;
 
-  _engineReady = true;
-  console.info('[Sanctuary Audio] Başlatıldı —', mood, params.base + 'Hz');
-}
-
-function _updateFreqBadge(mood, params) {
+  // Frekans badge güncelle
   const badge = document.getElementById('freq-badge');
   const label = document.getElementById('freq-label');
   if (badge) badge.classList.add('on');
-  if (label) label.textContent = params.base + ' Hz · ' + params.gen;
+  if (label) label.textContent = base + ' Hz · ' + gen;
 
-  // Waveform barlarını canlandır
+  // Waveform barları
   const wform = document.getElementById('waveform');
   if (wform && wform.children.length === 0) {
     for (let i = 0; i < 12; i++) {
@@ -4193,15 +4217,25 @@ function _updateFreqBadge(mood, params) {
       wform.appendChild(bar);
     }
   }
+  document.querySelectorAll('.wbar').forEach(b => b.classList.add('on'));
 }
 
-function _stopAudio() {
-  _oscillators.forEach(osc => { try { osc.stop(); } catch(e) {} });
-  _oscillators = [];
-  if (_noiseSource) { try { _noiseSource.stop(); } catch(e) {} _noiseSource = null; }
-  _engineReady = false;
+// ── Ses değiştir (çalarken bile anında geçiş) ──
+async function switchSound(gen, base, beat, label) {
+  localStorage.setItem('lastGen', gen);
+  localStorage.setItem('lastBase', base);
+  localStorage.setItem('lastBeat', beat);
+
+  if (isPlaying) {
+    await _startSound(gen, base, beat);
+  }
+
+  // Ses kartı badge güncelle
+  const badgeLabel = document.getElementById('freq-label');
+  if (badgeLabel) badgeLabel.textContent = base + ' Hz · ' + (label || gen);
 }
 
+// ── Ana toggle ──
 async function togglePlay() {
   const btn  = document.getElementById('play-btn');
   const icon = document.getElementById('play-icon');
@@ -4214,29 +4248,35 @@ async function togglePlay() {
   if (btn)  { btn.setAttribute('aria-pressed', isPlaying); btn.classList.toggle('on', isPlaying); }
   if (lbl)  lbl.textContent = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
 
-  // Waveform barları
-  document.querySelectorAll('.wbar').forEach(b => b.classList.toggle('on', isPlaying));
-
-  // Nefes animasyonu
   if (wrap) {
-    wrap.classList.remove('breath-idle');
-    wrap.classList.toggle('breath-inhale', isPlaying);
-    if (!isPlaying) wrap.classList.add('breath-idle');
+    wrap.classList.remove('breath-idle', 'breath-inhale');
+    if (isPlaying) wrap.classList.add('breath-inhale');
+    else           wrap.classList.add('breath-idle');
   }
 
   try {
     if (isPlaying) {
-      await _initAudio();
-      if (_audioCtx && _audioCtx.state === 'suspended') await _audioCtx.resume();
+      // Hangi ses? localStorage'dan al, yoksa mood'a göre seç
+      const gen  = localStorage.getItem('lastGen')  || null;
+      const base = parseInt(localStorage.getItem('lastBase') || '0') || null;
+      const beat = parseInt(localStorage.getItem('lastBeat') || '0') || null;
+
+      if (gen && base) {
+        await _startSound(gen, base, beat || 0);
+      } else {
+        const mood   = localStorage.getItem('lastMood') || 'Sakin';
+        const params = MOOD_FREQ_MAP[mood] || MOOD_FREQ_MAP['Sakin'];
+        await _startSound(params.gen, params.base, params.beat);
+      }
     } else {
-      _stopAudio();
-      if (_audioCtx) await _audioCtx.suspend();
-      // Freq badge kapat
+      _stopAllNodes();
+      if (_audioCtx) try { await _audioCtx.suspend(); } catch(e) {}
+      document.querySelectorAll('.wbar').forEach(b => b.classList.remove('on'));
       const badge = document.getElementById('freq-badge');
       if (badge) badge.classList.remove('on');
     }
-  } catch (err) {
-    console.error('[togglePlay] Hata:', err);
+  } catch(err) {
+    console.error('[togglePlay]', err);
     isPlaying = !isPlaying;
     if (icon) icon.textContent = '▶';
     if (btn)  { btn.setAttribute('aria-pressed', false); btn.classList.remove('on'); }
@@ -4244,7 +4284,6 @@ async function togglePlay() {
   }
 }
 
-let _sleepTimerRef = null;
 
 function setSleepTimer(minutes) {
   if (_sleepTimerRef) clearTimeout(_sleepTimerRef);
@@ -4456,11 +4495,24 @@ function exportHealth() {
 let selectedPlan = null;
 
 function openPaywall() {
-  document.getElementById('paywall-overlay').style.display = 'flex';
+  const overlay = document.getElementById('paywall-overlay');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  // Animasyon için bir tick bekle
+  requestAnimationFrame(function() {
+    overlay.classList.add('show');
+  });
+  document.body.style.overflow = 'hidden';
 }
 
 function closePaywall() {
-  document.getElementById('paywall-overlay').style.display = 'none';
+  const overlay = document.getElementById('paywall-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  setTimeout(function() {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+  }, 400);
 }
 
 function selectPlan(element) {
@@ -4611,30 +4663,27 @@ window.addEventListener('load', function() {
     if (grid) {
       grid.style.display = 'grid';
       const sounds = [
-        { ic:'🌊', name:'Okyanus', dur:'∞', locked:false, gen:'waves' },
-        { ic:'🌧️', name:'Yağmur', dur:'∞', locked:false, gen:'rain' },
-        { ic:'🌬️', name:'Rüzgar', dur:'∞', locked:false, gen:'wind' },
-        { ic:'🔥', name:'Ateş', dur:'∞', locked:true, gen:'fire' },
-        { ic:'🌲', name:'Orman', dur:'∞', locked:true, gen:'forest' },
-        { ic:'⚡', name:'Fırtına', dur:'∞', locked:true, gen:'storm' },
+        { ic:'🌊', name:'Okyanus',  locked:false, gen:'waves',   base:180, beat:0  },
+        { ic:'🌧️', name:'Yağmur',  locked:false, gen:'rain',    base:200, beat:4  },
+        { ic:'🌬️', name:'Rüzgar',  locked:false, gen:'wind',    base:160, beat:8  },
+        { ic:'🔥', name:'Ateş',     locked:true,  gen:'fire',    base:174, beat:3  },
+        { ic:'🎵', name:'Binaural', locked:false, gen:'binaural',base:200, beat:7  },
+        { ic:'⚡', name:'Fırtına',  locked:true,  gen:'storm',   base:220, beat:5  },
       ];
       sounds.forEach(function(s) {
         const card = document.createElement('div');
-        card.className = 'swiper-slide s-card' + (s.locked ? ' premium' : '');
+        card.className = 's-card' + (s.locked ? ' premium' : '');
         card.style.cursor = 'pointer';
         card.innerHTML = (s.locked ? '<span class="s-card-lock">🔒</span>' : '') +
           '<span class="s-card-ic">' + s.ic + '</span>' +
           '<span class="s-card-nm">' + s.name + '</span>' +
-          '<span class="s-card-dur">' + (s.locked ? 'Premium' : s.dur) + '</span>';
+          '<span class="s-card-dur">' + (s.locked ? 'Premium' : s.base + ' Hz') + '</span>';
         if (!s.locked) {
           card.addEventListener('click', function() {
-            localStorage.setItem('lastGen', s.gen);
-            // Sesi değiştir
-            if (isPlaying) {
-              _stopAudio();
-              _engineReady = false;
-              _initAudio();
-            }
+            // Aktif kartı işaretle
+            grid.querySelectorAll('.s-card').forEach(c => c.style.borderColor = '');
+            card.style.borderColor = 'var(--gold)';
+            switchSound(s.gen, s.base, s.beat, s.name);
           });
         } else {
           card.addEventListener('click', openPaywall);
