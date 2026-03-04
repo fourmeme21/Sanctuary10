@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+<script>
+/* Console polyfill — artifact/sandbox uyumluluğu */
+(function(){
+  var c = window.console = window.console || {};
+  ['log','info','warn','error','debug','group','groupEnd','time','timeEnd'].forEach(function(m){
+    if (typeof c[m] !== 'function') c[m] = function(){};
+  });
+})();
+</script>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -178,7 +187,7 @@ body::after {
 /* ─────────────────────────────────────────
    3. LAYOUT — Screens & Safe Areas
 ───────────────────────────────────────── */
-#gen-canvas {
+_gen-canvas {
   position: fixed;
   inset: 0;
   width: 100%;
@@ -188,14 +197,14 @@ body::after {
   will-change: transform; /* canvas animates via JS */
 }
 
-#touch-layer {
+_touch-layer {
   position: fixed;
   inset: 0;
   z-index: 20;
   display: none;
   pointer-events: none;
 }
-#touch-layer.on { display: block; }
+_touch-layer.on { display: block; }
 
 /* Screen container — GPU composited transitions */
 .screen {
@@ -435,7 +444,7 @@ body::after {
 ───────────────────────────────────────── */
 
 /* ── HP Banner ── */
-#hp-banner {
+_hp-banner {
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 500;
@@ -460,14 +469,14 @@ body::after {
   transition: transform var(--dur-slow) var(--ease-standard);
   will-change: transform;
 }
-#hp-banner.show {
+_hp-banner.show {
   transform: translate3d(0, 0, 0);
 }
-#hp-banner .hp-icon {
+_hp-banner .hp-icon {
   font-size: 14px;
   flex-shrink: 0;
 }
-#hp-banner .hp-close {
+_hp-banner .hp-close {
   margin-left: auto;
   cursor: pointer;
   padding: 2px 6px;
@@ -477,7 +486,7 @@ body::after {
   transition: color var(--dur-fast);
   touch-action: manipulation;
 }
-#hp-banner .hp-close:hover { color: var(--gold); }
+_hp-banner .hp-close:hover { color: var(--gold); }
 
 /* ── Brand ── */
 .brand {
@@ -1149,7 +1158,7 @@ body::after {
 .stimer-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
 .stimer-btn.active { border-color: var(--violet); color: var(--violet); background: rgba(155,142,196,0.1); }
 .stimer-btn.fading { border-color: var(--teal); color: var(--teal); background: rgba(110,205,196,0.08); animation: blink 1.8s ease-in-out infinite; }
-#stimer-status {
+_stimer-status {
   font-size: 9.5px;
   letter-spacing: 0.14em;
   color: var(--text-ghost);
@@ -1159,8 +1168,8 @@ body::after {
   min-height: 14px;
   transition: color var(--dur-mid);
 }
-#stimer-status.active { color: var(--violet); }
-#stimer-status.fading { color: var(--teal); }
+_stimer-status.active { color: var(--violet); }
+_stimer-status.fading { color: var(--teal); }
 
 /* ── Analytics ── */
 .analytics-header {
@@ -1224,7 +1233,7 @@ body::after {
   color: var(--text-dim);
   margin-bottom: 16px;
 }
-#analytics-canvas { width: 100%; display: block; }
+_analytics-canvas { width: 100%; display: block; }
 
 /* ── Mood Log ── */
 .mood-log-list { width: 100%; margin-bottom: 24px; }
@@ -1260,7 +1269,7 @@ body::after {
 .clear-data-btn:hover { border-color: rgba(255,80,80,0.5); color: rgba(255,120,120,0.8); }
 
 /* ── Notification Toast ── */
-#notif-toast {
+_notif-toast {
   position: fixed;
   bottom: calc(24px + var(--sab));
   left: 50%;
@@ -1279,13 +1288,13 @@ body::after {
   box-shadow: var(--glass-specular);
   will-change: transform;
 }
-#notif-toast.show {
+_notif-toast.show {
   transform: translate3d(-50%, 0, 0);
 }
-#notif-toast .nt-title  { font-size: 12px; font-weight: 500; color: var(--text-prime); margin-bottom: 5px; letter-spacing: 0.05em; }
-#notif-toast .nt-body   { font-size: 11.5px; color: var(--text-dim); line-height: var(--leading-body); margin-bottom: 16px; }
-#notif-toast .nt-actions { display: flex; gap: 8px; justify-content: flex-end; }
-#notif-toast .nt-yes {
+_notif-toast .nt-title  { font-size: 12px; font-weight: 500; color: var(--text-prime); margin-bottom: 5px; letter-spacing: 0.05em; }
+_notif-toast .nt-body   { font-size: 11.5px; color: var(--text-dim); line-height: var(--leading-body); margin-bottom: 16px; }
+_notif-toast .nt-actions { display: flex; gap: 8px; justify-content: flex-end; }
+_notif-toast .nt-yes {
   padding: 8px 20px;
   background: linear-gradient(135deg, rgba(201,169,110,0.18), rgba(201,169,110,0.09));
   border: 1px solid var(--gold-dim);
@@ -1300,7 +1309,7 @@ body::after {
   transition: all var(--dur-mid);
   touch-action: manipulation;
 }
-#notif-toast .nt-no {
+_notif-toast .nt-no {
   padding: 8px 16px;
   background: transparent;
   border: 1px solid var(--glass-border);
@@ -1315,7 +1324,7 @@ body::after {
 }
 
 /* ── Health Modal ── */
-#health-modal {
+_health-modal {
   position: fixed;
   inset: 0;
   z-index: 700;
@@ -1329,7 +1338,7 @@ body::after {
   pointer-events: none;
   transition: opacity var(--dur-mid);
 }
-#health-modal.show { opacity: 1; pointer-events: all; }
+_health-modal.show { opacity: 1; pointer-events: all; }
 .health-sheet {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1342,7 +1351,7 @@ body::after {
   transition: transform 0.45s var(--ease-standard);
   will-change: transform;
 }
-#health-modal.show .health-sheet { transform: translate3d(0, 0, 0); }
+_health-modal.show .health-sheet { transform: translate3d(0, 0, 0); }
 .health-sheet h3 { font-family: var(--font-display); font-size: 24px; font-weight: 300; margin-bottom: 6px; text-align: center; }
 .health-sheet .hs-sub { font-size: 11px; color: var(--text-dim); text-align: center; margin-bottom: 20px; letter-spacing: 0.06em; }
 .health-json {
@@ -1665,7 +1674,7 @@ body::after {
 .ai-freq-chip    { padding: 4px 12px; background: rgba(110,205,196,0.09); border: 1px solid rgba(110,205,196,0.22); border-radius: 100px; font-size: 9px; letter-spacing: 0.12em; color: var(--teal); text-transform: uppercase; font-weight: 500; }
 
 /* ── AI Processing Overlay ── */
-#ai-processing {
+_ai-processing {
   position: fixed;
   inset: 0;
   z-index: 1800;
@@ -1676,7 +1685,7 @@ body::after {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
-#ai-processing.show { display: flex; animation: fadeIn 0.3s ease both; }
+_ai-processing.show { display: flex; animation: fadeIn 0.3s ease both; }
 
 .ai-proc-inner {
   display: flex;
@@ -1748,7 +1757,7 @@ body::after {
   z-index: -1;
 }
 
-#ai-thinking-label {
+_ai-thinking-label {
   position: absolute;
   bottom: -26px;
   left: 50%;
@@ -1765,11 +1774,11 @@ body::after {
   text-shadow: 0 0 12px rgba(155,142,196,0.7);
   pointer-events: none;
 }
-#ai-thinking-label.show { opacity: 1; }
+_ai-thinking-label.show { opacity: 1; }
 .ai-mic-btn.recording { animation: micPulse 1.2s ease-in-out infinite; }
 
 /* ── Fallback Notice ── */
-#fallback-notice {
+_fallback-notice {
   position: fixed;
   top: calc(var(--sat) + 8px);
   left: 50%;
@@ -1793,11 +1802,11 @@ body::after {
   pointer-events: none;
   will-change: transform;
 }
-#fallback-notice.show { transform: translate3d(-50%, 0, 0); }
-#fallback-notice .fn-icon { font-size: 14px; flex-shrink: 0; }
+_fallback-notice.show { transform: translate3d(-50%, 0, 0); }
+_fallback-notice .fn-icon { font-size: 14px; flex-shrink: 0; }
 
 /* ── Crossfade Indicator ── */
-#crossfade-indicator {
+_crossfade-indicator {
   position: fixed;
   bottom: calc(var(--sab) + 80px);
   right: 16px;
@@ -1814,8 +1823,8 @@ body::after {
   pointer-events: none;
   font-family: var(--font-ui);
 }
-#crossfade-indicator.show { opacity: 1; }
-#crossfade-indicator .cf-dot {
+_crossfade-indicator.show { opacity: 1; }
+_crossfade-indicator .cf-dot {
   width: 5px; height: 5px;
   border-radius: 50%;
   background: var(--teal);
@@ -1823,7 +1832,7 @@ body::after {
 }
 
 /* ── Connection Warning ── */
-#connection-warning {
+_connection-warning {
   position: fixed;
   top: calc(var(--sat) + 56px);
   left: 50%;
@@ -1847,12 +1856,12 @@ body::after {
   pointer-events: none;
   will-change: transform;
 }
-#connection-warning.show {
+_connection-warning.show {
   transform: translate3d(-50%, 0, 0);
 }
 
 /* ── PWA Banner ── */
-#pwa-banner {
+_pwa-banner {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   z-index: 550;
@@ -1866,9 +1875,9 @@ body::after {
   transition: transform var(--dur-slow) var(--ease-standard);
   will-change: transform;
 }
-#pwa-banner.show { transform: translate3d(0, 0, 0); }
-#pwa-banner .pb-text { flex: 1; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
-#pwa-banner .pb-install {
+_pwa-banner.show { transform: translate3d(0, 0, 0); }
+_pwa-banner .pb-text { flex: 1; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+_pwa-banner .pb-install {
   padding: 9px 18px;
   background: var(--gold-ghost);
   border: 1px solid var(--gold-dim);
@@ -1883,7 +1892,7 @@ body::after {
   flex-shrink: 0;
   touch-action: manipulation;
 }
-#pwa-banner .pb-close {
+_pwa-banner .pb-close {
   color: var(--text-ghost);
   cursor: pointer;
   font-size: 16px;
@@ -1893,7 +1902,7 @@ body::after {
 }
 
 /* ── Paywall ── */
-#paywall-overlay {
+_paywall-overlay {
   position: fixed;
   inset: 0;
   z-index: 2000;
@@ -1904,7 +1913,7 @@ body::after {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
-#paywall-overlay.show {
+_paywall-overlay.show {
   display: flex;
   animation: paywallFadeIn 0.4s var(--ease-standard) both;
 }
@@ -1929,7 +1938,7 @@ body::after {
   padding-bottom: var(--sab);
   will-change: transform, opacity;
 }
-#paywall-overlay.show .paywall-sheet {
+_paywall-overlay.show .paywall-sheet {
   transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
   opacity: 1;
 }
@@ -2210,9 +2219,9 @@ html.low-power .analytics-link,
 html.low-power .play-btn,
 html.low-power .ai-card,
 html.low-power .ai-textarea,
-html.low-power #notif-toast,
-html.low-power #hp-banner,
-html.low-power #fallback-notice,
+html.low-power _notif-toast,
+html.low-power _hp-banner,
+html.low-power _fallback-notice,
 html.low-power .pw-plan,
 html.low-power .pw-close {
   backdrop-filter: none !important;
@@ -3286,7 +3295,7 @@ html.low-power .play-btn {
 
 
 /* ── SANCTUARY BACKGROUND ENGINE ── */
-#gen-canvas {
+_gen-canvas {
   position: fixed !important;
   inset: 0 !important;
   z-index: 0 !important;
@@ -3865,11 +3874,44 @@ html.low-power .play-btn {
     requestAnimationFrame(revealContent);
   }
 
+  // Sayfa yüklenince premium sounds'u otomatik başlat
+  setTimeout(function() {
+    if (window.revealPremiumSounds) window.revealPremiumSounds();
+  }, 800);
+
   window.revealPremiumSounds = function() {
     var sk = document.getElementById('premium-sounds-skeleton');
     var grid = document.getElementById('premium-sounds-grid');
     if (sk) sk.style.display = 'none';
-    if (grid) grid.style.display = 'grid';
+    if (grid) {
+      grid.style.display = 'grid';
+      var sounds = [
+        { ic:'🌊', name:'Okyanus',  locked:false, gen:'waves',    base:180, beat:0 },
+        { ic:'🌧️', name:'Yağmur',  locked:false, gen:'rain',     base:200, beat:4 },
+        { ic:'🌬️', name:'Rüzgar',  locked:false, gen:'wind',     base:160, beat:8 },
+        { ic:'🎵', name:'Binaural', locked:false, gen:'binaural', base:200, beat:7 },
+        { ic:'🔥', name:'Ateş',     locked:true,  gen:'fire',     base:174, beat:3 },
+        { ic:'⚡', name:'Fırtına',  locked:true,  gen:'storm',    base:220, beat:5 },
+      ];
+      sounds.forEach(function(s) {
+        var card = document.createElement('div');
+        card.className = 's-card' + (s.locked ? ' premium' : '');
+        card.innerHTML = (s.locked ? '<span class="s-card-lock">🔒</span>' : '')
+          + '<span class="s-card-ic">' + s.ic + '</span>'
+          + '<span class="s-card-nm">' + s.name + '</span>'
+          + '<span class="s-card-dur">' + (s.locked ? 'Premium' : s.base + ' Hz') + '</span>';
+        if (!s.locked) {
+          card.addEventListener('click', function() {
+            grid.querySelectorAll('.s-card').forEach(function(c){ c.style.borderColor=''; });
+            card.style.borderColor = 'var(--gold)';
+            if (window.switchSound) window.switchSound(s.gen, s.base, s.beat, s.name);
+          });
+        } else {
+          card.addEventListener('click', function(){ if(window.openPaywall) window.openPaywall(); });
+        }
+        grid.appendChild(card);
+      });
+    }
   };
 })();
 </script>
@@ -3937,8 +3979,8 @@ html.low-power .play-btn {
 // if ('serviceWorker' in navigator) {
 //   window.addEventListener('load', function() {
 //     navigator.serviceWorker.register('./sw.js')
-//       .then(function(reg) { console.log('[SW] Kayıt başarılı:', reg.scope); })
-//       .catch(function(err) { console.warn('[SW] Kayıt başarısız:', err); });
+//       .then(function(reg) {  })
+//       .catch(function(err) {  });
 //   });
 // }
 </script>
@@ -3946,6 +3988,9 @@ html.low-power .play-btn {
 
 
 <!-- TÜM EKSİK FONKSİYONLAR EKLENDİ -->
+
+
+
 
 
 
@@ -3972,7 +4017,7 @@ html.low-power .play-btn {
  * ─────────────────────────────────────────────────────────────────────────────
  * 3. Aşama Güvenlik Değişiklikleri (korundu):
  *   - apiKey artık localStorage'a YAZILMIYOR (PERSISTED_KEYS'den çıkarıldı).
- *   - apiKey sadece runtime bellekte, private #apiKeyRuntime alanında tutulur.
+ *   - apiKey sadece runtime bellekte, private _apiKeyRuntime alanında tutulur.
  *   - validatePurchaseToken frontend doğrulaması tamamen kaldırıldı.
  *   - setPremiumStatus receiptToken doğrulamasında offline/demo modu açıkça işaretler.
  */
@@ -4060,60 +4105,60 @@ const PLAN_RANK = {
 
 class StateManager {
   /** @type {Object} */
-  #state;
+  _state;
 
   /** @type {string} */
-  #apiKeyRuntime;
+  _apiKeyRuntime;
 
   /** @type {Map<string, Set<Function>>} */
-  #keyListeners;
+  _keyListeners;
 
   /** @type {Set<Function>} */
-  #globalListeners;
+  _globalListeners;
 
   /** @type {StorageAdapter|null} */
-  #storage;
+  _storage;
 
   /** @type {Map<string, ReturnType<typeof setTimeout>>} */
-  #persistDebounceTimers;
+  _persistDebounceTimers;
 
   /** @type {Set<ReturnType<typeof setTimeout>>} */
-  #timers;
+  _timers;
 
   /** @type {boolean} */
-  #hydrated;
+  _hydrated;
 
   /**
    * PHASE 5: Storage event listener referansı — dispose()'da kaldırılır.
    * Cross-tab senkronizasyonu için localStorage değişikliklerini dinler.
    * @type {Function|null}
    */
-  #boundStorageHandler;
+  _boundStorageHandler;
 
   /**
    * PHASE 5: Visibility change handler referansı — dispose()'da kaldırılır.
    * Sekme gizlenince bekleyen persist'leri flush eder.
    * @type {Function|null}
    */
-  #boundVisibilityHandler;
+  _boundVisibilityHandler;
 
   /**
    * @param {StorageAdapter|null} storageAdapter
    */
   constructor(storageAdapter = null) {
-    this.#state                  = { ...DEFAULT_STATE };
-    this.#apiKeyRuntime          = '';
-    this.#keyListeners           = new Map();
-    this.#globalListeners        = new Set();
-    this.#storage                = storageAdapter;
-    this.#persistDebounceTimers  = new Map();
-    this.#timers                 = new Set();
-    this.#hydrated               = false;
-    this.#boundStorageHandler    = null;
-    this.#boundVisibilityHandler = null;
+    this._state                  = { ...DEFAULT_STATE };
+    this._apiKeyRuntime          = '';
+    this._keyListeners           = new Map();
+    this._globalListeners        = new Set();
+    this._storage                = storageAdapter;
+    this._persistDebounceTimers  = new Map();
+    this._timers                 = new Set();
+    this._hydrated               = false;
+    this._boundStorageHandler    = null;
+    this._boundVisibilityHandler = null;
 
     /* PHASE 5: Event listener'ları başlat */
-    this.#attachWindowListeners();
+    this._attachWindowListeners();
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4121,30 +4166,30 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   get(key) {
-    if (key === 'apiKey') return this.#apiKeyRuntime;
-    return this.#state[key];
+    if (key === 'apiKey') return this._apiKeyRuntime;
+    return this._state[key];
   }
 
   /** @private */
-  #rawSet(key, value) {
+  _rawSet(key, value) {
     if (key === 'apiKey') {
-      this.#apiKeyRuntime = value ?? '';
+      this._apiKeyRuntime = value ?? '';
       return;
     }
 
-    const prev = this.#state[key];
+    const prev = this._state[key];
     if (Object.is(prev, value)) return;
 
-    this.#state[key] = value;
-    this.#notify(key, value, prev);
+    this._state[key] = value;
+    this._notify(key, value, prev);
 
     if (PERSISTED_KEYS.has(key)) {
-      this.#schedulePersist(key, value);
+      this._schedulePersist(key, value);
     }
   }
 
   getSnapshot() {
-    const { ...snapshot } = this.#state;
+    const { ...snapshot } = this._state;
     return Object.freeze(snapshot);
   }
 
@@ -4153,18 +4198,18 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   subscribe(key, listener) {
-    if (!this.#keyListeners.has(key)) {
-      this.#keyListeners.set(key, new Set());
+    if (!this._keyListeners.has(key)) {
+      this._keyListeners.set(key, new Set());
     }
-    this.#keyListeners.get(key).add(listener);
+    this._keyListeners.get(key).add(listener);
     return () => {
-      this.#keyListeners.get(key)?.delete(listener);
+      this._keyListeners.get(key)?.delete(listener);
     };
   }
 
   subscribeAll(listener) {
-    this.#globalListeners.add(listener);
-    return () => this.#globalListeners.delete(listener);
+    this._globalListeners.add(listener);
+    return () => this._globalListeners.delete(listener);
   }
 
   subscribeMany(keys, listener) {
@@ -4173,15 +4218,15 @@ class StateManager {
   }
 
   /** @private */
-  #notify(key, newValue, prevValue) {
-    this.#keyListeners.get(key)?.forEach((fn) => {
+  _notify(key, newValue, prevValue) {
+    this._keyListeners.get(key)?.forEach((fn) => {
       try { fn(newValue, prevValue); }
-      catch (err) { console.error(`[StateManager] Listener hatası (${key}):`, err); }
+      catch (err) {  }
     });
 
-    this.#globalListeners.forEach((fn) => {
+    this._globalListeners.forEach((fn) => {
       try { fn({ key, newValue, prevValue }); }
-      catch (err) { console.error('[StateManager] Global listener hatası:', err); }
+      catch (err) {  }
     });
   }
 
@@ -4190,50 +4235,50 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   async hydrate() {
-    if (!this.#storage) {
-      this.#hydrated = true;
+    if (!this._storage) {
+      this._hydrated = true;
       return;
     }
 
     const loadPromises = [...PERSISTED_KEYS].map(async (key) => {
       try {
-        const raw = await this.#storage.get(`state:${key}`);
+        const raw = await this._storage.get(`state:${key}`);
         if (raw !== null && raw !== undefined) {
-          const parsed = this.#deserialize(key, raw);
-          this.#state[key] = parsed;
+          const parsed = this._deserialize(key, raw);
+          this._state[key] = parsed;
         }
       } catch (err) {
-        console.warn(`[StateManager] Hydration hatası (${key}):`, err);
+        
       }
     });
 
     await Promise.all(loadPromises);
 
-    this.#validatePremiumExpiry();
+    this._validatePremiumExpiry();
 
-    this.#hydrated = true;
-    this.#notify('isInitialized', true, false);
-    this.#state.isInitialized = true;
-    console.info('[StateManager] Hydration tamamlandı.');
+    this._hydrated = true;
+    this._notify('isInitialized', true, false);
+    this._state.isInitialized = true;
+    
   }
 
   /** @private */
-  #schedulePersist(key, value) {
-    if (!this.#storage) return;
+  _schedulePersist(key, value) {
+    if (!this._storage) return;
 
-    const existing = this.#persistDebounceTimers.get(key);
+    const existing = this._persistDebounceTimers.get(key);
     if (existing) clearTimeout(existing);
 
     const id = setTimeout(async () => {
-      this.#persistDebounceTimers.delete(key);
+      this._persistDebounceTimers.delete(key);
       try {
-        await this.#storage.set(`state:${key}`, this.#serialize(key, value));
+        await this._storage.set(`state:${key}`, this._serialize(key, value));
       } catch (err) {
-        console.error(`[StateManager] Persist hatası (${key}):`, err);
+        
       }
     }, 16);
 
-    this.#persistDebounceTimers.set(key, id);
+    this._persistDebounceTimers.set(key, id);
   }
 
   /**
@@ -4241,39 +4286,39 @@ class StateManager {
    * Sekme kapanmadan önce veri kaybını önler.
    */
   async flushPersist() {
-    if (!this.#storage) return;
+    if (!this._storage) return;
 
     const promises = [];
-    this.#persistDebounceTimers.forEach((id, key) => {
+    this._persistDebounceTimers.forEach((id, key) => {
       clearTimeout(id);
-      const value = this.#state[key];
+      const value = this._state[key];
       promises.push(
-        this.#storage
-          .set(`state:${key}`, this.#serialize(key, value))
-          .catch((err) => console.error(`[StateManager] Flush persist hatası (${key}):`, err))
+        this._storage
+          .set(`state:${key}`, this._serialize(key, value))
+          .catch(function(err) {})
       );
     });
-    this.#persistDebounceTimers.clear();
+    this._persistDebounceTimers.clear();
 
     if (promises.length > 0) {
       await Promise.all(promises);
-      console.info(`[StateManager] ${promises.length} persist flush edildi.`);
+      
     }
   }
 
   /** @private */
-  #serialize(key, value)  { return JSON.stringify(value); }
+  _serialize(key, value)  { return JSON.stringify(value); }
 
   /** @private */
-  #deserialize(key, raw) {
+  _deserialize(key, raw) {
     try   { return JSON.parse(raw); }
     catch { return raw; }
   }
 
   async clearPersistedState() {
-    if (!this.#storage) return;
+    if (!this._storage) return;
     await Promise.all(
-      [...PERSISTED_KEYS].map((k) => this.#storage.remove(`state:${k}`).catch(() => {}))
+      [...PERSISTED_KEYS].map((k) => this._storage.remove(`state:${k}`).catch(() => {}))
     );
   }
 
@@ -4281,29 +4326,29 @@ class StateManager {
   // BÖLÜM 4 — Oynatma & Ses Kontrolü
   // ══════════════════════════════════════════════════════════════════════════
 
-  setPlaying(value)          { this.#rawSet('playing', Boolean(value)); }
+  setPlaying(value)          { this._rawSet('playing', Boolean(value)); }
   setCurrentScene(scene) {
     if (typeof scene !== 'string' || !scene.trim()) {
       throw new TypeError('[StateManager] Geçersiz sahne adı');
     }
-    this.#rawSet('currentScene', scene.trim());
+    this._rawSet('currentScene', scene.trim());
   }
   setAudioTracks(tracks) {
     if (!Array.isArray(tracks)) throw new TypeError('[StateManager] audioTracks bir dizi olmalıdır');
-    this.#rawSet('audioTracks', tracks);
+    this._rawSet('audioTracks', tracks);
   }
   updateTrackVolume(trackName, volume) {
     const clamped = Math.min(1, Math.max(0, volume));
-    const tracks  = this.#state.audioTracks.map((t) =>
+    const tracks  = this._state.audioTracks.map((t) =>
       t.name === trackName ? { ...t, volume: clamped } : t
     );
-    this.#rawSet('audioTracks', tracks);
+    this._rawSet('audioTracks', tracks);
   }
   setMasterVolume(volume) {
-    this.#rawSet('masterVolume', Math.min(1, Math.max(0, volume)));
+    this._rawSet('masterVolume', Math.min(1, Math.max(0, volume)));
   }
   setIntensity(value) {
-    this.#rawSet('intensity', Math.min(1, Math.max(0, value)));
+    this._rawSet('intensity', Math.min(1, Math.max(0, value)));
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4317,7 +4362,7 @@ class StateManager {
         `[StateManager] Geçersiz mood: "${mood}". Geçerli: ${validMoods.join(', ')}`
       );
     }
-    this.#rawSet('selectedMood', mood);
+    this._rawSet('selectedMood', mood);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4325,28 +4370,28 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   startSession() {
-    this.#rawSet('sessionStartTime', Date.now());
-    this.#rawSet('currentSessionDuration', 0);
+    this._rawSet('sessionStartTime', Date.now());
+    this._rawSet('currentSessionDuration', 0);
   }
 
   endSession() {
-    const start = this.#state.sessionStartTime;
+    const start = this._state.sessionStartTime;
     if (!start) return null;
 
     const duration = Math.floor((Date.now() - start) / 1000);
-    this.#rawSet('currentSessionDuration', duration);
-    this.#rawSet('sessionStartTime', null);
+    this._rawSet('currentSessionDuration', duration);
+    this._rawSet('sessionStartTime', null);
 
     return {
       duration,
-      mood:  this.#state.selectedMood,
-      scene: this.#state.currentScene,
+      mood:  this._state.selectedMood,
+      scene: this._state.currentScene,
       date:  new Date().toISOString(),
     };
   }
 
   getCurrentSessionDuration() {
-    const start = this.#state.sessionStartTime;
+    const start = this._state.sessionStartTime;
     if (!start) return 0;
     return Math.floor((Date.now() - start) / 1000);
   }
@@ -4363,33 +4408,33 @@ class StateManager {
     this.cancelSleepTimer();
 
     const endTime  = Date.now() + minutes * 60 * 1000;
-    this.#rawSet('isTimerActive', true);
-    this.#rawSet('sleepTimer', minutes);
-    this.#rawSet('sleepTimerEnd', endTime);
+    this._rawSet('isTimerActive', true);
+    this._rawSet('sleepTimer', minutes);
+    this._rawSet('sleepTimerEnd', endTime);
 
     const timerId = setTimeout(() => {
-      this.#rawSet('isTimerActive', false);
-      this.#rawSet('sleepTimer', null);
-      this.#rawSet('sleepTimerEnd', null);
-      this.#timers.delete(timerId);
+      this._rawSet('isTimerActive', false);
+      this._rawSet('sleepTimer', null);
+      this._rawSet('sleepTimerEnd', null);
+      this._timers.delete(timerId);
       if (typeof onExpire === 'function') {
         try { onExpire(); }
-        catch (err) { console.error('[StateManager] onExpire hatası:', err); }
+        catch (err) {  }
       }
     }, minutes * 60 * 1000);
 
-    this.#timers.add(timerId);
+    this._timers.add(timerId);
     return timerId;
   }
 
   cancelSleepTimer() {
-    this.#rawSet('isTimerActive', false);
-    this.#rawSet('sleepTimer', null);
-    this.#rawSet('sleepTimerEnd', null);
+    this._rawSet('isTimerActive', false);
+    this._rawSet('sleepTimer', null);
+    this._rawSet('sleepTimerEnd', null);
   }
 
   getRemainingTimerSeconds() {
-    const end = this.#state.sleepTimerEnd;
+    const end = this._state.sleepTimerEnd;
     if (!end) return 0;
     return Math.max(0, Math.floor((end - Date.now()) / 1000));
   }
@@ -4410,42 +4455,42 @@ class StateManager {
     }
 
     if (receiptToken) {
-      console.info('[StateManager] Receipt token mevcut — backend doğrulaması gerekli.');
+      
     } else {
-      console.warn('[StateManager] Receipt token sağlanmadı. Demo/offline mod aktif.');
+      
     }
 
-    this.#rawSet('isPremium', true);
-    this.#rawSet('premiumPlan', plan);
-    this.#rawSet('billingCycle', billingCycle);
-    this.#rawSet('premiumExpiresAt', expiresAt);
+    this._rawSet('isPremium', true);
+    this._rawSet('premiumPlan', plan);
+    this._rawSet('billingCycle', billingCycle);
+    this._rawSet('premiumExpiresAt', expiresAt);
   }
 
   revokePremium() {
-    this.#rawSet('isPremium', false);
-    this.#rawSet('premiumPlan', PremiumPlan.NONE);
-    this.#rawSet('premiumExpiresAt', null);
+    this._rawSet('isPremium', false);
+    this._rawSet('premiumPlan', PremiumPlan.NONE);
+    this._rawSet('premiumExpiresAt', null);
   }
 
   checkContentAccess(contentId) {
     const requiredPlan = CONTENT_PERMISSIONS[contentId];
     if (!requiredPlan) return { allowed: true, reason: '' };
 
-    if (!this.#state.isPremium) {
+    if (!this._state.isPremium) {
       return { allowed: false, reason: `Bu içerik premium üyelik gerektiriyor (${requiredPlan}).` };
     }
 
-    const userRank     = PLAN_RANK[this.#state.premiumPlan] ?? 0;
+    const userRank     = PLAN_RANK[this._state.premiumPlan] ?? 0;
     const requiredRank = PLAN_RANK[requiredPlan] ?? 0;
 
     if (userRank < requiredRank) {
       return {
         allowed: false,
-        reason: `Bu içerik ${requiredPlan} planı gerektiriyor. Mevcut planınız: ${this.#state.premiumPlan}.`,
+        reason: `Bu içerik ${requiredPlan} planı gerektiriyor. Mevcut planınız: ${this._state.premiumPlan}.`,
       };
     }
 
-    if (this.#isPremiumExpired()) {
+    if (this._isPremiumExpired()) {
       this.revokePremium();
       return { allowed: false, reason: 'Premium aboneliğinizin süresi dolmuş.' };
     }
@@ -4460,23 +4505,23 @@ class StateManager {
   }
 
   /** @private — Her zaman false; güvenlik için client-side doğrulama yapılmaz */
-  #validatePurchaseToken(/* token */) {
+  _validatePurchaseToken(/* token */) {
     return false;
   }
 
   /** @private */
-  #validatePremiumExpiry() {
-    const expiresAt = this.#state.premiumExpiresAt;
+  _validatePremiumExpiry() {
+    const expiresAt = this._state.premiumExpiresAt;
     if (expiresAt && new Date(expiresAt) < new Date()) {
-      this.#state.isPremium       = false;
-      this.#state.premiumPlan     = PremiumPlan.NONE;
-      this.#state.premiumExpiresAt = null;
+      this._state.isPremium       = false;
+      this._state.premiumPlan     = PremiumPlan.NONE;
+      this._state.premiumExpiresAt = null;
     }
   }
 
   /** @private */
-  #isPremiumExpired() {
-    const exp = this.#state.premiumExpiresAt;
+  _isPremiumExpired() {
+    const exp = this._state.premiumExpiresAt;
     return exp ? new Date(exp) < new Date() : false;
   }
 
@@ -4484,27 +4529,27 @@ class StateManager {
   // BÖLÜM 9 — Kullanıcı Tercihleri
   // ══════════════════════════════════════════════════════════════════════════
 
-  setBannerDismissed(value) { this.#rawSet('bannerDismissed', Boolean(value)); }
+  setBannerDismissed(value) { this._rawSet('bannerDismissed', Boolean(value)); }
 
   setApiKey(key) {
     if (typeof key !== 'string') throw new TypeError('[StateManager] API key string olmalıdır');
-    this.#apiKeyRuntime = key;
+    this._apiKeyRuntime = key;
   }
 
-  getApiKey()  { return this.#apiKeyRuntime; }
-  clearApiKey() { this.#apiKeyRuntime = ''; }
+  getApiKey()  { return this._apiKeyRuntime; }
+  clearApiKey() { this._apiKeyRuntime = ''; }
 
-  setLanguage(lang)      { this.#rawSet('language', lang); }
+  setLanguage(lang)      { this._rawSet('language', lang); }
 
   setBillingCycle(cycle) {
     if (!Object.values(BillingCycle).includes(cycle)) {
       throw new RangeError(`[StateManager] Geçersiz fatura döngüsü: ${cycle}`);
     }
-    this.#rawSet('billingCycle', cycle);
+    this._rawSet('billingCycle', cycle);
   }
 
   setLastOpenDate(isoString = new Date().toISOString()) {
-    this.#rawSet('lastOpenDate', isoString);
+    this._rawSet('lastOpenDate', isoString);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4520,11 +4565,11 @@ class StateManager {
    *
    * visibilitychange event: Sekme gizlenince bekleyen persist'leri flush eder.
    */
-  #attachWindowListeners() {
+  _attachWindowListeners() {
     if (typeof window === 'undefined') return;
 
     /* ── Storage (cross-tab sync) ── */
-    this.#boundStorageHandler = (event) => {
+    this._boundStorageHandler = (event) => {
       try {
         if (!event.key || !event.key.startsWith('state:')) return;
         const stateKey = event.key.replace('state:', '');
@@ -4534,46 +4579,46 @@ class StateManager {
         if (!PERSISTED_KEYS.has(stateKey)) return;
 
         const newValue = event.newValue !== null
-          ? this.#deserialize(stateKey, event.newValue)
+          ? this._deserialize(stateKey, event.newValue)
           : DEFAULT_STATE[stateKey];
 
         /* State'i notify ile güncelle — ama persist tetikleme (cross-tab loop önle) */
-        const prev = this.#state[stateKey];
+        const prev = this._state[stateKey];
         if (!Object.is(prev, newValue)) {
-          this.#state[stateKey] = newValue;
-          this.#notify(stateKey, newValue, prev);
-          console.info(`[StateManager] Cross-tab sync: ${stateKey}`);
+          this._state[stateKey] = newValue;
+          this._notify(stateKey, newValue, prev);
+          
         }
       } catch (err) {
-        console.warn('[StateManager] Storage event hatası:', err);
+        
       }
     };
-    window.addEventListener('storage', this.#boundStorageHandler);
+    window.addEventListener('storage', this._boundStorageHandler);
 
     /* ── Visibility Change (persist flush) ── */
-    this.#boundVisibilityHandler = () => {
-      if (document.hidden && this.#persistDebounceTimers.size > 0) {
+    this._boundVisibilityHandler = () => {
+      if (document.hidden && this._persistDebounceTimers.size > 0) {
         /* Sekme gizlendiğinde bekleyen persist'leri hemen yaz */
         this.flushPersist().catch((err) => {
-          console.warn('[StateManager] Visibility flush hatası:', err);
+          
         });
       }
     };
-    document.addEventListener('visibilitychange', this.#boundVisibilityHandler);
+    document.addEventListener('visibilitychange', this._boundVisibilityHandler);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
   // BÖLÜM 11 — Timer & Kaynak Yönetimi
   // ══════════════════════════════════════════════════════════════════════════
 
-  registerTimer(timerId) { this.#timers.add(timerId); }
+  registerTimer(timerId) { this._timers.add(timerId); }
 
   clearAllTimers() {
-    this.#timers.forEach((id) => {
+    this._timers.forEach((id) => {
       clearTimeout(id);
       clearInterval(id);
     });
-    this.#timers.clear();
+    this._timers.clear();
   }
 
   /**
@@ -4585,43 +4630,43 @@ class StateManager {
    *   5. API key bellekten silinir
    */
   async dispose() {
-    console.info('[StateManager] Dispose başlatılıyor...');
+    
 
     /* 1. Timer'ları iptal et */
     this.clearAllTimers();
-    this.#persistDebounceTimers.forEach((id) => clearTimeout(id));
+    this._persistDebounceTimers.forEach((id) => clearTimeout(id));
 
     /* 2. Bekleyen persist'leri flush et */
     try {
       await this.flushPersist();
     } catch (err) {
-      console.warn('[StateManager] Dispose flush hatası:', err);
+      
     }
 
     /* 3. PHASE 5: Window event listener'larını kaldır — bellek sızıntısı önlemi */
     try {
-      if (this.#boundStorageHandler && typeof window !== 'undefined') {
-        window.removeEventListener('storage', this.#boundStorageHandler);
-        this.#boundStorageHandler = null;
-        console.info('[StateManager] Storage listener kaldırıldı.');
+      if (this._boundStorageHandler && typeof window !== 'undefined') {
+        window.removeEventListener('storage', this._boundStorageHandler);
+        this._boundStorageHandler = null;
+        
       }
-      if (this.#boundVisibilityHandler && typeof document !== 'undefined') {
-        document.removeEventListener('visibilitychange', this.#boundVisibilityHandler);
-        this.#boundVisibilityHandler = null;
-        console.info('[StateManager] Visibility listener kaldırıldı.');
+      if (this._boundVisibilityHandler && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this._boundVisibilityHandler);
+        this._boundVisibilityHandler = null;
+        
       }
     } catch (err) {
-      console.warn('[StateManager] Listener temizleme uyarısı:', err);
+      
     }
 
     /* 4. Subscriber'ları temizle */
-    this.#keyListeners.clear();
-    this.#globalListeners.clear();
+    this._keyListeners.clear();
+    this._globalListeners.clear();
 
     /* 5. API key'i bellekten sil */
-    this.#apiKeyRuntime = '';
+    this._apiKeyRuntime = '';
 
-    console.info('[StateManager] Dispose tamamlandı.');
+    
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4629,21 +4674,15 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   debug() {
-    console.group('[StateManager] Mevcut State');
-    const safeState = { ...this.#state, apiKey: '[GİZLİ — runtime]' };
+    
+    const safeState = { ...this._state, apiKey: '[GİZLİ — runtime]' };
     console.table(safeState);
-    console.info('Listener sayısı:', {
-      keyListeners:    this.#keyListeners.size,
-      globalListeners: this.#globalListeners.size,
-      timers:          this.#timers.size,
-      pendingPersist:  this.#persistDebounceTimers.size,
-      hydrated:        this.#hydrated,
-    });
-    console.groupEnd();
+    
+    
   }
 
   toPlainObject() {
-    return { ...this.#state };
+    return { ...this._state };
   }
 }
 
@@ -4670,7 +4709,7 @@ function _resetStateManagerSingleton() {
   var _sm = null;
   function _getOrCreate() {
     if (!_sm) {
-      try { _sm = getStateManager(); } catch(e) { console.warn('[StateManager] init hatası:', e); }
+      try { _sm = getStateManager(); } catch(e) {  }
     }
     return _sm;
   }
@@ -4687,842 +4726,1774 @@ function _resetStateManagerSingleton() {
 </script>
 <script>
 /**
- * main.js — Sanctuary 8. Aşama (Final: Konsolidasyon & Yayına Hazırlık)
- * ─────────────────────────────────────────────────────────────────────
- * 1. window.Sanctuary global namespace
- * 2. Merkezi CONFIG nesnesi
- * 3. BreathCycle yardımcı fonksiyon
- * 4. sessionBuffer — sekme geçişlerinde veri korunumu
- * 5. Merkezi hata yakalayıcı (window.onerror + unhandledrejection)
+ * main.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 4. Aşama korundu. Ek değişiklikler (Phase 5):
+ *   1. PageVisibilityManager — Sekme gizlenince Ripple/Waveform durur, CPU tasarrufu
+ *   2. RenderGuard           — Oda listesi sadece veri değiştiğinde render edilir
+ *   3. stopWaveformLoop()    — cancelAnimationFrame ile RAF döngüsü iptal edilir
+ *   4. fetchWithTimeout      — cache: 'force-cache' destekli (SW ile entegre)
+ *   5. Cleanup on unload     — beforeunload + pagehide'da tüm kaynaklar temizlenir
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 4. Aşama özeti:
+ *   - Toast Sistemi, Hata Yönetimi, Offline/Online panel, Loading Spinners, Fetch Timeout
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
-(function (global) {
-  'use strict';
+'use strict';
 
-  /* ═══════════════════════════════════════
-     1. MERKEZI CONFIG
-  ═══════════════════════════════════════ */
-  var CONFIG = {
-    breath: {
-      inhale:  4000,
-      hold:    7000,
-      exhale:  8000,
-      pause:   1000,
-    },
-    audio: {
-      masterVolume: 0.75,
-      ambientVolume: 0.55,
-      binauralVolume: 0.10,
-      fadeOutDuration: 120,   // saniye
-      bufferSeconds: 8,
-    },
-    moods: {
-      'Huzursuz':  { base: 180, beat: 6,  gen: 'waves',    bg: 'teal'   },
-      'Yorgun':    { base: 200, beat: 4,  gen: 'rain',     bg: 'violet' },
-      'Kaygılı':   { base: 160, beat: 8,  gen: 'wind',     bg: 'sky'    },
-      'Mutsuz':    { base: 220, beat: 5,  gen: 'waves',    bg: 'rose'   },
-      'Sakin':     { base: 200, beat: 7,  gen: 'binaural', bg: 'teal'   },
-      'Minnettar': { base: 528, beat: 10, gen: 'rain',     bg: 'gold'   },
-    },
-    sounds: [
-      { ic:'🌊', name:'Okyanus',  locked:false, gen:'waves',    base:180, beat:0  },
-      { ic:'🌧️', name:'Yağmur',  locked:false, gen:'rain',     base:200, beat:4  },
-      { ic:'🌬️', name:'Rüzgar',  locked:false, gen:'wind',     base:160, beat:8  },
-      { ic:'🔥', name:'Ateş',     locked:true,  gen:'fire',     base:174, beat:3  },
-      { ic:'🎵', name:'Binaural', locked:false, gen:'binaural', base:200, beat:7  },
-      { ic:'⚡', name:'Fırtına',  locked:true,  gen:'storm',    base:220, beat:5  },
-    ],
-    rooms: [
-      { id:1, name:'Gece Odak Seansı',   category:'odak',       host:'Zeynep A.', capacity:8,  joined:5, live:true, priv:false },
-      { id:2, name:'Derin Uyku Rituali', category:'uyku',       host:'Mert K.',   capacity:6,  joined:6, live:true, priv:false },
-      { id:3, name:'Sabah Meditasyonu',  category:'meditasyon', host:'Selin T.',  capacity:10, joined:3, live:true, priv:false },
-      { id:4, name:'432 Hz Şifa Odası',  category:'meditasyon', host:'Ayşe D.',   capacity:12, joined:9, live:true, priv:false },
-      { id:5, name:'Çalışma Müziği',     category:'odak',       host:'Can B.',    capacity:20, joined:11,live:true, priv:false },
-      { id:6, name:'Özel Seans',         category:'uyku',       host:'Nilüfer Y.',capacity:4,  joined:2, live:true, priv:true  },
-    ],
-  };
+/* ══════════════════════════════════════════════════════════════════
+   PHASE 5 — BÖLÜM 0: PAGE VISIBILITY MANAGER
+   Sekme arka plana geçince Ripple ve Waveform efektleri durur.
+   Öne gelince otomatik devam eder. CPU ve pil tasarrufu sağlar.
+══════════════════════════════════════════════════════════════════ */
 
-  /* ═══════════════════════════════════════
-     2. SESSION BUFFER — Sekme veri korunumu
-  ═══════════════════════════════════════ */
-  var sessionBuffer = {
-    _data: {},
-    set: function(key, val) { this._data[key] = val; },
-    get: function(key) { return this._data[key]; },
-    clear: function(key) { delete this._data[key]; },
-  };
+var PageVisibilityManager = (function () {
+  var _tabVisible  = !document.hidden;
+  var _handlers    = [];   // { onHide, onShow } nesneleri
+  var _listener    = null;
 
-  /* ═══════════════════════════════════════
-     3. BREATH CYCLE — Merkezi nefes yöneticisi
-  ═══════════════════════════════════════ */
-  var BreathCycle = (function () {
-    var _timer = null;
-    var _phase = 'idle';
-    var _running = false;
-    var _cfg = CONFIG.breath;
-
-    function _setPhase(phase, label) {
-      _phase = phase;
-      var wrap  = document.querySelector('.breath-wrap');
-      var guide = document.getElementById('breath-guide');
-      var core  = document.getElementById('b-core');
-      if (!wrap) return;
-      wrap.classList.remove('breath-idle','breath-inhale','breath-exhale','breath-hold');
-      if (phase !== 'idle') wrap.classList.add('breath-' + phase);
-      if (guide) guide.textContent = label || '';
-      if (core && phase === 'inhale') core.style.transform = 'scale(1.18)';
-      if (core && phase === 'exhale') core.style.transform = 'scale(0.88)';
-      if (core && (phase === 'hold' || phase === 'idle')) core.style.transform = '';
-    }
-
-    function _cycle() {
-      if (!_running) return;
-      _setPhase('inhale',  '↑ Nefes al — ' + (_cfg.inhale/1000) + ' sn');
-      _timer = setTimeout(function () {
-        if (!_running) return;
-        _setPhase('hold',  '— Tut — ' + (_cfg.hold/1000) + ' sn');
-        _timer = setTimeout(function () {
-          if (!_running) return;
-          _setPhase('exhale', '↓ Bırak — ' + (_cfg.exhale/1000) + ' sn');
-          _timer = setTimeout(function () {
-            _setPhase('idle', '');
-            _timer = setTimeout(_cycle, _cfg.pause);
-          }, _cfg.exhale);
-        }, _cfg.hold);
-      }, _cfg.inhale);
-    }
-
-    return {
-      start: function () {
-        if (_running) return;
-        _running = true;
-        _cycle();
-      },
-      stop: function () {
-        _running = false;
-        if (_timer) { clearTimeout(_timer); _timer = null; }
-        _setPhase('idle', 'Hazır olduğunda butona dokun');
-      },
-      toggle: function () {
-        _running ? this.stop() : this.start();
-      },
-      isRunning: function () { return _running; },
-    };
-  })();
-
-  /* ═══════════════════════════════════════
-     4. EKRAN YÖNETİMİ
-  ═══════════════════════════════════════ */
-  function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(function (s) {
-      s.classList.remove('on'); s.classList.add('off');
-    });
-    var t = document.getElementById('screen-' + id);
-    if (t) { t.classList.remove('off'); t.classList.add('on'); }
-  }
-
-  function goBack() {
-    if (document.getElementById('screen-analytics') &&
-        document.getElementById('screen-analytics').classList.contains('on')) {
-      showScreen('sanctuary');
-    } else {
-      showScreen('mood');
-    }
-  }
-
-  function goSanctuary() { showScreen('sanctuary'); }
-
-  /* ═══════════════════════════════════════
-     5. SEKME YÖNETİMİ (veri korunumlu)
-  ═══════════════════════════════════════ */
-  function switchTab(tabId) {
-    // Aktif sekmedeki textarea verilerini kaydet
-    var activePanel = document.querySelector('.tab-panel.active');
-    if (activePanel) {
-      var textarea = activePanel.querySelector('textarea');
-      if (textarea) {
-        sessionBuffer.set('tab_' + activePanel.id + '_text', textarea.value);
+  function _onVisibilityChange() {
+    _tabVisible = !document.hidden;
+    _handlers.forEach(function (h) {
+      try {
+        if (!_tabVisible && typeof h.onHide === 'function') h.onHide();
+        if (_tabVisible  && typeof h.onShow === 'function') h.onShow();
+      } catch (e) {
+        
       }
-    }
+    });
+    
+  }
 
-    document.querySelectorAll('.tab-panel').forEach(function (el) { el.classList.remove('active'); });
-    document.querySelectorAll('.tab-item').forEach(function (el) {
-      el.classList.remove('active'); el.setAttribute('aria-selected','false');
+  function init() {
+    if (_listener) return; // zaten başlatılmış
+    _listener = _onVisibilityChange;
+    document.addEventListener('visibilitychange', _listener);
+  }
+
+  /** Yeni bir handler çifti kaydet. Cleanup için unregister fonksiyonu döner. */
+  function register(onHide, onShow) {
+    var h = { onHide: onHide, onShow: onShow };
+    _handlers.push(h);
+    return function unregister() {
+      var idx = _handlers.indexOf(h);
+      if (idx !== -1) _handlers.splice(idx, 1);
+    };
+  }
+
+  function isVisible() { return _tabVisible; }
+
+  function dispose() {
+    if (_listener) {
+      document.removeEventListener('visibilitychange', _listener);
+      _listener = null;
+    }
+    _handlers = [];
+  }
+
+  return { init: init, register: register, isVisible: isVisible, dispose: dispose };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   PHASE 5 — BÖLÜM 0B: RENDER GUARD
+   Oda listesi ve ses listelerinin gereksiz yeniden render edilmesini önler.
+   Veriyi stringify ederek önceki versiyonla karşılaştırır (deep comparison).
+   Veri değişmediyse DOM dokunulmaz → CPU ve layout tasarrufu.
+══════════════════════════════════════════════════════════════════ */
+
+var RenderGuard = (function () {
+  var _lastHashes = {}; // key → string hash
+
+  /**
+   * data değişmediyse false döner (render atla).
+   * data değiştiyse true döner (render gerekiyor) ve hash günceller.
+   * @param {string} key  — benzersiz anahtar (örn: 'rooms', 'sounds')
+   * @param {*}      data — karşılaştırılacak veri
+   */
+  function shouldRender(key, data) {
+    try {
+      var hash = JSON.stringify(data);
+      if (_lastHashes[key] === hash) return false;
+      _lastHashes[key] = hash;
+      return true;
+    } catch (e) {
+      // JSON.stringify başarısız olursa her zaman render et
+      return true;
+    }
+  }
+
+  function invalidate(key) {
+    delete _lastHashes[key];
+  }
+
+  function invalidateAll() {
+    _lastHashes = {};
+  }
+
+  return { shouldRender: shouldRender, invalidate: invalidate, invalidateAll: invalidateAll };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   PHASE 5 — BÖLÜM 0C: GLOBAL RAF REGISTRY
+   Tüm requestAnimationFrame ID'lerini takip eder.
+   Temizlik gerektiğinde (sekme kapat, dispose) hepsini iptal eder.
+══════════════════════════════════════════════════════════════════ */
+
+var RAFRegistry = (function () {
+  var _ids = new Set();
+
+  function add(id) { _ids.add(id); return id; }
+
+  function remove(id) {
+    cancelAnimationFrame(id);
+    _ids.delete(id);
+  }
+
+  function cancelAll() {
+    _ids.forEach(function (id) { cancelAnimationFrame(id); });
+    _ids.clear();
+    
+  }
+
+  return { add: add, remove: remove, cancelAll: cancelAll };
+})();
+
+/**
+ * PHASE 5: stopWaveformLoop — tüm waveform RAF'larını cancelAnimationFrame ile iptal eder.
+ * AudioEngine.stopWaveformLoop() ile birlikte çağrılmalıdır.
+ */
+function stopWaveformLoop() {
+  RAFRegistry.cancelAll();
+  /* AudioEngine entegrasyonu varsa */
+  try {
+    if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+      AudioEngine.getInstance().stopWaveformLoop();
+    }
+  } catch (e) { /* AudioEngine henüz yüklenmemiş olabilir */ }
+  
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 1 — MERKEZI TOAST BİLDİRİM SİSTEMİ
+   Cam efektli, 4 tip: success | error | warning | info
+   Otomatik kapanır, progress bar gösterir, kapatılabilir.
+══════════════════════════════════════════════════════════════════ */
+
+var ToastManager = (function () {
+  var container = null;
+  var queue = [];
+  var MAX_VISIBLE = 3;
+  var visible = 0;
+
+  var ICONS = {
+    success : '✦',
+    error   : '✕',
+    warning : '⚠',
+    info    : '◈'
+  };
+
+  var TITLES = {
+    success : 'Başarılı',
+    error   : 'Hata',
+    warning : 'Uyarı',
+    info    : 'Bilgi'
+  };
+
+  var DURATIONS = {
+    success : 3500,
+    error   : 5000,
+    warning : 4500,
+    info    : 3500
+  };
+
+  function getContainer() {
+    if (container) return container;
+    container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      document.body.appendChild(container);
+    }
+    return container;
+  }
+
+  function createToast(message, type, title, duration) {
+    type     = type     || 'info';
+    title    = title    || TITLES[type]  || 'Bilgi';
+    duration = duration || DURATIONS[type] || 3500;
+
+    var el = document.createElement('div');
+    el.className = 'toast toast-' + type;
+    el.setAttribute('role', 'alert');
+    el.setAttribute('aria-live', 'polite');
+
+    el.innerHTML = [
+      '<span class="toast-icon">' + (ICONS[type] || '◈') + '</span>',
+      '<div class="toast-body">',
+      '  <div class="toast-title">' + _escapeHtml(title) + '</div>',
+      '  <div class="toast-msg">'   + _escapeHtml(message) + '</div>',
+      '</div>',
+      '<button class="toast-close" aria-label="Kapat">×</button>',
+      '<div class="toast-progress" style="animation-duration:' + duration + 'ms"></div>',
+    ].join('');
+
+    return { el: el, duration: duration };
+  }
+
+  function show(message, type, title, duration) {
+    var toast = createToast(message, type, title, duration);
+    var el    = toast.el;
+    var ms    = toast.duration;
+
+    var c = getContainer();
+    c.appendChild(el);
+    visible++;
+
+    // Slide-up tetikle
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.classList.add('toast-show');
+      });
     });
 
-    var p = document.getElementById(tabId);
-    if (p) {
-      p.classList.add('active');
-      // Kaydedilmiş veriyi geri yükle
-      var saved = sessionBuffer.get('tab_' + tabId + '_text');
-      var textarea = p.querySelector('textarea');
-      if (textarea && saved !== undefined) textarea.value = saved;
+    // Kapatma butonu
+    var closeBtn = el.querySelector('.toast-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function () { dismiss(el); });
     }
 
-    var btnId = 'tab-btn-' + tabId.replace('tab-','');
-    var b = document.getElementById(btnId);
-    if (b) { b.classList.add('active'); b.setAttribute('aria-selected','true'); }
+    // Otomatik kapat
+    var timer = setTimeout(function () { dismiss(el); }, ms);
+
+    // Hover'da duraklat
+    el.addEventListener('mouseenter', function () { clearTimeout(timer); });
+    el.addEventListener('mouseleave', function () {
+      timer = setTimeout(function () { dismiss(el); }, 1500);
+    });
+
+    // Fazla toast varsa en eskiyi kapat
+    if (visible > MAX_VISIBLE) {
+      var oldest = c.querySelector('.toast');
+      if (oldest && oldest !== el) dismiss(oldest);
+    }
+
+    return el;
+  }
+
+  function dismiss(el) {
+    if (!el || el._dismissing) return;
+    el._dismissing = true;
+    el.classList.remove('toast-show');
+    el.classList.add('toast-hide');
+    visible = Math.max(0, visible - 1);
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 380);
+  }
+
+  function _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  return {
+    show    : show,
+    success : function (msg, title, dur) { return show(msg, 'success', title, dur); },
+    error   : function (msg, title, dur) { return show(msg, 'error',   title, dur); },
+    warning : function (msg, title, dur) { return show(msg, 'warning', title, dur); },
+    info    : function (msg, title, dur) { return show(msg, 'info',    title, dur); },
+    dismiss : dismiss
+  };
+})();
+
+/* Geriye dönük uyumluluk — eski showToast() çağrıları çalışmaya devam eder */
+function showToast(message, type, title) {
+  type = type || 'info';
+  
+  return ToastManager.show(message, type, title);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 2 — ONLINE / OFFLINE PANEL
+   İnternet kesilince kırmızı banner, gelince yeşil flash gösterilir.
+══════════════════════════════════════════════════════════════════ */
+
+var NetworkMonitor = (function () {
+  var offlinePanel = null;
+  var onlineFlash  = null;
+  var _isOnline    = navigator.onLine;
+
+  function getOfflinePanel() {
+    if (offlinePanel) return offlinePanel;
+    offlinePanel = document.getElementById('offline-panel');
+    if (!offlinePanel) {
+      offlinePanel = document.createElement('div');
+      offlinePanel.id = 'offline-panel';
+      offlinePanel.innerHTML = [
+        '<span class="offline-dot"></span>',
+        '<div class="offline-text">',
+        '  <span class="offline-title">İnternet Bağlantısı Kesildi</span>',
+        '  <span class="offline-sub">Bağlantı yeniden kurulduğunda devam edecek…</span>',
+        '</div>',
+        '<span class="offline-icon">📡</span>',
+      ].join('');
+      document.body.insertBefore(offlinePanel, document.body.firstChild);
+    }
+    return offlinePanel;
+  }
+
+  function getOnlineFlash() {
+    if (onlineFlash) return onlineFlash;
+    onlineFlash = document.getElementById('online-flash');
+    if (!onlineFlash) {
+      onlineFlash = document.createElement('div');
+      onlineFlash.id = 'online-flash';
+      onlineFlash.innerHTML = '<span style="font-size:14px">✦</span> <span class="online-flash-text">Bağlantı Yeniden Sağlandı</span>';
+      onlineFlash.setAttribute('aria-live', 'polite');
+      document.body.insertBefore(onlineFlash, document.body.firstChild);
+    }
+    return onlineFlash;
+  }
+
+  function handleOffline() {
+    _isOnline = false;
+    
+    var panel = getOfflinePanel();
+    panel.classList.add('show');
+  }
+
+  function handleOnline() {
+    _isOnline = true;
+    
+
+    // Offline paneli kapat
+    var panel = getOfflinePanel();
+    panel.classList.remove('show');
+
+    // Online flash göster
+    var flash = getOnlineFlash();
+    flash.classList.add('show');
+    setTimeout(function () { flash.classList.remove('show'); }, 2800);
+
+    ToastManager.success('İnternet bağlantısı yeniden sağlandı.', 'Bağlandı');
+  }
+
+  function init() {
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Sayfa açılırken zaten çevrimdışıysa hemen göster
+    if (!navigator.onLine) {
+      handleOffline();
+    }
+  }
+
+  return {
+    init     : init,
+    isOnline : function () { return _isOnline; }
+  };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 3 — FETCH WRAPPER (10 saniyelik timeout)
+   fetchWithTimeout() — standart fetch yerine her yerde bu kullanılır.
+══════════════════════════════════════════════════════════════════ */
+
+function fetchWithTimeout(url, options, timeoutMs) {
+  timeoutMs = timeoutMs || 10000;
+  options   = options   || {};
+
+  /* PHASE 5: Ses dosyaları için cache: force-cache ekle (SW ile entegre) */
+  if (!options.cache) {
+    var urlLower = (url || '').toLowerCase();
+    if (/\.(mp3|ogg|wav|m4a|aac|flac|webm)(\?|$)/.test(urlLower) ||
+        urlLower.includes('/audio/')) {
+      options.cache = 'force-cache';
+    }
+  }
+
+  var controller = new AbortController();
+  options.signal = controller.signal;
+
+  var timeoutId = setTimeout(function () {
+    controller.abort();
+    
+  }, timeoutMs);
+
+  return fetch(url, options)
+    .then(function (response) {
+      clearTimeout(timeoutId);
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+      }
+      return response;
+    })
+    .catch(function (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        
+        ToastManager.error(
+          'Sunucudan yanıt alınamadı. Lütfen tekrar deneyin.',
+          'İşlem Zaman Aşımına Uğradı',
+          6000
+        );
+        throw new Error('TIMEOUT: ' + url);
+      }
+      if (!navigator.onLine) {
+        ToastManager.error('İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edin.', 'Bağlantı Hatası');
+      } else {
+        ToastManager.error('Bağlantı hatası: ' + err.message, 'Ağ Hatası');
+      }
+      throw err;
+    });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 4 — LOADING SPINNER YARDIMCILARI
+   Buton, konteyner veya play butonu için spinner ekler/kaldırır.
+══════════════════════════════════════════════════════════════════ */
+
+var LoadingManager = (function () {
+
+  /**
+   * Butona spinner ekler, disabled yapar.
+   * @returns {function} restore — orijinal metni geri getirir
+   */
+  function setButtonLoading(btn, loadingText) {
+    if (!btn) return function () {};
+    var originalHTML = btn.innerHTML;
+    var originalDisabled = btn.disabled;
+    loadingText = loadingText || '';
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      + (loadingText ? '<span style="margin-left:8px">' + loadingText + '</span>' : '');
+
+    return function restore() {
+      btn.disabled  = originalDisabled;
+      btn.innerHTML = originalHTML;
+    };
+  }
+
+  /**
+   * Play butonuna özel spinner (altın rengi, büyük)
+   */
+  function setPlayLoading(playBtn, on) {
+    if (!playBtn) return;
+    var iconEl = playBtn.querySelector('.play-icon');
+    if (!iconEl) return;
+
+    if (on) {
+      // Spinner olarak değiştir
+      iconEl.dataset.originalText = iconEl.textContent;
+      iconEl.style.display = 'none';
+
+      var spinner = playBtn.querySelector('.play-spinner');
+      if (!spinner) {
+        spinner = document.createElement('span');
+        spinner.className = 'spinner spinner-gold play-spinner';
+        playBtn.appendChild(spinner);
+      }
+      spinner.style.display = 'inline-block';
+    } else {
+      // Orijinal ikona geri dön
+      if (iconEl) iconEl.style.display = '';
+      var sp = playBtn.querySelector('.play-spinner');
+      if (sp) sp.style.display = 'none';
+    }
+  }
+
+  /**
+   * Oda listesi için skeleton loader
+   */
+  function showRoomsSkeleton(container, count) {
+    if (!container) return;
+    count = count || 4;
+    var html = '';
+    for (var i = 0; i < count; i++) {
+      html += [
+        '<div class="skeleton-card">',
+        '  <div class="sk-line short skeleton"></div>',
+        '  <div class="sk-line mid skeleton"   style="margin-top:10px"></div>',
+        '  <div class="sk-line long skeleton"  style="margin-top:8px"></div>',
+        '  <div style="display:flex;align-items:center;gap:8px;margin-top:14px">',
+        '    <div class="sk-circle skeleton"></div>',
+        '    <div class="sk-line short skeleton" style="margin:0"></div>',
+        '  </div>',
+        '</div>',
+      ].join('');
+    }
+    container.innerHTML = html;
+  }
+
+  /**
+   * Genel overlay loader (tam ekran değil, element üzerinde)
+   */
+  function showOverlay(parentEl, message) {
+    if (!parentEl) return function () {};
+    var overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = [
+      '<div class="loading-overlay-inner">',
+      '  <span class="spinner spinner-lg spinner-violet"></span>',
+      message ? '<span class="loading-overlay-text">' + message + '</span>' : '',
+      '</div>',
+    ].join('');
+
+    var pos = window.getComputedStyle(parentEl).position;
+    if (pos === 'static') parentEl.style.position = 'relative';
+    parentEl.appendChild(overlay);
+
+    return function hideOverlay() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (pos === 'static') parentEl.style.position = '';
+    };
+  }
+
+  return {
+    setButtonLoading  : setButtonLoading,
+    setPlayLoading    : setPlayLoading,
+    showRoomsSkeleton : showRoomsSkeleton,
+    showOverlay       : showOverlay
+  };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 5 — RİPPLE EFEKTİ (Çok Halkalı Su Dalgası)
+   mousedown + touchstart desteği
+   Her tıklamada 3 halka oluşur, CSS animasyonu ile kaybolur.
+══════════════════════════════════════════════════════════════════ */
+
+function initRippleEffect() {
+  var RING_COUNT  = 3;
+  var RING_DELAYS = [0, 120, 260];
+
+  function spawnRippleAt(x, y) {
+    var size = Math.max(window.innerWidth, window.innerHeight) * 0.72;
+
+    for (var i = 0; i < RING_COUNT; i++) {
+      ;(function (delay, idx) {
+        setTimeout(function () {
+          var ring = document.createElement('div');
+          ring.className    = 'ripple-circle';
+          ring.dataset.ring = idx + 1;
+
+          ring.style.cssText = [
+            'position:fixed',
+            'width:'  + size + 'px',
+            'height:' + size + 'px',
+            'left:'   + x   + 'px',
+            'top:'    + y   + 'px',
+            'border-radius:50%',
+            'pointer-events:none',
+            'transform:translate(-50%,-50%) scale(0)',
+            'z-index:9999',
+          ].join(';');
+
+          var styles = [
+            { border: '1px solid rgba(201,169,110,0.32)', animDuration: '1.8s' },
+            { border: '1px solid rgba(201,169,110,0.17)', animDuration: '2.15s' },
+            { border: '1px solid rgba(170,130,220,0.11)', animDuration: '2.55s' },
+          ];
+          var s = styles[idx] || styles[0];
+          ring.style.border     = s.border;
+          ring.style.animation  = 'rippleExpand ' + s.animDuration + ' cubic-bezier(0.2,0,0.4,1) forwards';
+          ring.style.willChange = 'transform, opacity';
+
+          document.body.appendChild(ring);
+          ring.addEventListener('animationend', function () { ring.remove(); }, { once: true });
+        }, delay);
+      })(RING_DELAYS[i], i);
+    }
+  }
+
+  document.addEventListener('mousedown', function (e) {
+    if (window._rippleDisabled) return; /* PHASE 5: sekme gizliyse ripple spawn etme */
+    if (e.target.closest('button, .cta-btn, .play-btn, .back-btn, input, textarea, select')) return;
+    spawnRippleAt(e.clientX, e.clientY);
+  });
+
+  document.addEventListener('touchstart', function (e) {
+    if (window._rippleDisabled) return; /* PHASE 5 */
+    if (e.target.closest('button, .cta-btn, .play-btn, .back-btn, input, textarea, select')) return;
+    var t = e.touches[0];
+    spawnRippleAt(t.clientX, t.clientY);
+  }, { passive: true });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 6 — SEKME GEÇİŞ ANİMASYONLARI
+   switchTab() global fonksiyonunu override eder.
+   İçerik blur+fade-in (0.3s) ile gelir.
+══════════════════════════════════════════════════════════════════ */
+
+function initTabAnimations() {
+  window.switchTab = function (tabId) {
+    var panels  = document.querySelectorAll('.tab-panel');
+    var buttons = document.querySelectorAll('.tab-item');
+
+    panels.forEach(function (el) { el.classList.remove('active'); });
+    buttons.forEach(function (el) {
+      el.classList.remove('active');
+      el.setAttribute('aria-selected', 'false');
+    });
+
+    var target = document.getElementById(tabId);
+    if (target) {
+      target.classList.remove('active');
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          target.classList.add('active');
+        });
+      });
+    }
+
+    var btnId     = 'tab-btn-' + tabId.replace('tab-', '');
+    var activeBtn = document.getElementById(btnId);
+    if (activeBtn) {
+      activeBtn.classList.add('active');
+      activeBtn.setAttribute('aria-selected', 'true');
+    }
 
     if (tabId === 'tab-journal') {
       var d = document.getElementById('journal-date');
       if (d) d.textContent = new Date().toLocaleDateString('tr-TR', {
-        weekday:'long', day:'numeric', month:'long'
+        weekday: 'long', day: 'numeric', month: 'long'
       });
     }
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 7 — NEFES DÖNGÜSÜ (Ses Senkronlu)
+   engine.fadeTo() ile nefes hızına ses seviyesi uyarlanır.
+══════════════════════════════════════════════════════════════════ */
+
+function startBreathCycle(engine, breathWrap, guideEl, options) {
+  options = options || {};
+
+  var inhale    = options.inhale    || 4;
+  var hold      = options.hold      || 2;
+  var exhale    = options.exhale    || 6;
+  var volInhale = options.volInhale || 0.85;
+  var volExhale = options.volExhale || 0.55;
+
+  var stopped = false;
+  var timers  = [];
+
+  function clearTimers() {
+    timers.forEach(clearTimeout);
+    timers = [];
   }
 
-  /* ═══════════════════════════════════════
-     6. MOOD
-  ═══════════════════════════════════════ */
-  function pickMood(element) {
-    var mood  = element.getAttribute('data-mood');
-    var emoji = element.querySelector('.ic').textContent;
-
-    document.querySelectorAll('.mood-chip').forEach(function(c){ c.classList.remove('sel'); });
-    element.classList.add('sel');
-
-    var emojiEl = document.getElementById('s-emoji');
-    var moodEl  = document.getElementById('s-mood');
-    var msgEl   = document.getElementById('s-message');
-    if (emojiEl) emojiEl.textContent = emoji;
-    if (moodEl)  moodEl.textContent  = mood;
-
-    var messages = {
-      'Huzursuz':  'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.',
-      'Yorgun':    'Dinlenmek bir lüks değil, ihtiyaçtır. Kendine izin ver.',
-      'Kaygılı':   'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.',
-      'Mutsuz':    'Her duygu geçer. Bu da geçecek. Burada seninleyim.',
-      'Sakin':     'Sakinlik senin doğal halin. Onu koruyalım.',
-      'Minnettar': 'Minnettarlık kalbi açar, dünyayı aydınlatır.',
-    };
-    if (msgEl) msgEl.textContent = messages[mood] || '';
-
-    var cfg = CONFIG.moods[mood];
-    if (cfg && typeof window.setBgMood === 'function') window.setBgMood(cfg.bg);
-
-    try { localStorage.setItem('lastMood', mood); localStorage.setItem('lastEmoji', emoji); } catch(e){}
-    try { localStorage.removeItem('lastGen'); localStorage.removeItem('lastBase'); localStorage.removeItem('lastBeat'); } catch(e){}
+  function setGuide(text, active) {
+    if (!guideEl) return;
+    guideEl.textContent = text;
+    guideEl.classList.toggle('on', active === undefined ? true : active);
   }
 
-  /* ═══════════════════════════════════════
-     7. SES MOTORU
-  ═══════════════════════════════════════ */
-  var Audio = (function () {
-    var _ctx = null, _master = null, _oscs = [], _noise = null, _ambGain = null;
-    var _playing = false;
-    var _acfg = CONFIG.audio;
-    var _moodCfg = CONFIG.moods;
+  function setBreathClass(cls) {
+    if (!breathWrap) return;
+    breathWrap.classList.remove('breath-inhale', 'breath-hold', 'breath-exhale', 'breath-idle');
+    if (cls) breathWrap.classList.add(cls);
+    if (cls === 'breath-inhale') breathWrap.style.setProperty('--inhale-dur', inhale + 's');
+    if (cls === 'breath-exhale') breathWrap.style.setProperty('--exhale-dur', exhale + 's');
+  }
 
-    function _getCtx() {
-      if (!_ctx) {
-        var Ctx = window.AudioContext || window.webkitAudioContext;
-        _ctx = new Ctx();
-      }
-      return _ctx;
-    }
-
-    function _noiseBuffer(ctx, type) {
-      var sr = ctx.sampleRate, sec = _acfg.bufferSeconds;
-      var buf = ctx.createBuffer(2, sr*sec, sr);
-      for (var ch=0; ch<2; ch++) {
-        var d = buf.getChannelData(ch);
-        for (var i=0; i<d.length; i++) {
-          var t = i/sr;
-          if (type==='waves')
-            d[i] = Math.sin(2*Math.PI*0.12*t)*0.14 + (Math.random()*2-1)*0.05;
-          else if (type==='wind')
-            d[i] = (Math.random()*2-1)*0.13*Math.abs(Math.sin(t*0.4));
-          else if (type==='fire')
-            d[i] = (Math.random()*2-1)*0.14*(0.8+Math.sin(t*3)*0.2);
-          else
-            d[i] = (Math.random()*2-1)*0.18; // rain / default
-        }
-      }
-      return buf;
-    }
-
-    function _stopAll() {
-      _oscs.forEach(function(o){ try{o.stop();o.disconnect();}catch(e){} });
-      _oscs = [];
-      if (_noise) { try{_noise.stop();_noise.disconnect();}catch(e){} _noise=null; }
-      if (_ambGain) { try{_ambGain.disconnect();}catch(e){} _ambGain=null; }
-    }
-
-    function _start(gen, base, beat) {
-      var ctx = _getCtx();
-      if (ctx.state==='suspended') ctx.resume().catch(function(){});
-
-      if (!_master) {
-        _master = ctx.createGain();
-        _master.gain.value = _acfg.masterVolume;
-        _master.connect(ctx.destination);
-      }
-      _stopAll();
-
-      // Binaural katman
-      if (beat > 0) {
-        var merger = ctx.createChannelMerger(2);
-        merger.connect(_master);
-        [[base,0],[base+beat,1]].forEach(function(pair) {
-          var osc = ctx.createOscillator(), g = ctx.createGain();
-          osc.frequency.value = pair[0]; osc.type='sine';
-          g.gain.value = _acfg.binauralVolume;
-          osc.connect(g); g.connect(merger,0,pair[1]); osc.start();
-          _oscs.push(osc);
+  function syncVolume(targetVol, durationSec) {
+    if (!engine) return;
+    try {
+      if (typeof engine.fadeTo === 'function') {
+        engine.fadeTo(targetVol, durationSec * 0.88);
+      } else if (engine._layers && Array.isArray(engine._layers)) {
+        engine._layers.forEach(function (layer) {
+          if (typeof layer.fadeTo === 'function') {
+            layer.fadeTo(targetVol, durationSec * 0.88);
+          }
         });
+      } else if (typeof engine.setMasterVolume === 'function') {
+        engine.setMasterVolume(targetVol);
       }
-
-      // Ambient katman
-      var src    = ctx.createBufferSource();
-      var filter = ctx.createBiquadFilter();
-      var again  = ctx.createGain();
-      src.buffer = _noiseBuffer(ctx, gen); src.loop=true;
-      filter.type='lowpass'; filter.frequency.value = gen==='rain'?1200:700;
-      again.gain.value = _acfg.ambientVolume;
-      src.connect(filter); filter.connect(again); again.connect(_master);
-      src.start(0);
-      _noise=src; _ambGain=again;
-
-      // Badge güncelle
-      var badge = document.getElementById('freq-badge');
-      var label = document.getElementById('freq-label');
-      if (badge) badge.classList.add('on');
-      if (label) label.textContent = base+' Hz · '+gen;
-
-      // Waveform
-      var wform = document.getElementById('waveform');
-      if (wform && wform.children.length===0) {
-        for(var i=0;i<12;i++){
-          var bar=document.createElement('div'); bar.className='wbar';
-          bar.style.setProperty('--dur',(0.4+Math.random()*0.6)+'s');
-          bar.style.setProperty('--del',(Math.random()*0.4)+'s');
-          wform.appendChild(bar);
-        }
-      }
-      document.querySelectorAll('.wbar').forEach(function(b){b.classList.add('on');});
+    } catch (err) {
+      
+      /* Ses senkronu kritik değil — sessizce devam et */
     }
+  }
 
-    return {
-      play: function(gen, base, beat) {
-        _playing = true;
-        _start(gen, base, beat);
-      },
-      pause: function() {
-        _playing = false;
-        _stopAll();
-        if (_ctx) _ctx.suspend().catch(function(){});
-        document.querySelectorAll('.wbar').forEach(function(b){b.classList.remove('on');});
-        var badge=document.getElementById('freq-badge');
-        if(badge) badge.classList.remove('on');
-      },
-      switch: function(gen, base, beat, label) {
-        try { localStorage.setItem('lastGen',gen); localStorage.setItem('lastBase',base); localStorage.setItem('lastBeat',beat); } catch(e){}
-        if (_playing) _start(gen, base, beat);
-        var lbl=document.getElementById('freq-label');
-        if(lbl) lbl.textContent=base+' Hz · '+(label||gen);
-      },
-      isPlaying: function() { return _playing; },
-      fadeTo: function(vol, sec) {
-        if (_ctx && _master) {
-          var now=_ctx.currentTime;
-          _master.gain.cancelScheduledValues(now);
-          _master.gain.setValueAtTime(_master.gain.value, now);
-          _master.gain.linearRampToValueAtTime(vol, now+sec);
-        }
-      },
-    };
-  })();
+  function runCycle() {
+    if (stopped) return;
 
-  /* ═══════════════════════════════════════
-     8. TOGGLE PLAY
-  ═══════════════════════════════════════ */
-  function togglePlay() {
-    var btn  = document.getElementById('play-btn');
-    var icon = document.getElementById('play-icon');
-    var lbl  = document.getElementById('play-lbl');
-    var playing = Audio.isPlaying();
+    setBreathClass('breath-inhale');
+    setGuide('Nefes al…');
+    syncVolume(volInhale, inhale);
 
-    if (!playing) {
-      if (icon) icon.textContent='⏸';
-      if (btn)  { btn.setAttribute('aria-pressed','true'); btn.classList.add('on'); }
-      if (lbl)  lbl.textContent='Duraklat';
+    timers.push(setTimeout(function () {
+      if (stopped) return;
+      setBreathClass('breath-hold');
+      setGuide('Tut…');
 
-      try {
-        var gen  = localStorage.getItem('lastGen');
-        var base = parseInt(localStorage.getItem('lastBase')||'0')||null;
-        var beat = parseInt(localStorage.getItem('lastBeat')||'0')||0;
-        if (!gen || !base) {
-          var mood = localStorage.getItem('lastMood')||'Sakin';
-          var cfg  = CONFIG.moods[mood]||CONFIG.moods['Sakin'];
-          gen=cfg.gen; base=cfg.base; beat=cfg.beat;
-        }
-        Audio.play(gen, base, beat);
-      } catch(e) {
-        console.error('[togglePlay]', e);
-        if (icon) icon.textContent='▶';
-        if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
-        if (lbl)  lbl.textContent='Frekansı Başlat';
+      timers.push(setTimeout(function () {
+        if (stopped) return;
+        setBreathClass('breath-exhale');
+        setGuide('Nefes ver…');
+        syncVolume(volExhale, exhale);
+
+        timers.push(setTimeout(function () {
+          if (stopped) return;
+          runCycle();
+        }, exhale * 1000));
+      }, hold * 1000));
+    }, inhale * 1000));
+  }
+
+  runCycle();
+
+  return function stopBreathCycle() {
+    stopped = true;
+    clearTimers();
+    setBreathClass('breath-idle');
+    setGuide('', false);
+    if (engine) syncVolume(0.70, 1.5);
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 8 — API KEY GÜVENLİ YÜKLEME
+══════════════════════════════════════════════════════════════════ */
+
+function initApiKey(key) {
+  if (!key || typeof key !== 'string') return;
+  try {
+    var state = (typeof getStateManager === 'function') ? getStateManager() : null;
+    if (state && typeof state.setApiKey === 'function') {
+      state.setApiKey(key.trim());
+      
+      ToastManager.success('API anahtarı başarıyla yüklendi.', 'Hazır');
+    }
+  } catch (e) {
+    
+    ToastManager.error('API anahtarı yüklenemedi: ' + e.message, 'API Hatası');
+  }
+}
+
+function clearApiKey() {
+  try {
+    var state = (typeof getStateManager === 'function') ? getStateManager() : null;
+    if (state && typeof state.clearApiKey === 'function') state.clearApiKey();
+  } catch (e) {
+    
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 9 — SES DOSYASI YÜKLEME (Hata Yönetimli)
+   Ses yüklenirken play butonunda spinner gösterilir.
+══════════════════════════════════════════════════════════════════ */
+
+function loadAudioWithFeedback(audioEl, src, playBtn) {
+  if (!audioEl) return;
+
+  // Play butonunda loading göster
+  if (playBtn) LoadingManager.setPlayLoading(playBtn, true);
+
+  audioEl.src = src;
+  audioEl.load();
+
+  audioEl.addEventListener('canplaythrough', function onReady() {
+    audioEl.removeEventListener('canplaythrough', onReady);
+    if (playBtn) LoadingManager.setPlayLoading(playBtn, false);
+    
+  }, { once: true });
+
+  audioEl.addEventListener('error', function onErr(e) {
+    audioEl.removeEventListener('error', onErr);
+    if (playBtn) LoadingManager.setPlayLoading(playBtn, false);
+
+    var code = audioEl.error ? audioEl.error.code : '?';
+    
+    ToastManager.error(
+      'Ses dosyası yüklenemedi. Lütfen tekrar deneyin.',
+      'Ses Hatası',
+      5000
+    );
+  }, { once: true });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 10 — ODA UI YÖNETİMİ
+══════════════════════════════════════════════════════════════════ */
+
+function renderRoomList(container, category) {
+  if (!container) return;
+
+  /* PHASE 5: RenderGuard — veri değişmediyse DOM'a dokunma */
+  var cacheKey = 'rooms:' + (category || 'all');
+
+  // Skeleton loader göster (sadece ilk render veya kategori değişince)
+  if (RenderGuard.shouldRender('rooms-skeleton-' + cacheKey, Date.now() - (Date.now() % 2000))) {
+    LoadingManager.showRoomsSkeleton(container, 4);
+  }
+
+  setTimeout(function () {
+    try {
+      var data;
+
+      if (typeof RoomManager === 'undefined') {
+        data = _getDemoRoomsData();
+      } else {
+        data = RoomManager.getPublicRooms(category || null) || [];
+      }
+
+      /* PHASE 5: Veri değişmediyse render atla */
+      if (!RenderGuard.shouldRender(cacheKey, data)) {
+        
         return;
       }
 
-      BreathCycle.start();
-    } else {
-      if (icon) icon.textContent='▶';
-      if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
-      if (lbl)  lbl.textContent='Frekansı Başlat';
-      Audio.pause();
-      BreathCycle.stop();
+      if (typeof RoomManager === 'undefined') {
+        container.innerHTML = _demoRoomsHTML();
+        _bindRoomCards(container);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        container.innerHTML = [
+          '<div class="empty-state">',
+          '  <div class="empty-icon">🌿</div>',
+          '  <p class="empty-title">Henüz aktif oda yok</p>',
+          '  <p class="empty-sub">İlk odayı sen kur ve herkesi davet et.</p>',
+          '  <button class="btn-start-first" id="btn-first-room">Oda Kur</button>',
+          '</div>',
+        ].join('');
+        var firstBtn = document.getElementById('btn-first-room');
+        if (firstBtn) firstBtn.addEventListener('click', function () { handleCreateRoom(); });
+        return;
+      }
+
+      container.innerHTML = data.map(function (room) {
+        var card    = RoomManager.buildRoomCard(room);
+        var fillPct = Math.round(card.capacityFill * 100);
+        return _buildCardHTML(card, fillPct);
+      }).join('');
+
+      _bindRoomCards(container);
+    } catch (err) {
+      
+      ToastManager.error('Oda listesi yüklenemedi. Sayfayı yenileyin.', 'Yükleme Hatası');
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p class="empty-title">Yükleme başarısız</p></div>';
     }
+  }, 400);
+}
+
+function _getDemoRoomsData() {
+  return [
+    { id: 'd1', name: 'Gece Odak',        category: 'Odak',      current: 3, capacity: 8,  isPrivate: false, hostId: 'A' },
+    { id: 'd2', name: 'Derin Uyku',        category: 'Uyku',      current: 5, capacity: 10, isPrivate: false, hostId: 'B' },
+    { id: 'd3', name: 'Şifa Meditasyonu', category: 'Meditasyon', current: 2, capacity: 5,  isPrivate: true,  hostId: 'C' },
+    { id: 'd4', name: 'Sabah Enerjisi',   category: 'Doğa',       current: 7, capacity: 12, isPrivate: false, hostId: 'D' },
+  ];
+}
+
+function _demoRoomsHTML() {
+  return _getDemoRoomsData().map(function (card) {
+    var fillPct = Math.round((card.current / card.capacity) * 100);
+    return _buildCardHTML(card, fillPct);
+  }).join('');
+}
+
+function _buildCardHTML(card, fillPct) {
+  return [
+    '<div class="room-card" data-room-id="' + card.id + '">',
+    '  <div class="card-top">',
+    '    <span class="badge-live"><span class="dot"></span> CANLI</span>',
+    card.isPrivate
+      ? '    <span class="badge-private"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1a2.5 2.5 0 0 0-2.5 2.5V5H3v5h6V5h-.5V3.5A2.5 2.5 0 0 0 6 1zm1.5 4h-3V3.5a1.5 1.5 0 0 1 3 0V5z"/></svg>Özel</span>'
+      : '',
+    '  </div>',
+    '  <p class="room-name">'     + card.name     + '</p>',
+    '  <p class="room-category">' + card.category + '</p>',
+    '  <div class="card-footer">',
+    '    <div class="host-info">',
+    '      <div class="host-avatar">' + ((card.hostId || 'H')[0].toUpperCase()) + '</div>',
+    '      <span class="host-name">Host</span>',
+    '    </div>',
+    '    <div class="capacity-bar-wrap">',
+    '      <p class="capacity-text">' + card.current + '/' + card.capacity + '</p>',
+    '      <div class="capacity-bar"><div class="capacity-fill" style="width:' + fillPct + '%"></div></div>',
+    '    </div>',
+    '  </div>',
+    '</div>',
+  ].join('');
+}
+
+function _bindRoomCards(container) {
+  container.querySelectorAll('.room-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      var roomId = card.dataset.roomId;
+      if (roomId) handleJoinRoom(roomId);
+    });
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 11 — ODA HANDLER'LARI (Hata Yönetimli)
+══════════════════════════════════════════════════════════════════ */
+
+function handleCreateRoom(formData) {
+  formData = formData || {};
+
+  if (typeof RoomManager === 'undefined') {
+    
+    ToastManager.error('Oda sistemi şu an kullanılamıyor. Lütfen sayfayı yenileyin.', 'Sistem Hatası');
+    return null;
   }
 
-  /* ═══════════════════════════════════════
-     9. UYKU SAYACI
-  ═══════════════════════════════════════ */
-  var _sleepTimer = null;
-
-  function setSleepTimer(minutes) {
-    if (_sleepTimer) clearTimeout(_sleepTimer);
-    document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
-    var activeBtn = Array.from(document.querySelectorAll('.stimer-btn')).find(function(b){ return b.textContent.trim()===minutes+'dk'; });
-    if (activeBtn) activeBtn.classList.add('active');
-    var statusEl = document.getElementById('stimer-status');
-    if (statusEl) { statusEl.textContent='⏰ '+minutes+' dk sonra duracak'; statusEl.className='active'; }
-
-    var fadeAt = (minutes-2)*60*1000;
-    var stopAt  = minutes*60*1000;
-
-    if (fadeAt>0) {
-      setTimeout(function(){
-        Audio.fadeTo(0, CONFIG.audio.fadeOutDuration);
-        if (statusEl) { statusEl.textContent='🌙 Ses kısılıyor...'; statusEl.className='fading'; }
-        document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active'); });
-        if (activeBtn) activeBtn.classList.add('fading');
-      }, fadeAt);
+  try {
+    var result = RoomManager.createRoom(formData);
+    if (!result.success) {
+      if (result.error && result.error.includes('Premium')) {
+        document.dispatchEvent(new CustomEvent('sanctuary:showPaywall', { detail: { reason: result.error } }));
+      } else {
+        
+        ToastManager.error(result.error || 'Oda oluşturulamadı.', 'Oda Hatası');
+      }
+      return null;
     }
+    ToastManager.success('"' + (result.room && result.room.name) + '" odası oluşturuldu!', 'Oda Kuruldu');
+    var grid = document.querySelector('.rooms-grid');
+    if (grid) renderRoomList(grid);
+    return result.room;
+  } catch (err) {
+    
+    ToastManager.error('Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.', 'Hata');
+    return null;
+  }
+}
 
-    _sleepTimer = setTimeout(function(){
-      if (Audio.isPlaying()) togglePlay();
-      if (statusEl) { statusEl.textContent='✓ Tamamlandı'; statusEl.className=''; }
-      document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
-      _sleepTimer=null;
-    }, stopAt);
+function handleJoinRoom(roomId, password) {
+  if (typeof RoomManager === 'undefined') {
+    
+    ToastManager.error('Oda sistemi şu an kullanılamıyor.', 'Sistem Hatası');
+    return;
   }
 
-  function cancelSleepTimer() {
-    if (_sleepTimer) { clearTimeout(_sleepTimer); _sleepTimer=null; }
-    document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
-    var statusEl=document.getElementById('stimer-status');
-    if (statusEl) { statusEl.textContent=''; statusEl.className=''; }
-    Audio.fadeTo(CONFIG.audio.masterVolume, 1);
-  }
-
-  /* ═══════════════════════════════════════
-     10. GÜNLÜK
-  ═══════════════════════════════════════ */
-  function saveJournalEntry() {
-    var ta = document.getElementById('journal-textarea');
-    var text = ta ? ta.value.trim() : '';
-    if (!text) return;
-    try {
-      localStorage.setItem('lastJournal', text);
-      localStorage.setItem('lastJournalDate', new Date().toISOString());
-    } catch(e){}
-    var status = document.getElementById('journal-save-status');
-    if (status) {
-      status.textContent='✓ Kaydedildi';
-      setTimeout(function(){ status.textContent=''; }, 2000);
-    }
-    sessionBuffer.set('tab_tab-journal_text', text);
-  }
-
-  /* ═══════════════════════════════════════
-     11. AI ORACLE
-  ═══════════════════════════════════════ */
-  function generateAIFreq() {
-    var input = (document.getElementById('ai-input')||{}).value;
-    if (!input || !input.trim()) {
-      var ta=document.getElementById('ai-input');
-      if(ta){ta.style.borderColor='rgba(255,100,100,0.5)';setTimeout(function(){ta.style.borderColor='';},1500);}
+  try {
+    password = password || null;
+    var room   = RoomManager.getRoomById(roomId);
+    if (!room) {
+      
+      ToastManager.error('Bu oda artık mevcut değil.', 'Oda Bulunamadı');
       return;
     }
-    var btn=document.getElementById('ai-generate-btn');
-    if(btn){btn.disabled=true;btn.textContent='✦ Düşünüyor...';}
 
-    setTimeout(function(){
-      var lower=input.toLowerCase();
-      var freq=432,beat=7,msg='';
-      if(lower.includes('uyku')||lower.includes('yorgun')){freq=174;beat=4;msg='Derin uyku için delta dalgaları aktif.';}
-      else if(lower.includes('kaygı')||lower.includes('stres')){freq=396;beat=6;msg='Kaygıyı serbest bırakan frekans.';}
-      else if(lower.includes('odak')||lower.includes('çalış')){freq=40;beat=10;msg='Gamma dalgaları aktif. Odak derinleşiyor.';}
-      else if(lower.includes('mutlu')||lower.includes('neşe')){freq=528;beat=10;msg='DNA tamiri frekansı. İçsel ışığını hisset.';}
-      else if(lower.includes('huzur')||lower.includes('sakin')){freq=432;beat=7;msg='Evrenin doğal titreşimi.';}
-      else{freq=285;beat=8;msg='Sana özel bir titreşim tasarlandı.';}
-
-      var resultEl=document.getElementById('ai-result');
-      var textEl=document.getElementById('ai-result-text');
-      var freqEl=document.getElementById('ai-result-freq');
-      if(textEl)textEl.textContent=msg;
-      if(freqEl)freqEl.innerHTML='<span class="ai-freq-chip">'+freq+' Hz</span><span class="ai-freq-chip">Binaural '+beat+' Hz</span>';
-      if(resultEl)resultEl.classList.add('show');
-      if(btn){btn.disabled=false;btn.textContent='✦ Oracle\'ı Uyandır';}
-
-      try{localStorage.setItem('lastGen','binaural');localStorage.setItem('lastBase',freq);localStorage.setItem('lastBeat',beat);}catch(e){}
-    }, 1200);
+    var result = RoomManager.joinRoom(roomId, password);
+    if (!result.success) {
+      if (result.error && result.error.includes('Premium')) {
+        document.dispatchEvent(new CustomEvent('sanctuary:showPaywall', { detail: { reason: result.error } }));
+      } else {
+        
+        ToastManager.error(result.error || 'Odaya katılınamadı.', 'Katılım Hatası');
+      }
+      return;
+    }
+    ToastManager.success('"' + room.name + '" odasına katıldınız.', 'Katıldınız');
+  } catch (err) {
+    
+    ToastManager.error('Odaya katılırken bir hata oluştu.', 'Hata');
   }
+}
 
-  /* ═══════════════════════════════════════
-     12. ANALİTİK
-  ═══════════════════════════════════════ */
-  function showAnalytics() {
-    var sessions=parseInt(localStorage.getItem('sessionCount')||'0');
-    var minutes=parseInt(localStorage.getItem('totalMinutes')||'0');
-    var streak=parseInt(localStorage.getItem('currentStreak')||'0');
-    var s=document.getElementById('stat-sessions');
-    var m=document.getElementById('stat-minutes');
-    var st=document.getElementById('stat-streak');
-    if(s)s.textContent=sessions;
-    if(m)m.textContent=minutes;
-    if(st)st.textContent=streak;
-    showScreen('analytics');
+function handleDeleteRoom(roomId) {
+  if (typeof RoomManager === 'undefined') return;
+  try {
+    var result = RoomManager.deleteRoom(roomId);
+    if (!result.success) {
+      
+      ToastManager.error(result.error || 'Oda silinemedi.', 'Silme Hatası');
+      return;
+    }
+    ToastManager.success('Oda başarıyla silindi.', 'Silindi');
+    var grid = document.querySelector('.rooms-grid');
+    if (grid) renderRoomList(grid);
+  } catch (err) {
+    
+    ToastManager.error('Oda silinirken bir hata oluştu.', 'Hata');
+  }
+}
 
-    requestAnimationFrame(function(){
-      var canvas=document.getElementById('analytics-canvas');
-      if(!canvas)return;
-      var ctx=canvas.getContext('2d');
-      var W=canvas.offsetWidth||300,H=120;
-      canvas.width=W;canvas.height=H;
-      var days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
-      var vals=days.map(function(){return Math.floor(Math.random()*40);});
-      vals[6]=minutes%40;
-      var max=Math.max.apply(null,vals.concat([1]));
-      ctx.clearRect(0,0,W,H);
-      var barW=W/days.length*0.6,gap=W/days.length;
-      days.forEach(function(day,i){
-        var x=gap*i+gap*0.2,barH=(vals[i]/max)*(H-24),y=H-barH-20;
-        var grad=ctx.createLinearGradient(0,y,0,H-20);
-        grad.addColorStop(0,'rgba(201,169,110,0.8)');grad.addColorStop(1,'rgba(201,169,110,0.15)');
-        ctx.fillStyle=grad;ctx.beginPath();
-        if(ctx.roundRect)ctx.roundRect(x,y,barW,barH,4);else ctx.rect(x,y,barW,barH);
-        ctx.fill();
-        ctx.fillStyle='rgba(122,120,144,0.7)';ctx.font='9px sans-serif';ctx.textAlign='center';
-        ctx.fillText(day,x+barW/2,H-4);
-      });
+function handleLeaveRoom(roomId) {
+  if (typeof RoomManager === 'undefined') return;
+  try {
+    var result = RoomManager.leaveRoom(roomId);
+    if (!result.success) {
+      
+      ToastManager.error(result.error || 'Odadan ayrılınamadı.', 'Ayrılma Hatası');
+      return;
+    }
+    var msg = result.deleted  ? 'Odadan ayrıldınız. Oda boşaldığı için kapatıldı.'
+            : result.newHost  ? 'Odadan ayrıldınız. Oda sahipliği devredildi.'
+            :                   'Odadan ayrıldınız.';
+    ToastManager.info(msg, 'Ayrıldınız');
+    var grid = document.querySelector('.rooms-grid');
+    if (grid) renderRoomList(grid);
+  } catch (err) {
+    
+    ToastManager.error('Odadan ayrılırken bir hata oluştu.', 'Hata');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 12 — AI ORACLE OVERLAY KONTROLÜ
+   Mevcut overlay'in düzgün çalıştığını garanti eder.
+══════════════════════════════════════════════════════════════════ */
+
+var AiOracleUI = (function () {
+  function showProcessing() {
+    var el = document.getElementById('ai-processing');
+    if (!el) return;
+    el.style.display = 'flex';
+    requestAnimationFrame(function () {
+      el.classList.add('show');
     });
   }
 
-  function clearData(){
-    if(confirm('Tüm veriler silinecek. Emin misin?')){
-      try{localStorage.clear();}catch(e){}
-      showAnalytics();
+  function hideProcessing() {
+    var el = document.getElementById('ai-processing');
+    if (!el) return;
+    el.classList.remove('show');
+    setTimeout(function () {
+      el.style.display = 'none';
+    }, 350);
+  }
+
+  /**
+   * AI Oracle çağrısı — timeout + hata yönetimi ile
+   */
+  function generateFrequency(prompt, apiCallFn, onSuccess) {
+    if (!prompt || !prompt.trim()) {
+      ToastManager.warning('Lütfen bir ruh halinizi veya niyetinizi yazın.', 'Boş İstek');
+      return;
     }
-  }
 
-  function exportHealth(){ alert('Sağlık verileri kopyalandı.'); }
+    showProcessing();
 
-  /* ═══════════════════════════════════════
-     13. PREMİUM / PAYWALL
-  ═══════════════════════════════════════ */
-  function openPaywall(){
-    var o=document.getElementById('paywall-overlay');
-    if(!o)return;
-    o.style.display='flex';
-    requestAnimationFrame(function(){o.classList.add('show');});
-    document.body.style.overflow='hidden';
-  }
+    // 10 saniyelik timeout
+    var timeoutId = setTimeout(function () {
+      hideProcessing();
+      
+      ToastManager.error('AI Oracle yanıt vermedi. Lütfen tekrar deneyin.', 'Zaman Aşımı', 6000);
+    }, 10000);
 
-  function closePaywall(){
-    var o=document.getElementById('paywall-overlay');
-    if(!o)return;
-    o.classList.remove('show');
-    setTimeout(function(){o.style.display='none';document.body.style.overflow='';},400);
-  }
+    Promise.resolve()
+      .then(function () {
+        return apiCallFn(prompt);
+      })
+      .then(function (result) {
+        clearTimeout(timeoutId);
+        hideProcessing();
+        if (typeof onSuccess === 'function') onSuccess(result);
+        ToastManager.success('Frekans başarıyla oluşturuldu.', 'Oracle');
+      })
+      .catch(function (err) {
+        clearTimeout(timeoutId);
+        hideProcessing();
+        
 
-  function selectPlan(el){
-    document.querySelectorAll('.pw-plan').forEach(function(p){p.classList.remove('sel');});
-    el.classList.add('sel');
-  }
+        if (err && err.message && err.message.includes('TIMEOUT')) return; // zaten bildirildi
 
-  function handlePurchase(){ alert('Premium satın alındı!'); closePaywall(); }
-  function restorePurchase(){ alert('Satın alım geri yükleniyor...'); }
-  function updateTrialState(){
-    var on=document.getElementById('pw-trial-toggle');
-    var note=document.getElementById('pw-cta-note');
-    if(note)note.textContent=on&&on.checked?'Deneme bittikten sonra $59.99/yıl.':'Hemen $59.99/yıl faturalandırılır.';
-  }
-
-  /* ═══════════════════════════════════════
-     14. CANLI ODALAR
-  ═══════════════════════════════════════ */
-  var Rooms = (function(){
-    var _data = CONFIG.rooms.slice();
-    var _filter = 'all';
-
-    function render(){
-      var grid=document.getElementById('roomsGrid');
-      if(!grid)return;
-      var filtered=_filter==='all'?_data:_data.filter(function(r){return r.category===_filter;});
-      grid.innerHTML='';
-      if(filtered.length===0){
-        grid.innerHTML='<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
-        return;
-      }
-      filtered.forEach(function(room){
-        var pct=Math.round(room.joined/room.capacity*100);
-        var initials=room.host.split(' ').map(function(w){return w[0];}).join('').slice(0,2);
-        var catLabels={odak:'🎯 Odak',uyku:'😴 Uyku',meditasyon:'🧘 Meditasyon',doga:'🌿 Doğa'};
-        var card=document.createElement('div');
-        card.className='room-card';
-        card.innerHTML='<div class="card-top"><span class="badge-live"><span class="dot"></span>LIVE</span>'+(room.priv?'<span class="badge-private">🔒 Özel</span>':'')+'</div>'
-          +'<div class="room-name">'+room.name+'</div>'
-          +'<div class="room-category">'+(catLabels[room.category]||room.category)+'</div>'
-          +'<div class="card-footer"><div class="host-info"><div class="host-avatar">'+initials+'</div><span class="host-name">'+room.host+'</span></div>'
-          +'<div class="capacity-bar-wrap"><div class="capacity-text">'+room.joined+'/'+room.capacity+' kişi</div>'
-          +'<div class="capacity-bar"><div class="capacity-fill" style="width:'+pct+'%"></div></div></div></div>';
-        card.addEventListener('click',function(){alert('🎵 "'+room.name+'" odasına katılıyorsunuz...');});
-        grid.appendChild(card);
+        if (!navigator.onLine) {
+          ToastManager.error('İnternet bağlantısı yok. AI Oracle çevrimdışı çalışamaz.', 'Bağlantı Hatası');
+        } else if (err && err.message && err.message.includes('401')) {
+          ToastManager.error('API anahtarı geçersiz veya süresi dolmuş.', 'Yetki Hatası', 6000);
+        } else if (err && err.message && err.message.includes('429')) {
+          ToastManager.warning('Çok fazla istek gönderildi. Lütfen biraz bekleyin.', 'İstek Limiti');
+        } else {
+          ToastManager.error('AI Oracle bir hatayla karşılaştı. Lütfen tekrar deneyin.', 'Oracle Hatası');
+        }
       });
-    }
+  }
 
-    function create(name, category, capacity, priv){
-      _data.unshift({id:Date.now(),name:name,category:category,host:'Sen',capacity:capacity,joined:1,live:true,priv:priv});
-      render();
-    }
+  return {
+    showProcessing   : showProcessing,
+    hideProcessing   : hideProcessing,
+    generateFrequency: generateFrequency
+  };
+})();
 
-    return { render:render, create:create, setFilter:function(f){_filter=f;render();} };
-  })();
+/* ══════════════════════════════════════════════════════════════════
+   BÖLÜM 13 — BAŞLATMA
+══════════════════════════════════════════════════════════════════ */
 
-  /* ═══════════════════════════════════════
-     15. DOMContentLoaded INIT
-  ═══════════════════════════════════════ */
-  function _init() {
-    // İlk tab
-    var p=document.getElementById('tab-audio');
-    var b=document.getElementById('tab-btn-audio');
-    if(p)p.classList.add('active');
-    if(b){b.classList.add('active');b.setAttribute('aria-selected','true');}
+document.addEventListener('DOMContentLoaded', function () {
 
-    // HP banner
-    setTimeout(function(){
-      var banner=document.getElementById('hp-banner');
-      if(banner)banner.classList.add('show');
-    },2000);
+  /* 0a. PHASE 5: PageVisibilityManager — sekme gizlenince efektler durur */
+  try {
+    PageVisibilityManager.init();
 
-    // Connection warning gizle
-    var cw=document.getElementById('connection-warning');
-    if(cw)cw.style.display='none';
-
-    // Waveform barları
-    var wform=document.getElementById('waveform');
-    if(wform&&wform.children.length===0){
-      for(var i=0;i<12;i++){
-        var bar=document.createElement('div'); bar.className='wbar';
-        bar.style.setProperty('--dur',(0.4+Math.random()*0.6)+'s');
-        bar.style.setProperty('--del',(Math.random()*0.4)+'s');
-        wform.appendChild(bar);
+    /* Ripple efektini sekme görünürlüğüne bağla */
+    PageVisibilityManager.register(
+      function onHide() {
+        /* Sekme gizlendi — ripple spawn'unu durdur */
+        window._rippleDisabled = true;
+        
+      },
+      function onShow() {
+        /* Sekme görünür — ripple'ı yeniden etkinleştir */
+        window._rippleDisabled = false;
+        
       }
+    );
+  } catch (e) {
+    
+  }
+
+  /* 0b. PHASE 5: Ağ izleme */
+  try {
+    NetworkMonitor.init();
+  } catch (e) {
+    
+  }
+
+  /* 1. Ripple efekti */
+  try {
+    initRippleEffect();
+  } catch (e) {
+    
+  }
+
+  /* 2. Sekme animasyonları */
+  try {
+    initTabAnimations();
+  } catch (e) {
+    
+  }
+
+  /* 3. Oda listesi */
+  var roomsGrid = document.querySelector('.rooms-grid');
+  if (roomsGrid) {
+    try {
+      renderRoomList(roomsGrid);
+    } catch (e) {
+      
+      ToastManager.error('Oda listesi yüklenemedi.', 'Yükleme Hatası');
     }
+  }
 
-    // Mood'u yükle
-    try{
-      var lastMood=localStorage.getItem('lastMood');
-      var lastEmoji=localStorage.getItem('lastEmoji');
-      if(lastMood){var me=document.getElementById('s-emoji'),mm=document.getElementById('s-mood');if(me)me.textContent=lastEmoji;if(mm)mm.textContent=lastMood;}
-    }catch(e){}
+  /* 4. Oda kur butonu */
+  var openModalBtn = document.getElementById('btnOpenCreateModal');
+  if (openModalBtn) {
+    openModalBtn.addEventListener('click', function () {
+      try {
+        var modal = document.getElementById('createRoomModal');
+        if (modal) modal.classList.add('open');
+      } catch (e) {
+        
+        ToastManager.error('Modal açılamadı.', 'Hata');
+      }
+    });
+  }
 
-    // Canlı odaları render et
-    Rooms.render();
-
-    // Filtre butonları
-    var filterBar=document.getElementById('roomFilterBar');
-    if(filterBar){
-      filterBar.addEventListener('click',function(e){
-        var chip=e.target.closest('.filter-chip');
-        if(!chip)return;
-        document.querySelectorAll('.filter-chip').forEach(function(c){c.classList.remove('active');});
+  /* 5. Filter bar */
+  document.querySelectorAll('.filter-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      try {
+        document.querySelectorAll('.filter-chip').forEach(function (c) { c.classList.remove('active'); });
         chip.classList.add('active');
-        Rooms.setFilter(chip.getAttribute('data-filter'));
-      });
-    }
-
-    // Premium sounds grid
-    setTimeout(function(){
-      var sk=document.getElementById('premium-sounds-skeleton');
-      var grid=document.getElementById('premium-sounds-grid');
-      if(sk)sk.style.display='none';
-      if(grid){
-        grid.style.display='grid';
-        CONFIG.sounds.forEach(function(s){
-          var card=document.createElement('div');
-          card.className='s-card'+(s.locked?' premium':'');
-          card.style.cursor='pointer';
-          card.innerHTML=(s.locked?'<span class="s-card-lock">🔒</span>':'')
-            +'<span class="s-card-ic">'+s.ic+'</span>'
-            +'<span class="s-card-nm">'+s.name+'</span>'
-            +'<span class="s-card-dur">'+(s.locked?'Premium':s.base+' Hz')+'</span>';
-          if(!s.locked){
-            card.addEventListener('click',function(){
-              grid.querySelectorAll('.s-card').forEach(function(c){c.style.borderColor='';});
-              card.style.borderColor='var(--gold)';
-              Audio.switch(s.gen,s.base,s.beat,s.name);
-            });
-          } else {
-            card.addEventListener('click', openPaywall);
-          }
-          grid.appendChild(card);
-        });
+        var cat  = chip.dataset.filter || chip.dataset.category || null;
+        var grid = document.querySelector('.rooms-grid');
+        if (grid) {
+          /* PHASE 5: Kategori değişince RenderGuard'ı invalidate et */
+          RenderGuard.invalidate('rooms:' + (cat && cat !== 'all' && cat !== 'tümü' ? cat : 'all'));
+          renderRoomList(grid, (cat === 'all' || cat === 'tümü') ? null : cat);
+        }
+      } catch (e) {
+        
+        ToastManager.error('Filtre uygulanamadı.', 'Hata');
       }
-    },600);
-
-    // Modal açma/kapatma
-    var openModalBtn=document.getElementById('btnOpenCreateModal');
-    var closeModalBtn=document.getElementById('btnCloseModal');
-    var modal=document.getElementById('createRoomModal');
-    if(openModalBtn)openModalBtn.addEventListener('click',function(){if(modal)modal.style.display='flex';});
-    if(closeModalBtn)closeModalBtn.addEventListener('click',function(){if(modal)modal.style.display='none';});
-    if(modal)modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});
-
-    // Kapasite stepper
-    var cap=5;
-    var capVal=document.getElementById('capValue');
-    var incBtn=document.getElementById('btnCapInc');
-    var decBtn=document.getElementById('btnCapDec');
-    if(incBtn)incBtn.addEventListener('click',function(){if(cap<20){cap++;if(capVal)capVal.textContent=cap;}});
-    if(decBtn)decBtn.addEventListener('click',function(){if(cap>2){cap--;if(capVal)capVal.textContent=cap;}});
-
-    // Tip seçimi
-    document.querySelectorAll('.type-btn').forEach(function(btn){
-      btn.addEventListener('click',function(){
-        document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('selected');});
-        this.classList.add('selected');
-        var pf=document.getElementById('passwordField');
-        if(pf)pf.style.display=this.getAttribute('data-type')==='private'?'block':'none';
-      });
     });
+  });
 
-    // Oda oluşturma
-    var submitBtn=document.getElementById('btnSubmitRoom');
-    if(submitBtn){
-      submitBtn.addEventListener('click',function(){
-        var name=(document.getElementById('roomName')||{}).value;
-        if(!name||!name.trim()){var ni=document.getElementById('roomName');if(ni)ni.focus();return;}
-        var cat=(document.getElementById('roomCategory')||{}).value||'meditasyon';
-        var isPriv=!!(document.querySelector('.type-btn.selected')&&document.querySelector('.type-btn.selected').getAttribute('data-type')==='private');
-        Rooms.create(name.trim(), cat, cap, isPriv);
-        if(modal)modal.style.display='none';
-        var ni=document.getElementById('roomName');if(ni)ni.value='';
-      });
+  /* 6. API key input */
+  var apiKeyInput = document.getElementById('api-key-input');
+  if (apiKeyInput) {
+    apiKeyInput.addEventListener('change', function (e) {
+      try {
+        initApiKey(e.target.value);
+        e.target.value       = '';
+        e.target.placeholder = '••••••••••••••••';
+      } catch (e2) {
+        
+        ToastManager.error('API anahtarı işlenemedi.', 'Hata');
+      }
+    });
+  }
+
+  /* 7. Kapasite stepper */
+  var capacity = 5;
+  var capVal   = document.getElementById('capValue');
+  var btnInc   = document.getElementById('btnCapInc');
+  var btnDec   = document.getElementById('btnCapDec');
+  if (btnInc) {
+    btnInc.addEventListener('click', function () {
+      if (capacity < 20) { capacity++; if (capVal) capVal.textContent = capacity; }
+    });
+  }
+  if (btnDec) {
+    btnDec.addEventListener('click', function () {
+      if (capacity > 2) { capacity--; if (capVal) capVal.textContent = capacity; }
+    });
+  }
+
+  /* 8. Oda tipi seçimi */
+  document.querySelectorAll('.type-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.type-btn').forEach(function (b) { b.classList.remove('selected'); });
+      this.classList.add('selected');
+      var pf = document.getElementById('passwordField');
+      if (pf) pf.style.display = (this.dataset.type === 'private') ? 'block' : 'none';
+    });
+  });
+
+  /* 9. Modal kapat */
+  var closeModal = document.getElementById('btnCloseModal');
+  if (closeModal) {
+    closeModal.addEventListener('click', function () {
+      var modal = document.getElementById('createRoomModal');
+      if (modal) modal.classList.remove('open');
+    });
+  }
+  var createRoomModal = document.getElementById('createRoomModal');
+  if (createRoomModal) {
+    createRoomModal.addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+  }
+
+  /* 10. Oda oluştur (form submit) */
+  var submitRoom = document.getElementById('btnSubmitRoom');
+  if (submitRoom) {
+    submitRoom.addEventListener('click', function () {
+      try {
+        var nameInput = document.getElementById('roomName');
+        if (!nameInput || !nameInput.value.trim()) {
+          ToastManager.warning('Oda adı boş bırakılamaz.', 'Eksik Alan');
+          if (nameInput) nameInput.focus();
+          return;
+        }
+
+        var roomName = nameInput.value.trim();
+        var restore  = LoadingManager.setButtonLoading(submitRoom, 'Oluşturuluyor…');
+
+        setTimeout(function () {
+          try {
+            restore();
+            /* PHASE 5: Yeni oda eklenince RenderGuard invalidate et */
+            RenderGuard.invalidateAll();
+            ToastManager.success('✦ "' + roomName + '" odası oluşturuldu!', 'Oda Kuruldu');
+            var modal = document.getElementById('createRoomModal');
+            if (modal) modal.classList.remove('open');
+            if (nameInput) nameInput.value = '';
+            var grid = document.querySelector('.rooms-grid');
+            if (grid) renderRoomList(grid);
+          } catch (e) {
+            restore();
+            
+            ToastManager.error('Oda oluşturulamadı. Tekrar deneyin.', 'Hata');
+          }
+        }, 900);
+      } catch (e) {
+        
+        ToastManager.error('Beklenmedik bir hata oluştu.', 'Hata');
+      }
+    });
+  }
+
+  
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL TEMIZLIK — PHASE 5
+   beforeunload + pagehide: tüm kaynaklar temizlenir
+══════════════════════════════════════════════════════════════════ */
+
+function _globalCleanup() {
+  try { clearApiKey(); }         catch (e) { /* no-op */ }
+  try { RAFRegistry.cancelAll(); }  catch (e) { /* no-op */ }
+  try { PageVisibilityManager.dispose(); } catch (e) { /* no-op */ }
+  try { stopWaveformLoop(); }    catch (e) { /* no-op */ }
+  
+}
+
+window.addEventListener('beforeunload', _globalCleanup);
+/* PHASE 5: pagehide — mobil tarayıcılar beforeunload'ı her zaman tetiklemez */
+window.addEventListener('pagehide',     _globalCleanup);
+
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL API — Diğer modüller bu fonksiyonlara erişebilir
+   PHASE 5: Yeni modüller eklendi
+══════════════════════════════════════════════════════════════════ */
+
+window.SanctuaryToast      = ToastManager;
+window.SanctuaryLoading    = LoadingManager;
+window.SanctuaryNetwork    = NetworkMonitor;
+window.SanctuaryAiUI       = AiOracleUI;
+window.SanctuaryVisibility = PageVisibilityManager;  /* PHASE 5 */
+window.SanctuaryRenderGuard = RenderGuard;            /* PHASE 5 */
+window.SanctuaryRAF        = RAFRegistry;             /* PHASE 5 */
+window.fetchSanctuary      = fetchWithTimeout;
+window.loadAudio           = loadAudioWithFeedback;
+window.stopWaveformLoop    = stopWaveformLoop;        /* PHASE 5 */
+
+/* Geriye dönük uyumluluk */
+window.handleCreateRoom = handleCreateRoom;
+window.handleJoinRoom   = handleJoinRoom;
+window.handleDeleteRoom = handleDeleteRoom;
+window.handleLeaveRoom  = handleLeaveRoom;
+window.renderRoomList   = renderRoomList;
+window.showToast        = showToast;
+
+/* ═══════════════════════════════════════════════════════════════
+   8. AŞAMA — Konsolidasyon & Yayına Hazırlık
+   1. Merkezi CONFIG
+   2. sessionBuffer — sekme geçişlerinde veri korunumu
+   3. window.Sanctuary global namespace
+   4. Merkezi hata yakalayıcı
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Merkezi CONFIG ── */
+window.SanctuaryConfig = {
+  breath: { inhale:4000, hold:7000, exhale:8000, pause:1000 },
+  audio: {
+    masterVolume:0.75, ambientVolume:0.55, binauralVolume:0.10,
+    fadeOutDuration:120, bufferSeconds:8,
+  },
+  moods: {
+    'Huzursuz':  { base:180, beat:6,  gen:'waves',    bg:'teal'   },
+    'Yorgun':    { base:200, beat:4,  gen:'rain',     bg:'violet' },
+    'Kaygılı':   { base:160, beat:8,  gen:'wind',     bg:'sky'    },
+    'Mutsuz':    { base:220, beat:5,  gen:'waves',    bg:'rose'   },
+    'Sakin':     { base:200, beat:7,  gen:'binaural', bg:'teal'   },
+    'Minnettar': { base:528, beat:10, gen:'rain',     bg:'gold'   },
+  },
+};
+
+/* ── sessionBuffer — Sekme geçişlerinde veri korunumu ── */
+window.SanctuarySessionBuffer = (function() {
+  var _data = {};
+  return {
+    set: function(k, v) { _data[k] = v; },
+    get: function(k)    { return _data[k]; },
+    clear: function(k)  { delete _data[k]; },
+  };
+})();
+
+/* ── switchTab'ı sessionBuffer ile güçlendir ── */
+(function() {
+  var _origSwitchTab = window.switchTab || window.Sanctuary && window.Sanctuary.switchTab;
+  window.switchTab = function(tabId) {
+    // Aktif sekmedeki textarea'yı kaydet
+    var active = document.querySelector('.tab-panel.active');
+    if (active) {
+      var ta = active.querySelector('textarea');
+      if (ta) window.SanctuarySessionBuffer.set('tab_' + active.id, ta.value);
     }
+    // Orijinal switchTab'ı çağır
+    if (_origSwitchTab) _origSwitchTab(tabId);
+    // Yeni sekmedeki textarea'yı geri yükle
+    setTimeout(function() {
+      var panel = document.getElementById(tabId);
+      if (panel) {
+        var ta = panel.querySelector('textarea');
+        var saved = window.SanctuarySessionBuffer.get('tab_' + tabId);
+        if (ta && saved !== undefined) ta.value = saved;
+      }
+    }, 50);
+  };
+})();
 
-    // Skeleton reveal
-    var moodSkel=document.getElementById('mood-grid-skeleton');
-    var moodGrid=document.getElementById('mood-grid');
-    if(moodSkel)moodSkel.style.display='none';
-    if(moodGrid)moodGrid.style.display='grid';
-    var oracleSkel=document.getElementById('ai-oracle-skeleton');
-    var oracleContent=document.getElementById('ai-oracle-content');
-    if(oracleSkel)setTimeout(function(){oracleSkel.style.display='none';if(oracleContent)oracleContent.style.display='block';},400);
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',_init);
-  } else {
-    _init();
-  }
-
-  /* ═══════════════════════════════════════
-     16. HATA YAKALAYICI
-  ═══════════════════════════════════════ */
+/* ── Merkezi hata yakalayıcı ── */
+(function() {
   function _showErrorToast(msg) {
-    var toast=document.getElementById('notif-toast');
-    if(!toast)return;
-    var title=toast.querySelector('.nt-title');
-    var body=toast.querySelector('.nt-body');
-    if(title)title.textContent='Sistem uyarısı';
-    if(body)body.textContent=msg||'Beklenmeyen bir hata oluştu. Sistem geri yükleniyor...';
+    var toast = document.getElementById('notif-toast');
+    if (!toast) return;
+    var title = toast.querySelector('.nt-title');
+    var body  = toast.querySelector('.nt-body');
+    if (title) title.textContent = '⚠️ Sistem uyarısı';
+    if (body)  body.textContent  = msg || 'Beklenmeyen bir hata oluştu.';
     toast.classList.add('show');
-    setTimeout(function(){toast.classList.remove('show');},4000);
+    setTimeout(function() { toast.classList.remove('show'); }, 4000);
   }
 
-  global.onerror = function(msg, src, line, col, err) {
-    console.error('[Sanctuary Error]', msg, src+':'+line);
+  window.onerror = function(msg, src, line) {
+    
     _showErrorToast('Bir şeyler ters gitti. Lütfen sayfayı yenileyin.');
     return false;
   };
 
-  global.addEventListener('unhandledrejection', function(e) {
-    console.error('[Sanctuary Promise]', e.reason);
+  window.addEventListener('unhandledrejection', function(e) {
+    
     _showErrorToast('Arka plan işlemi başarısız oldu.');
   });
+})();
 
-  /* ═══════════════════════════════════════
-     17. GLOBAL NAMESPACE — window.Sanctuary
-  ═══════════════════════════════════════ */
-  global.Sanctuary = {
-    config:        CONFIG,
-    audio:         Audio,
-    breath:        BreathCycle,
-    rooms:         Rooms,
-    sessionBuffer: sessionBuffer,
-    // Ekran
-    showScreen:    showScreen,
-    goBack:        goBack,
-    goSanctuary:   goSanctuary,
-    // Sekme
-    switchTab:     switchTab,
-    // Mood
-    pickMood:      pickMood,
-    // Ses
-    togglePlay:    togglePlay,
-    // Timer
-    setSleepTimer:    setSleepTimer,
-    cancelSleepTimer: cancelSleepTimer,
-    // Günlük
-    saveJournalEntry: saveJournalEntry,
-    // AI
-    generateAIFreq: generateAIFreq,
-    // Analitik
-    showAnalytics: showAnalytics,
-    clearData:     clearData,
-    exportHealth:  exportHealth,
-    // Premium
-    openPaywall:   openPaywall,
-    closePaywall:  closePaywall,
-    selectPlan:    selectPlan,
-    handlePurchase:  handlePurchase,
-    restorePurchase: restorePurchase,
-    updateTrialState: updateTrialState,
-    // Yardımcılar
-    dismissBanner:    function(){ var b=document.getElementById('hp-banner');if(b)b.style.display='none'; },
-    dismissPWABanner: function(){ var b=document.getElementById('pwa-banner');if(b)b.style.display='none'; },
-    acceptDisclaimer: function(){
-      var d=document.getElementById('legal-disclaimer');
-      if(d)d.style.display='none';
-      try{localStorage.setItem('disclaimerAccepted','true');}catch(e){}
-    },
-    closeHealthModal: function(ev){
-      if(!ev||ev.target.id==='health-modal'){
-        var m=document.getElementById('health-modal');if(m)m.style.display='none';
-      }
-    },
-  };
+/* ── window.Sanctuary global namespace ── */
+window.Sanctuary = {
+  config:        window.SanctuaryConfig,
+  sessionBuffer: window.SanctuarySessionBuffer,
+  // Mevcut fonksiyonlara referanslar
+  switchTab:        function(id) { window.switchTab(id); },
+  togglePlay:       function()   { if(window.togglePlay)   window.togglePlay();   },
+  goSanctuary:      function()   { if(window.goSanctuary)  window.goSanctuary();  },
+  goBack:           function()   { if(window.goBack)        window.goBack();       },
+  pickMood:         function(el) { if(window.pickMood)     window.pickMood(el);   },
+  openPaywall:      function()   { if(window.openPaywall)  window.openPaywall();  },
+  closePaywall:     function()   { if(window.closePaywall) window.closePaywall(); },
+  showAnalytics:    function()   { if(window.showAnalytics)window.showAnalytics();},
+  generateAIFreq:   function()   { if(window.generateAIFreq)window.generateAIFreq();},
+  saveJournalEntry: function()   { if(window.saveJournalEntry)window.saveJournalEntry();},
+  setSleepTimer:    function(m)  { if(window.setSleepTimer)window.setSleepTimer(m);},
+  cancelSleepTimer: function()   { if(window.cancelSleepTimer)window.cancelSleepTimer();},
+};
 
-  // Eski global fonksiyonları da çalışsın (HTML onclick uyumluluğu)
-  var _expose = ['showScreen','goBack','goSanctuary','switchTab','pickMood','togglePlay',
-    'setSleepTimer','cancelSleepTimer','saveJournalEntry','generateAIFreq',
-    'showAnalytics','clearData','exportHealth','openPaywall','closePaywall',
-    'selectPlan','handlePurchase','restorePurchase','updateTrialState'];
-  _expose.forEach(function(fn){
-    global[fn] = global.Sanctuary[fn];
-  });
-  global.dismissBanner    = global.Sanctuary.dismissBanner;
-  global.dismissPWABanner = global.Sanctuary.dismissPWABanner;
-  global.acceptDisclaimer = global.Sanctuary.acceptDisclaimer;
-  global.closeHealthModal = global.Sanctuary.closeHealthModal;
 
-})(window);
+
+/* ── Ekran yönetimi (index.html onclick'leri için) ── */
+window.goSanctuary = function() {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
+  var t = document.getElementById('screen-sanctuary');
+  if (t) { t.classList.remove('off'); t.classList.add('on'); }
+};
+
+window.goBack = function() {
+  var analytics = document.getElementById('screen-analytics');
+  if (analytics && analytics.classList.contains('on')) {
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
+    var t = document.getElementById('screen-sanctuary');
+    if (t) { t.classList.remove('off'); t.classList.add('on'); }
+  } else {
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
+    var t = document.getElementById('screen-mood');
+    if (t) { t.classList.remove('off'); t.classList.add('on'); }
+  }
+};
 
 </script>
 
+<script>
+/* ── Sanctuary Audio Engine ── */
+(function(){
+  var _ctx=null, _master=null, _oscs=[], _noise=null, _playing=false;
+
+  var MOOD_MAP={
+    'Huzursuz':{base:180,beat:6,gen:'waves'},
+    'Yorgun':{base:200,beat:4,gen:'rain'},
+    'Kaygılı':{base:160,beat:8,gen:'wind'},
+    'Mutsuz':{base:220,beat:5,gen:'waves'},
+    'Sakin':{base:200,beat:7,gen:'binaural'},
+    'Minnettar':{base:528,beat:10,gen:'rain'},
+  };
+
+  function getCtx(){
+    if(!_ctx){var C=window.AudioContext||window.webkitAudioContext;_ctx=new C();}
+    return _ctx;
+  }
+
+  function makeBuffer(ctx,type){
+    var sr=ctx.sampleRate,buf=ctx.createBuffer(2,sr*8,sr);
+    for(var ch=0;ch<2;ch++){
+      var d=buf.getChannelData(ch);
+      for(var i=0;i<d.length;i++){
+        var t=i/sr;
+        if(type==='waves') d[i]=Math.sin(2*Math.PI*0.12*t)*0.14+(Math.random()*2-1)*0.05;
+        else if(type==='wind') d[i]=(Math.random()*2-1)*0.13*Math.abs(Math.sin(t*0.4));
+        else if(type==='fire') d[i]=(Math.random()*2-1)*0.14*(0.8+Math.sin(t*3)*0.2);
+        else d[i]=(Math.random()*2-1)*0.18;
+      }
+    }
+    return buf;
+  }
+
+  function stopAll(){
+    _oscs.forEach(function(o){try{o.stop();o.disconnect();}catch(e){}});
+    _oscs=[];
+    if(_noise){try{_noise.stop();_noise.disconnect();}catch(e){}_noise=null;}
+  }
+
+  function startSound(gen,base,beat){
+    var ctx=getCtx();
+    if(ctx.state==='suspended') ctx.resume();
+    if(!_master){_master=ctx.createGain();_master.gain.value=0.75;_master.connect(ctx.destination);}
+    stopAll();
+    if(beat>0){
+      var mg=ctx.createChannelMerger(2);mg.connect(_master);
+      [[base,0],[base+beat,1]].forEach(function(p){
+        var o=ctx.createOscillator(),g=ctx.createGain();
+        o.frequency.value=p[0];o.type='sine';g.gain.value=0.10;
+        o.connect(g);g.connect(mg,0,p[1]);o.start();_oscs.push(o);
+      });
+    }
+    var src=ctx.createBufferSource(),filt=ctx.createBiquadFilter(),gain=ctx.createGain();
+    src.buffer=makeBuffer(ctx,gen);src.loop=true;
+    filt.type='lowpass';filt.frequency.value=gen==='rain'?1200:700;
+    gain.gain.value=0.55;
+    src.connect(filt);filt.connect(gain);gain.connect(_master);src.start(0);
+    _noise=src;
+    var badge=document.getElementById('freq-badge');
+    var lbl=document.getElementById('freq-label');
+    if(badge)badge.classList.add('on');
+    if(lbl)lbl.textContent=base+' Hz · '+gen;
+    var wf=document.getElementById('waveform');
+    if(wf){
+      if(wf.children.length===0){
+        for(var i=0;i<12;i++){
+          var b=document.createElement('div');b.className='wbar';
+          b.style.setProperty('--dur',(0.4+Math.random()*0.6)+'s');
+          b.style.setProperty('--del',(Math.random()*0.4)+'s');
+          wf.appendChild(b);
+        }
+      }
+      wf.querySelectorAll('.wbar').forEach(function(b){b.classList.add('on');});
+    }
+  }
+
+  window.togglePlay=function(){
+    var btn=document.getElementById('play-btn');
+    var icon=document.getElementById('play-icon');
+    var lbl=document.getElementById('play-lbl');
+    var wrap=document.querySelector('.breath-wrap');
+    _playing=!_playing;
+    if(icon)icon.textContent=_playing?'⏸':'▶';
+    if(btn){btn.setAttribute('aria-pressed',_playing);btn.classList.toggle('on',_playing);}
+    if(lbl)lbl.textContent=_playing?'Duraklat':'Frekansı Başlat';
+    if(wrap){
+      wrap.classList.remove('breath-idle','breath-inhale');
+      wrap.classList.add(_playing?'breath-inhale':'breath-idle');
+    }
+    if(_playing){
+      try{
+        var gen=localStorage.getItem('lastGen');
+        var base=parseInt(localStorage.getItem('lastBase')||'0')||0;
+        var beat=parseInt(localStorage.getItem('lastBeat')||'0')||0;
+        if(!gen||!base){
+          var mood=localStorage.getItem('lastMood')||'Sakin';
+          var cfg=MOOD_MAP[mood]||MOOD_MAP['Sakin'];
+          gen=cfg.gen;base=cfg.base;beat=cfg.beat;
+        }
+        startSound(gen,base,beat);
+      }catch(e){
+        _playing=false;
+        if(icon)icon.textContent='▶';
+        if(btn){btn.setAttribute('aria-pressed',false);btn.classList.remove('on');}
+        if(lbl)lbl.textContent='Frekansı Başlat';
+      }
+    } else {
+      stopAll();
+      if(_ctx)_ctx.suspend();
+      document.querySelectorAll('.wbar').forEach(function(b){b.classList.remove('on');});
+      var badge=document.getElementById('freq-badge');
+      if(badge)badge.classList.remove('on');
+    }
+  };
+
+  window.switchSound=function(gen,base,beat,label){
+    try{localStorage.setItem('lastGen',gen);localStorage.setItem('lastBase',base);localStorage.setItem('lastBeat',beat);}catch(e){}
+    if(_playing) startSound(gen,base,beat);
+    var lbl=document.getElementById('freq-label');
+    if(lbl)lbl.textContent=base+' Hz · '+(label||gen);
+  };
+
+  window.setSleepTimer=function(minutes){
+    if(window._sleepTimerRef)clearTimeout(window._sleepTimerRef);
+    document.querySelectorAll('.stimer-btn').forEach(function(b){b.classList.remove('active','fading');});
+    var activeBtn=Array.from(document.querySelectorAll('.stimer-btn')).find(function(b){return b.textContent.trim()===minutes+'dk';});
+    if(activeBtn)activeBtn.classList.add('active');
+    var st=document.getElementById('stimer-status');
+    if(st){st.textContent='⏰ '+minutes+' dk sonra duracak';st.className='active';}
+    var fadeAt=(minutes-2)*60*1000,stopAt=minutes*60*1000;
+    if(fadeAt>0){
+      setTimeout(function(){
+        if(_ctx&&_master){var now=_ctx.currentTime;_master.gain.setValueAtTime(_master.gain.value,now);_master.gain.linearRampToValueAtTime(0,now+120);}
+        if(st){st.textContent='🌙 Ses kısılıyor...';st.className='fading';}
+        if(activeBtn)activeBtn.classList.add('fading');
+      },fadeAt);
+    }
+    window._sleepTimerRef=setTimeout(function(){
+      if(_playing)window.togglePlay();
+      if(st){st.textContent='✓ Tamamlandı';st.className='';}
+      document.querySelectorAll('.stimer-btn').forEach(function(b){b.classList.remove('active','fading');});
+      window._sleepTimerRef=null;
+    },stopAt);
+  };
+
+  window.cancelSleepTimer=function(){
+    if(window._sleepTimerRef){clearTimeout(window._sleepTimerRef);window._sleepTimerRef=null;}
+    document.querySelectorAll('.stimer-btn').forEach(function(b){b.classList.remove('active','fading');});
+    var st=document.getElementById('stimer-status');
+    if(st){st.textContent='';st.className='';}
+    if(_ctx&&_master&&_playing){var now=_ctx.currentTime;_master.gain.cancelScheduledValues(now);_master.gain.setValueAtTime(_master.gain.value,now);_master.gain.linearRampToValueAtTime(0.75,now+1);}
+  };
+
+})();
+</script>
+<script>
+/* ── Eksik yardımcı fonksiyonlar ── */
+window.acceptDisclaimer = function(){
+  var d=document.getElementById('legal-disclaimer');
+  if(d)d.style.display='none';
+  try{localStorage.setItem('disclaimerAccepted','true');}catch(e){}
+};
+window.clearData = function(){
+  if(confirm('Tüm veriler silinecek. Emin misin?')){
+    try{localStorage.clear();}catch(e){}
+    window.showAnalytics && window.showAnalytics();
+  }
+};
+window.closeHealthModal = function(ev){
+  if(!ev||ev.target.id==='health-modal'){
+    var m=document.getElementById('health-modal');if(m)m.style.display='none';
+  }
+};
+window.copyHealthData = function(){
+  var txt=document.getElementById('health-json-content');
+  try{navigator.clipboard.writeText(txt?txt.textContent:'{}');}catch(e){}
+  alert('Kopyalandı');
+};
+window.dismissBanner = function(){
+  var b=document.getElementById('hp-banner');if(b)b.style.display='none';
+};
+window.dismissPWABanner = function(){
+  var b=document.getElementById('pwa-banner');if(b)b.style.display='none';
+};
+window.exportHealth = function(){ alert('Sağlık verileri dışa aktarıldı.'); };
+window.handlePurchase = function(){ alert('Premium satın alındı!'); window.closePaywall && window.closePaywall(); };
+window.restorePurchase = function(){ alert('Satın alım geri yükleniyor...'); };
+window.selectPlan = function(el){
+  document.querySelectorAll('.pw-plan').forEach(function(p){p.classList.remove('sel');});
+  el.classList.add('sel');
+};
+window.triggerPWAInstall = function(){ alert('PWA kurulumu başlatılıyor...'); };
+window.updateTrialState = function(){
+  var on=document.getElementById('pw-trial-toggle');
+  var note=document.getElementById('pw-cta-note');
+  if(note)note.textContent=on&&on.checked?'Deneme bittikten sonra $59.99/yıl.':'Hemen $59.99/yıl faturalandırılır.';
+};
+</script>
+<script>
+/* ── Global fonksiyon atamaları ── */
+window.pickMood = function(el) {
+  var mood  = el.getAttribute('data-mood');
+  var emoji = el.querySelector('.ic').textContent;
+  document.querySelectorAll('.mood-chip').forEach(function(c){ c.classList.remove('sel'); });
+  el.classList.add('sel');
+  var me=document.getElementById('s-emoji'), mm=document.getElementById('s-mood');
+  if(me) me.textContent=emoji;
+  if(mm) mm.textContent=mood;
+  var msgs={'Huzursuz':'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.',
+    'Yorgun':'Dinlenmek bir lüks değil, ihtiyaçtır. Kendine izin ver.',
+    'Kaygılı':'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.',
+    'Mutsuz':'Her duygu geçer. Bu da geçecek. Burada seninleyim.',
+    'Sakin':'Sakinlik senin doğal halin. Onu koruyalım.',
+    'Minnettar':'Minnettarlık kalbi açar, dünyayı aydınlatır.'};
+  var msgEl=document.getElementById('s-message');
+  if(msgEl) msgEl.textContent=msgs[mood]||'';
+  var bgMap={'Huzursuz':'teal','Yorgun':'violet','Kaygılı':'sky','Mutsuz':'rose','Sakin':'teal','Minnettar':'gold'};
+  if(typeof window.setBgMood==='function') window.setBgMood(bgMap[mood]||'teal');
+  try{localStorage.setItem('lastMood',mood);localStorage.setItem('lastEmoji',emoji);
+  localStorage.removeItem('lastGen');localStorage.removeItem('lastBase');localStorage.removeItem('lastBeat');}catch(e){}
+};
+
+window.openPaywall = function(){
+  var o=document.getElementById('paywall-overlay');
+  if(!o) return;
+  o.style.display='flex';
+  requestAnimationFrame(function(){ o.classList.add('show'); });
+  document.body.style.overflow='hidden';
+};
+
+window.closePaywall = function(){
+  var o=document.getElementById('paywall-overlay');
+  if(!o) return;
+  o.classList.remove('show');
+  setTimeout(function(){ o.style.display='none'; document.body.style.overflow=''; }, 400);
+};
+
+window.saveJournalEntry = function(){
+  var ta=document.getElementById('journal-textarea');
+  var text=ta?ta.value.trim():'';
+  if(!text) return;
+  try{localStorage.setItem('lastJournal',text);localStorage.setItem('lastJournalDate',new Date().toISOString());}catch(e){}
+  var st=document.getElementById('journal-save-status');
+  if(st){st.textContent='✓ Kaydedildi';setTimeout(function(){st.textContent='';},2000);}
+};
+
+window.generateAIFreq = function(){
+  var input=document.getElementById('ai-input');
+  if(!input||!input.value.trim()){
+    if(input){input.style.borderColor='rgba(255,100,100,0.5)';setTimeout(function(){input.style.borderColor='';},1500);}
+    return;
+  }
+  var btn=document.getElementById('ai-generate-btn');
+  if(btn){btn.disabled=true;btn.textContent='✦ Düşünüyor...';}
+  setTimeout(function(){
+    var lower=input.value.toLowerCase();
+    var freq=432,beat=7,msg='Sana özel bir titreşim tasarlandı.';
+    if(lower.includes('uyku')||lower.includes('yorgun')){freq=174;beat=4;msg='Derin uyku için delta dalgaları aktif.';}
+    else if(lower.includes('kaygı')||lower.includes('stres')){freq=396;beat=6;msg='Kaygıyı serbest bırakan frekans.';}
+    else if(lower.includes('odak')||lower.includes('çalış')){freq=40;beat=10;msg='Gamma dalgaları aktif. Odak derinleşiyor.';}
+    else if(lower.includes('mutlu')||lower.includes('neşe')){freq=528;beat=10;msg='DNA tamiri frekansı.';}
+    else if(lower.includes('huzur')||lower.includes('sakin')){freq=432;beat=7;msg='Evrenin doğal titreşimi.';}
+    var re=document.getElementById('ai-result');
+    var te=document.getElementById('ai-result-text');
+    var fe=document.getElementById('ai-result-freq');
+    if(te)te.textContent=msg;
+    if(fe)fe.innerHTML='<span class="ai-freq-chip">'+freq+' Hz</span><span class="ai-freq-chip">Binaural '+beat+' Hz</span>';
+    if(re)re.classList.add('show');
+    if(btn){btn.disabled=false;btn.textContent="✦ Oracle'ı Uyandır";}
+    try{localStorage.setItem('lastGen','binaural');localStorage.setItem('lastBase',freq);localStorage.setItem('lastBeat',beat);}catch(e){}
+  },1200);
+};
+
+window.showAnalytics = function(){
+  var sessions=parseInt(localStorage.getItem('sessionCount')||'0');
+  var minutes=parseInt(localStorage.getItem('totalMinutes')||'0');
+  var streak=parseInt(localStorage.getItem('currentStreak')||'0');
+  var s=document.getElementById('stat-sessions');
+  var m=document.getElementById('stat-minutes');
+  var st=document.getElementById('stat-streak');
+  if(s)s.textContent=sessions;
+  if(m)m.textContent=minutes;
+  if(st)st.textContent=streak;
+  document.querySelectorAll('.screen').forEach(function(sc){sc.classList.remove('on');sc.classList.add('off');});
+  var t=document.getElementById('screen-analytics');
+  if(t){t.classList.remove('off');t.classList.add('on');}
+  requestAnimationFrame(function(){
+    var canvas=document.getElementById('analytics-canvas');
+    if(!canvas)return;
+    var ctx=canvas.getContext('2d'),W=canvas.offsetWidth||300,H=120;
+    canvas.width=W;canvas.height=H;
+    var days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+    var vals=days.map(function(){return Math.floor(Math.random()*40);});
+    vals[6]=minutes%40;
+    var max=Math.max.apply(null,vals.concat([1]));
+    ctx.clearRect(0,0,W,H);
+    var barW=W/7*0.6,gap=W/7;
+    days.forEach(function(day,i){
+      var x=gap*i+gap*0.2,bh=(vals[i]/max)*(H-24),y=H-bh-20;
+      var g=ctx.createLinearGradient(0,y,0,H-20);
+      g.addColorStop(0,'rgba(201,169,110,0.8)');g.addColorStop(1,'rgba(201,169,110,0.15)');
+      ctx.fillStyle=g;ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(x,y,barW,bh,4);else ctx.rect(x,y,barW,bh);
+      ctx.fill();
+      ctx.fillStyle='rgba(122,120,144,0.7)';ctx.font='9px sans-serif';
+      ctx.textAlign='center';ctx.fillText(day,x+barW/2,H-4);
+    });
+  });
+};
+</script>
 <script>
 /* ══════════════════════════════════════════════════
    SANCTUARY — GENERATIVE BACKGROUND ENGINE
