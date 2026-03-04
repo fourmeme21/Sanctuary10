@@ -1433,3 +1433,165 @@ window.Sanctuary = {
 };
 
 console.info('[Sanctuary] 8. Aşama yüklendi ✓ — window.Sanctuary hazır');
+
+/* ═══════════════════════════════════════════════════════════
+   9. AŞAMA — Zihin Haritası, Akıllı Öneriler, Duygu-Ses
+═══════════════════════════════════════════════════════════ */
+
+/* ── Zihin Haritası Render ── */
+window.renderMindMap = function() {
+  var stats = window.SanctuaryStats;
+  if (!stats) return;
+  var days = stats.getLast7Days();
+  var dotsEl = document.getElementById('mind-map-dots');
+  var streakEl = document.getElementById('mind-map-streak');
+  if (!dotsEl) return;
+
+  var maxMin = Math.max.apply(null, days.map(function(d){ return d.minutes; }).concat([1]));
+
+  dotsEl.innerHTML = '';
+  days.forEach(function(day) {
+    var dot = document.createElement('div');
+    dot.className = 'mind-map-dot' + (day.count === 0 ? ' empty' : '');
+    var h = day.count > 0 ? Math.max(12, Math.round((day.minutes / maxMin) * 44)) : 8;
+    dot.style.height = h + 'px';
+    dot.style.background = day.mood ? stats.getMoodColor(day.mood) : 'rgba(255,255,255,0.06)';
+    if (day.count > 0) dot.style.boxShadow = '0 0 8px ' + stats.getMoodColor(day.mood) + '55';
+    dot.setAttribute('data-label', day.day + (day.mood ? ' · ' + day.mood : '') + (day.minutes > 0 ? ' · ' + day.minutes + 'dk' : ''));
+    dotsEl.appendChild(dot);
+  });
+
+  var streak = stats.getStreak();
+  if (streakEl) {
+    streakEl.textContent = streak > 0 ? '🔥 ' + streak + ' günlük seri' : '';
+  }
+};
+
+/* ── Kişiselleştirilmiş Karşılama ── */
+window.updatePersonalizedGreeting = function() {
+  var stats = window.SanctuaryStats;
+  if (!stats) return;
+  var msgEl = document.getElementById('s-message');
+  if (msgEl) {
+    var msg = stats.getPersonalizedMessage();
+    if (msg) msgEl.textContent = msg;
+  }
+};
+
+/* ── Akıllı Frekans Önerisi ── */
+window.showSmartSuggestion = function(mood) {
+  var stats = window.SanctuaryStats;
+  if (!stats) return;
+  var suggest = document.getElementById('smart-suggest');
+  var suggestText = document.getElementById('smart-suggest-text');
+  if (!suggest || !suggestText) return;
+
+  var rec = stats.getSmartFreqSuggestion(mood);
+  suggestText.textContent = '✦ Senin için öneri: ' + rec.label + ' — şimdi dene?';
+  suggest.style.display = 'flex';
+  suggest.onclick = function() {
+    if (window.switchSound) window.switchSound(rec.gen, rec.freq, rec.beat, rec.label);
+    try {
+      localStorage.setItem('lastGen', rec.gen);
+      localStorage.setItem('lastBase', rec.freq);
+      localStorage.setItem('lastBeat', rec.beat);
+    } catch(e) {}
+    suggest.style.display = 'none';
+  };
+};
+
+/* ── Duygu-Ses İlişkilendirmesi (Journal) ── */
+window.analyzeJournalAndModulate = function(text) {
+  if (!text || !window.switchSound) return;
+  var lower = text.toLowerCase();
+  var wordCount = text.trim().split(/\s+/).length;
+
+  // Anahtar kelime bazlı ses modülasyonu
+  if (lower.includes('fırtına') || lower.includes('öfke') || lower.includes('sinir')) {
+    window.switchSound('waves', 180, 6, 'Sakinleştirici Dalgalar');
+  } else if (lower.includes('deniz') || lower.includes('okyanus') || lower.includes('huzur')) {
+    window.switchSound('waves', 200, 4, 'Okyanus Huzuru');
+  } else if (lower.includes('sakin') || lower.includes('nefes') || lower.includes('dingin')) {
+    window.switchSound('binaural', 432, 7, 'Derin Huzur');
+  } else if (lower.includes('uyku') || lower.includes('yorgun') || lower.includes('dinlen')) {
+    window.switchSound('rain', 174, 3, 'Uyku Yağmuru');
+  } else if (wordCount > 50) {
+    // Uzun yazı = yoğun düşünceler → sakinleştirici
+    window.switchSound('binaural', 396, 5, 'Zihin Berraklığı');
+  }
+};
+
+/* ── pickMood'u intercept et — akıllı öneri ve aktivite kaydı ── */
+(function() {
+  var _origPickMood = window.pickMood;
+  window.pickMood = function(el) {
+    if (_origPickMood) _origPickMood(el);
+    var mood = el ? el.getAttribute('data-mood') : null;
+    if (!mood) return;
+    // Akıllı öneri göster
+    setTimeout(function() { window.showSmartSuggestion(mood); }, 300);
+    // Aktivite kaydı başlat
+    window._sessionStart = Date.now();
+    window._sessionMood = mood;
+    // Kişiselleştirilmiş mesaj güncelle
+    setTimeout(window.updatePersonalizedGreeting, 100);
+  };
+})();
+
+/* ── Journal kaydetme — ses modülasyonu ── */
+(function() {
+  var _origSave = window.saveJournalEntry;
+  window.saveJournalEntry = function() {
+    if (_origSave) _origSave();
+    var ta = document.getElementById('journal-textarea');
+    var text = ta ? ta.value : '';
+    if (text.trim().length > 10) {
+      window.analyzeJournalAndModulate(text);
+    }
+    // Aktivite logla
+    if (window.SanctuaryStats) {
+      window.SanctuaryStats.logActivity('journal', 0, localStorage.getItem('lastMood'));
+    }
+  };
+})();
+
+/* ── Ses bitişinde aktivite logla ── */
+(function() {
+  var _origToggle = window.togglePlay;
+  window.togglePlay = function() {
+    // Oturum bitişi — süreyi hesapla
+    if (window._sessionStart) {
+      var duration = Math.round((Date.now() - window._sessionStart) / 1000);
+      if (duration > 10 && window.SanctuaryStats) {
+        window.SanctuaryStats.logActivity('audio', duration, window._sessionMood || localStorage.getItem('lastMood'));
+      }
+      window._sessionStart = null;
+    }
+    if (_origToggle) _origToggle();
+    // Ses başladığında süre takibini başlat
+    if (window._sessionStart === null) {
+      window._sessionStart = Date.now();
+    }
+  };
+})();
+
+/* ── Sayfa yüklenince zihin haritasını render et ── */
+(function() {
+  function _initPhase9() {
+    window.renderMindMap && window.renderMindMap();
+    window.updatePersonalizedGreeting && window.updatePersonalizedGreeting();
+    // Journal tab'ına geçilince haritayı yenile
+    var _origSwitch = window.switchTab;
+    window.switchTab = function(tabId) {
+      if (_origSwitch) _origSwitch(tabId);
+      if (tabId === 'tab-journal') {
+        setTimeout(function() { window.renderMindMap && window.renderMindMap(); }, 100);
+      }
+    };
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initPhase9);
+  } else {
+    setTimeout(_initPhase9, 500);
+  }
+})();
