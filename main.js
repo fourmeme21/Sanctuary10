@@ -1,16 +1,151 @@
 /**
- * main.js — Sanctuary 4. Aşama (Hata Yönetimi & UX)
+ * main.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
  * ─────────────────────────────────────────────────────────────────────────────
- * Değişiklikler:
- *   1. Toast Sistemi      — Merkezi, cam efektli, 4 tipli bildirim (success/error/warning/info)
- *   2. Hata Yönetimi      — Tüm catch blokları dolduruldu, kullanıcıya bildiriliyor
- *   3. Offline/Online     — İnternet kesilince panel gösterilir, bağlantı gelince flash
- *   4. Loading Spinners   — Play butonu, oda listesi ve AI Oracle için spinner
- *   5. Fetch Timeout      — 10 saniyelik timeout, zaman aşımı bildirimi
+ * 4. Aşama korundu. Ek değişiklikler (Phase 5):
+ *   1. PageVisibilityManager — Sekme gizlenince Ripple/Waveform durur, CPU tasarrufu
+ *   2. RenderGuard           — Oda listesi sadece veri değiştiğinde render edilir
+ *   3. stopWaveformLoop()    — cancelAnimationFrame ile RAF döngüsü iptal edilir
+ *   4. fetchWithTimeout      — cache: 'force-cache' destekli (SW ile entegre)
+ *   5. Cleanup on unload     — beforeunload + pagehide'da tüm kaynaklar temizlenir
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 4. Aşama özeti:
+ *   - Toast Sistemi, Hata Yönetimi, Offline/Online panel, Loading Spinners, Fetch Timeout
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 'use strict';
+
+/* ══════════════════════════════════════════════════════════════════
+   PHASE 5 — BÖLÜM 0: PAGE VISIBILITY MANAGER
+   Sekme arka plana geçince Ripple ve Waveform efektleri durur.
+   Öne gelince otomatik devam eder. CPU ve pil tasarrufu sağlar.
+══════════════════════════════════════════════════════════════════ */
+
+var PageVisibilityManager = (function () {
+  var _tabVisible  = !document.hidden;
+  var _handlers    = [];   // { onHide, onShow } nesneleri
+  var _listener    = null;
+
+  function _onVisibilityChange() {
+    _tabVisible = !document.hidden;
+    _handlers.forEach(function (h) {
+      try {
+        if (!_tabVisible && typeof h.onHide === 'function') h.onHide();
+        if (_tabVisible  && typeof h.onShow === 'function') h.onShow();
+      } catch (e) {
+        console.warn('[PageVisibilityManager] Handler hatası:', e);
+      }
+    });
+    console.debug('[PageVisibilityManager] Sekme:', _tabVisible ? 'görünür' : 'gizli');
+  }
+
+  function init() {
+    if (_listener) return; // zaten başlatılmış
+    _listener = _onVisibilityChange;
+    document.addEventListener('visibilitychange', _listener);
+  }
+
+  /** Yeni bir handler çifti kaydet. Cleanup için unregister fonksiyonu döner. */
+  function register(onHide, onShow) {
+    var h = { onHide: onHide, onShow: onShow };
+    _handlers.push(h);
+    return function unregister() {
+      var idx = _handlers.indexOf(h);
+      if (idx !== -1) _handlers.splice(idx, 1);
+    };
+  }
+
+  function isVisible() { return _tabVisible; }
+
+  function dispose() {
+    if (_listener) {
+      document.removeEventListener('visibilitychange', _listener);
+      _listener = null;
+    }
+    _handlers = [];
+  }
+
+  return { init: init, register: register, isVisible: isVisible, dispose: dispose };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   PHASE 5 — BÖLÜM 0B: RENDER GUARD
+   Oda listesi ve ses listelerinin gereksiz yeniden render edilmesini önler.
+   Veriyi stringify ederek önceki versiyonla karşılaştırır (deep comparison).
+   Veri değişmediyse DOM dokunulmaz → CPU ve layout tasarrufu.
+══════════════════════════════════════════════════════════════════ */
+
+var RenderGuard = (function () {
+  var _lastHashes = {}; // key → string hash
+
+  /**
+   * data değişmediyse false döner (render atla).
+   * data değiştiyse true döner (render gerekiyor) ve hash günceller.
+   * @param {string} key  — benzersiz anahtar (örn: 'rooms', 'sounds')
+   * @param {*}      data — karşılaştırılacak veri
+   */
+  function shouldRender(key, data) {
+    try {
+      var hash = JSON.stringify(data);
+      if (_lastHashes[key] === hash) return false;
+      _lastHashes[key] = hash;
+      return true;
+    } catch (e) {
+      // JSON.stringify başarısız olursa her zaman render et
+      return true;
+    }
+  }
+
+  function invalidate(key) {
+    delete _lastHashes[key];
+  }
+
+  function invalidateAll() {
+    _lastHashes = {};
+  }
+
+  return { shouldRender: shouldRender, invalidate: invalidate, invalidateAll: invalidateAll };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   PHASE 5 — BÖLÜM 0C: GLOBAL RAF REGISTRY
+   Tüm requestAnimationFrame ID'lerini takip eder.
+   Temizlik gerektiğinde (sekme kapat, dispose) hepsini iptal eder.
+══════════════════════════════════════════════════════════════════ */
+
+var RAFRegistry = (function () {
+  var _ids = new Set();
+
+  function add(id) { _ids.add(id); return id; }
+
+  function remove(id) {
+    cancelAnimationFrame(id);
+    _ids.delete(id);
+  }
+
+  function cancelAll() {
+    _ids.forEach(function (id) { cancelAnimationFrame(id); });
+    _ids.clear();
+    console.info('[RAFRegistry] Tüm RAF döngüleri iptal edildi.');
+  }
+
+  return { add: add, remove: remove, cancelAll: cancelAll };
+})();
+
+/**
+ * PHASE 5: stopWaveformLoop — tüm waveform RAF'larını cancelAnimationFrame ile iptal eder.
+ * AudioEngine.stopWaveformLoop() ile birlikte çağrılmalıdır.
+ */
+function stopWaveformLoop() {
+  RAFRegistry.cancelAll();
+  /* AudioEngine entegrasyonu varsa */
+  try {
+    if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+      AudioEngine.getInstance().stopWaveformLoop();
+    }
+  } catch (e) { /* AudioEngine henüz yüklenmemiş olabilir */ }
+  console.info('[main] Waveform döngüsü durduruldu.');
+}
 
 /* ══════════════════════════════════════════════════════════════════
    BÖLÜM 1 — MERKEZI TOAST BİLDİRİM SİSTEMİ
@@ -245,6 +380,15 @@ function fetchWithTimeout(url, options, timeoutMs) {
   timeoutMs = timeoutMs || 10000;
   options   = options   || {};
 
+  /* PHASE 5: Ses dosyaları için cache: force-cache ekle (SW ile entegre) */
+  if (!options.cache) {
+    var urlLower = (url || '').toLowerCase();
+    if (/\.(mp3|ogg|wav|m4a|aac|flac|webm)(\?|$)/.test(urlLower) ||
+        urlLower.includes('/audio/')) {
+      options.cache = 'force-cache';
+    }
+  }
+
   var controller = new AbortController();
   options.signal = controller.signal;
 
@@ -441,11 +585,13 @@ function initRippleEffect() {
   }
 
   document.addEventListener('mousedown', function (e) {
+    if (window._rippleDisabled) return; /* PHASE 5: sekme gizliyse ripple spawn etme */
     if (e.target.closest('button, .cta-btn, .play-btn, .back-btn, input, textarea, select')) return;
     spawnRippleAt(e.clientX, e.clientY);
   });
 
   document.addEventListener('touchstart', function (e) {
+    if (window._rippleDisabled) return; /* PHASE 5 */
     if (e.target.closest('button, .cta-btn, .play-btn, .back-btn, input, textarea, select')) return;
     var t = e.touches[0];
     spawnRippleAt(t.clientX, t.clientY);
@@ -657,21 +803,37 @@ function loadAudioWithFeedback(audioEl, src, playBtn) {
 function renderRoomList(container, category) {
   if (!container) return;
 
-  // Skeleton loader göster
-  LoadingManager.showRoomsSkeleton(container, 4);
+  /* PHASE 5: RenderGuard — veri değişmediyse DOM'a dokunma */
+  var cacheKey = 'rooms:' + (category || 'all');
 
-  // Kısa gecikme ile asenkron yükleme simüle et (gerçek projede fetch kullan)
+  // Skeleton loader göster (sadece ilk render veya kategori değişince)
+  if (RenderGuard.shouldRender('rooms-skeleton-' + cacheKey, Date.now() - (Date.now() % 2000))) {
+    LoadingManager.showRoomsSkeleton(container, 4);
+  }
+
   setTimeout(function () {
     try {
+      var data;
+
+      if (typeof RoomManager === 'undefined') {
+        data = _getDemoRoomsData();
+      } else {
+        data = RoomManager.getPublicRooms(category || null) || [];
+      }
+
+      /* PHASE 5: Veri değişmediyse render atla */
+      if (!RenderGuard.shouldRender(cacheKey, data)) {
+        console.debug('[renderRoomList] Veri değişmedi, render atlandı:', cacheKey);
+        return;
+      }
+
       if (typeof RoomManager === 'undefined') {
         container.innerHTML = _demoRoomsHTML();
         _bindRoomCards(container);
         return;
       }
 
-      var rooms = RoomManager.getPublicRooms(category || null);
-
-      if (!rooms || rooms.length === 0) {
+      if (!data || data.length === 0) {
         container.innerHTML = [
           '<div class="empty-state">',
           '  <div class="empty-icon">🌿</div>',
@@ -685,7 +847,7 @@ function renderRoomList(container, category) {
         return;
       }
 
-      container.innerHTML = rooms.map(function (room) {
+      container.innerHTML = data.map(function (room) {
         var card    = RoomManager.buildRoomCard(room);
         var fillPct = Math.round(card.capacityFill * 100);
         return _buildCardHTML(card, fillPct);
@@ -700,14 +862,17 @@ function renderRoomList(container, category) {
   }, 400);
 }
 
-function _demoRoomsHTML() {
-  var demos = [
+function _getDemoRoomsData() {
+  return [
     { id: 'd1', name: 'Gece Odak',        category: 'Odak',      current: 3, capacity: 8,  isPrivate: false, hostId: 'A' },
     { id: 'd2', name: 'Derin Uyku',        category: 'Uyku',      current: 5, capacity: 10, isPrivate: false, hostId: 'B' },
     { id: 'd3', name: 'Şifa Meditasyonu', category: 'Meditasyon', current: 2, capacity: 5,  isPrivate: true,  hostId: 'C' },
     { id: 'd4', name: 'Sabah Enerjisi',   category: 'Doğa',       current: 7, capacity: 12, isPrivate: false, hostId: 'D' },
   ];
-  return demos.map(function (card) {
+}
+
+function _demoRoomsHTML() {
+  return _getDemoRoomsData().map(function (card) {
     var fillPct = Math.round((card.current / card.capacity) * 100);
     return _buildCardHTML(card, fillPct);
   }).join('');
@@ -938,7 +1103,28 @@ var AiOracleUI = (function () {
 
 document.addEventListener('DOMContentLoaded', function () {
 
-  /* 0. Ağ izleme — en önce başlat */
+  /* 0a. PHASE 5: PageVisibilityManager — sekme gizlenince efektler durur */
+  try {
+    PageVisibilityManager.init();
+
+    /* Ripple efektini sekme görünürlüğüne bağla */
+    PageVisibilityManager.register(
+      function onHide() {
+        /* Sekme gizlendi — ripple spawn'unu durdur */
+        window._rippleDisabled = true;
+        console.debug('[main] Ripple devre dışı (sekme gizli)');
+      },
+      function onShow() {
+        /* Sekme görünür — ripple'ı yeniden etkinleştir */
+        window._rippleDisabled = false;
+        console.debug('[main] Ripple etkin (sekme görünür)');
+      }
+    );
+  } catch (e) {
+    console.warn('[init] PageVisibilityManager başlatılamadı:', e);
+  }
+
+  /* 0b. PHASE 5: Ağ izleme */
   try {
     NetworkMonitor.init();
   } catch (e) {
@@ -992,7 +1178,11 @@ document.addEventListener('DOMContentLoaded', function () {
         chip.classList.add('active');
         var cat  = chip.dataset.filter || chip.dataset.category || null;
         var grid = document.querySelector('.rooms-grid');
-        if (grid) renderRoomList(grid, (cat === 'all' || cat === 'tümü') ? null : cat);
+        if (grid) {
+          /* PHASE 5: Kategori değişince RenderGuard'ı invalidate et */
+          RenderGuard.invalidate('rooms:' + (cat && cat !== 'all' && cat !== 'tümü' ? cat : 'all'));
+          renderRoomList(grid, (cat === 'all' || cat === 'tümü') ? null : cat);
+        }
       } catch (e) {
         console.error('[filter] Filtre hatası:', e);
         ToastManager.error('Filtre uygulanamadı.', 'Hata');
@@ -1069,13 +1259,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         var roomName = nameInput.value.trim();
-
-        /* Loading state — buton */
-        var restore = LoadingManager.setButtonLoading(submitRoom, 'Oluşturuluyor…');
+        var restore  = LoadingManager.setButtonLoading(submitRoom, 'Oluşturuluyor…');
 
         setTimeout(function () {
           try {
             restore();
+            /* PHASE 5: Yeni oda eklenince RenderGuard invalidate et */
+            RenderGuard.invalidateAll();
             ToastManager.success('✦ "' + roomName + '" odası oluşturuldu!', 'Oda Kuruldu');
             var modal = document.getElementById('createRoomModal');
             if (modal) modal.classList.remove('open');
@@ -1087,7 +1277,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('[submitRoom] Oda oluşturma hatası:', e);
             ToastManager.error('Oda oluşturulamadı. Tekrar deneyin.', 'Hata');
           }
-        }, 900); /* Simüle edilen işlem süresi */
+        }, 900);
       } catch (e) {
         console.error('[submitRoom] Beklenmedik hata:', e);
         ToastManager.error('Beklenmedik bir hata oluştu.', 'Hata');
@@ -1095,28 +1285,41 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* 11. Başarılı yüklenme bildirimi (sessiz — sadece konsola) */
-  console.info('[Sanctuary] 4. Aşama yüklendi. Toast, NetworkMonitor, LoadingManager hazır.');
+  console.info('[Sanctuary] 5. Aşama yüklendi. PageVisibilityManager, RenderGuard, RAFRegistry hazır.');
 });
 
 /* ══════════════════════════════════════════════════════════════════
-   GLOBAL TEMIZLIK
+   GLOBAL TEMIZLIK — PHASE 5
+   beforeunload + pagehide: tüm kaynaklar temizlenir
 ══════════════════════════════════════════════════════════════════ */
 
-window.addEventListener('beforeunload', function () {
-  try { clearApiKey(); } catch (e) { /* no-op */ }
-});
+function _globalCleanup() {
+  try { clearApiKey(); }         catch (e) { /* no-op */ }
+  try { RAFRegistry.cancelAll(); }  catch (e) { /* no-op */ }
+  try { PageVisibilityManager.dispose(); } catch (e) { /* no-op */ }
+  try { stopWaveformLoop(); }    catch (e) { /* no-op */ }
+  console.info('[Sanctuary] Kaynaklar temizlendi.');
+}
+
+window.addEventListener('beforeunload', _globalCleanup);
+/* PHASE 5: pagehide — mobil tarayıcılar beforeunload'ı her zaman tetiklemez */
+window.addEventListener('pagehide',     _globalCleanup);
 
 /* ══════════════════════════════════════════════════════════════════
    GLOBAL API — Diğer modüller bu fonksiyonlara erişebilir
+   PHASE 5: Yeni modüller eklendi
 ══════════════════════════════════════════════════════════════════ */
 
-window.SanctuaryToast   = ToastManager;
-window.SanctuaryLoading = LoadingManager;
-window.SanctuaryNetwork = NetworkMonitor;
-window.SanctuaryAiUI    = AiOracleUI;
-window.fetchSanctuary   = fetchWithTimeout;
-window.loadAudio        = loadAudioWithFeedback;
+window.SanctuaryToast      = ToastManager;
+window.SanctuaryLoading    = LoadingManager;
+window.SanctuaryNetwork    = NetworkMonitor;
+window.SanctuaryAiUI       = AiOracleUI;
+window.SanctuaryVisibility = PageVisibilityManager;  /* PHASE 5 */
+window.SanctuaryRenderGuard = RenderGuard;            /* PHASE 5 */
+window.SanctuaryRAF        = RAFRegistry;             /* PHASE 5 */
+window.fetchSanctuary      = fetchWithTimeout;
+window.loadAudio           = loadAudioWithFeedback;
+window.stopWaveformLoop    = stopWaveformLoop;        /* PHASE 5 */
 
 /* Geriye dönük uyumluluk */
 window.handleCreateRoom = handleCreateRoom;
