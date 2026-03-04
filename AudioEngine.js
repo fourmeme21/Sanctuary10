@@ -1260,13 +1260,22 @@ export {
   AUDIO_CONFIG,
 };
 
+/* ── Browser / Node çift uyumluluk ── */
 if (typeof module !== 'undefined') {
-  module.exports                       = AudioEngine;
-  module.exports.AudioEngine           = AudioEngine;
-  module.exports.AudioLayer            = AudioLayer;
-  module.exports.PreloadCache          = PreloadCache;
-  module.exports.WebAudioAdapter       = WebAudioAdapter;
-  module.exports.WaveformRAFManager    = WaveformRAFManager;
-  module.exports.createLegacyAdapter   = createLegacyAdapter;
-  module.exports.AUDIO_CONFIG          = AUDIO_CONFIG;
+  module.exports = AudioEngine;
+  module.exports.AudioEngine         = AudioEngine;
+  module.exports.AudioLayer          = AudioLayer;
+  module.exports.PreloadCache        = PreloadCache;
+  module.exports.WebAudioAdapter     = WebAudioAdapter;
+  module.exports.WaveformRAFManager  = WaveformRAFManager;
+  module.exports.createLegacyAdapter = createLegacyAdapter;
+  module.exports.AUDIO_CONFIG        = AUDIO_CONFIG;
+} else {
+  window.AudioEngine         = AudioEngine;
+  window.AudioLayer          = AudioLayer;
+  window.PreloadCache        = PreloadCache;
+  window.WebAudioAdapter     = WebAudioAdapter;
+  window.WaveformRAFManager  = WaveformRAFManager;
+  window.createLegacyAdapter = createLegacyAdapter;
+  window.AUDIO_CONFIG        = AUDIO_CONFIG;
 }
