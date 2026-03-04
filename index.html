@@ -3343,6 +3343,23 @@ _gen-canvas {
   10%{opacity:1} 90%{opacity:1}
   100%{transform:translateY(-10vh) translateX(var(--drift,0px));opacity:0}
 }
+
+/* ── 9. Aşama: Zihin Haritası ── */
+.mind-map-wrap{width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:18px;padding:16px 18px;margin-bottom:16px;}
+.mind-map-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.mind-map-title{font-size:11px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);}
+.mind-map-sub{font-size:10px;color:var(--gold);letter-spacing:0.06em;}
+.mind-map-dots{display:flex;gap:8px;align-items:flex-end;height:52px;margin-bottom:10px;}
+.mind-map-dot{flex:1;border-radius:6px;min-height:8px;transition:all 0.4s ease;cursor:default;position:relative;}
+.mind-map-dot:hover::after{content:attr(data-label);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:rgba(10,10,16,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 8px;font-size:9px;color:var(--text-prime);white-space:nowrap;pointer-events:none;z-index:10;}
+.mind-map-dot.empty{background:rgba(255,255,255,0.06);min-height:8px;max-height:8px;}
+.mind-map-legend{display:flex;flex-wrap:wrap;gap:6px 12px;}
+.mind-map-legend span{font-size:9px;color:var(--text-ghost);letter-spacing:0.04em;display:flex;align-items:center;gap:4px;}
+.mind-map-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.smart-suggest{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(155,142,196,0.1),rgba(110,205,196,0.07));border:1px solid rgba(155,142,196,0.2);border-radius:14px;padding:12px 16px;margin-bottom:14px;}
+.smart-suggest-icon{font-size:16px;flex-shrink:0;}
+.smart-suggest-text{font-size:12px;color:var(--text-dim);line-height:1.55;font-style:italic;}
+
 </style>
 
 
@@ -3603,6 +3620,30 @@ _gen-canvas {
 
     <div class="tab-panel" id="tab-journal" role="tabpanel" aria-labelledby="tab-btn-journal">
       <div class="journal-section">
+
+        <!-- ── Haftalık Zihin Haritası ── -->
+        <div class="mind-map-wrap">
+          <div class="mind-map-header">
+            <span class="mind-map-title">🧠 Haftalık Zihin Haritası</span>
+            <span class="mind-map-sub" id="mind-map-streak"></span>
+          </div>
+          <div class="mind-map-dots" id="mind-map-dots"></div>
+          <div class="mind-map-legend">
+            <span><i style="background:#6ecdc4"></i>Sakin</span>
+            <span><i style="background:#9b8ec4"></i>Kaygılı</span>
+            <span><i style="background:#c9a96e"></i>Minnettar</span>
+            <span><i style="background:#7a8fc4"></i>Huzursuz</span>
+            <span><i style="background:#c48ea0"></i>Mutsuz</span>
+            <span><i style="background:#8ec4b0"></i>Yorgun</span>
+          </div>
+        </div>
+
+        <!-- ── Akıllı Öneri ── -->
+        <div class="smart-suggest" id="smart-suggest" style="display:none">
+          <span class="smart-suggest-icon">✦</span>
+          <span class="smart-suggest-text" id="smart-suggest-text"></span>
+        </div>
+
         <div class="journal-header">
           <span class="journal-date" id="journal-date"></span>
           <span class="journal-title">Günlük Notun</span>
@@ -4017,7 +4058,7 @@ _gen-canvas {
  * ─────────────────────────────────────────────────────────────────────────────
  * 3. Aşama Güvenlik Değişiklikleri (korundu):
  *   - apiKey artık localStorage'a YAZILMIYOR (PERSISTED_KEYS'den çıkarıldı).
- *   - apiKey sadece runtime bellekte, private _apiKeyRuntime alanında tutulur.
+ *   - apiKey sadece runtime bellekte, private #apiKeyRuntime alanında tutulur.
  *   - validatePurchaseToken frontend doğrulaması tamamen kaldırıldı.
  *   - setPremiumStatus receiptToken doğrulamasında offline/demo modu açıkça işaretler.
  */
@@ -4105,60 +4146,60 @@ const PLAN_RANK = {
 
 class StateManager {
   /** @type {Object} */
-  _state;
+  #state;
 
   /** @type {string} */
-  _apiKeyRuntime;
+  #apiKeyRuntime;
 
   /** @type {Map<string, Set<Function>>} */
-  _keyListeners;
+  #keyListeners;
 
   /** @type {Set<Function>} */
-  _globalListeners;
+  #globalListeners;
 
   /** @type {StorageAdapter|null} */
-  _storage;
+  #storage;
 
   /** @type {Map<string, ReturnType<typeof setTimeout>>} */
-  _persistDebounceTimers;
+  #persistDebounceTimers;
 
   /** @type {Set<ReturnType<typeof setTimeout>>} */
-  _timers;
+  #timers;
 
   /** @type {boolean} */
-  _hydrated;
+  #hydrated;
 
   /**
    * PHASE 5: Storage event listener referansı — dispose()'da kaldırılır.
    * Cross-tab senkronizasyonu için localStorage değişikliklerini dinler.
    * @type {Function|null}
    */
-  _boundStorageHandler;
+  #boundStorageHandler;
 
   /**
    * PHASE 5: Visibility change handler referansı — dispose()'da kaldırılır.
    * Sekme gizlenince bekleyen persist'leri flush eder.
    * @type {Function|null}
    */
-  _boundVisibilityHandler;
+  #boundVisibilityHandler;
 
   /**
    * @param {StorageAdapter|null} storageAdapter
    */
   constructor(storageAdapter = null) {
-    this._state                  = { ...DEFAULT_STATE };
-    this._apiKeyRuntime          = '';
-    this._keyListeners           = new Map();
-    this._globalListeners        = new Set();
-    this._storage                = storageAdapter;
-    this._persistDebounceTimers  = new Map();
-    this._timers                 = new Set();
-    this._hydrated               = false;
-    this._boundStorageHandler    = null;
-    this._boundVisibilityHandler = null;
+    this.#state                  = { ...DEFAULT_STATE };
+    this.#apiKeyRuntime          = '';
+    this.#keyListeners           = new Map();
+    this.#globalListeners        = new Set();
+    this.#storage                = storageAdapter;
+    this.#persistDebounceTimers  = new Map();
+    this.#timers                 = new Set();
+    this.#hydrated               = false;
+    this.#boundStorageHandler    = null;
+    this.#boundVisibilityHandler = null;
 
     /* PHASE 5: Event listener'ları başlat */
-    this._attachWindowListeners();
+    this.#attachWindowListeners();
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4166,30 +4207,30 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   get(key) {
-    if (key === 'apiKey') return this._apiKeyRuntime;
-    return this._state[key];
+    if (key === 'apiKey') return this.#apiKeyRuntime;
+    return this.#state[key];
   }
 
   /** @private */
-  _rawSet(key, value) {
+  #rawSet(key, value) {
     if (key === 'apiKey') {
-      this._apiKeyRuntime = value ?? '';
+      this.#apiKeyRuntime = value ?? '';
       return;
     }
 
-    const prev = this._state[key];
+    const prev = this.#state[key];
     if (Object.is(prev, value)) return;
 
-    this._state[key] = value;
-    this._notify(key, value, prev);
+    this.#state[key] = value;
+    this.#notify(key, value, prev);
 
     if (PERSISTED_KEYS.has(key)) {
-      this._schedulePersist(key, value);
+      this.#schedulePersist(key, value);
     }
   }
 
   getSnapshot() {
-    const { ...snapshot } = this._state;
+    const { ...snapshot } = this.#state;
     return Object.freeze(snapshot);
   }
 
@@ -4198,18 +4239,18 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   subscribe(key, listener) {
-    if (!this._keyListeners.has(key)) {
-      this._keyListeners.set(key, new Set());
+    if (!this.#keyListeners.has(key)) {
+      this.#keyListeners.set(key, new Set());
     }
-    this._keyListeners.get(key).add(listener);
+    this.#keyListeners.get(key).add(listener);
     return () => {
-      this._keyListeners.get(key)?.delete(listener);
+      this.#keyListeners.get(key)?.delete(listener);
     };
   }
 
   subscribeAll(listener) {
-    this._globalListeners.add(listener);
-    return () => this._globalListeners.delete(listener);
+    this.#globalListeners.add(listener);
+    return () => this.#globalListeners.delete(listener);
   }
 
   subscribeMany(keys, listener) {
@@ -4218,15 +4259,15 @@ class StateManager {
   }
 
   /** @private */
-  _notify(key, newValue, prevValue) {
-    this._keyListeners.get(key)?.forEach((fn) => {
+  #notify(key, newValue, prevValue) {
+    this.#keyListeners.get(key)?.forEach((fn) => {
       try { fn(newValue, prevValue); }
-      catch (err) {  }
+      catch (err) { console.error(`[StateManager] Listener hatası (${key}):`, err); }
     });
 
-    this._globalListeners.forEach((fn) => {
+    this.#globalListeners.forEach((fn) => {
       try { fn({ key, newValue, prevValue }); }
-      catch (err) {  }
+      catch (err) { console.error('[StateManager] Global listener hatası:', err); }
     });
   }
 
@@ -4235,50 +4276,50 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   async hydrate() {
-    if (!this._storage) {
-      this._hydrated = true;
+    if (!this.#storage) {
+      this.#hydrated = true;
       return;
     }
 
     const loadPromises = [...PERSISTED_KEYS].map(async (key) => {
       try {
-        const raw = await this._storage.get(`state:${key}`);
+        const raw = await this.#storage.get(`state:${key}`);
         if (raw !== null && raw !== undefined) {
-          const parsed = this._deserialize(key, raw);
-          this._state[key] = parsed;
+          const parsed = this.#deserialize(key, raw);
+          this.#state[key] = parsed;
         }
       } catch (err) {
-        
+        console.warn(`[StateManager] Hydration hatası (${key}):`, err);
       }
     });
 
     await Promise.all(loadPromises);
 
-    this._validatePremiumExpiry();
+    this.#validatePremiumExpiry();
 
-    this._hydrated = true;
-    this._notify('isInitialized', true, false);
-    this._state.isInitialized = true;
-    
+    this.#hydrated = true;
+    this.#notify('isInitialized', true, false);
+    this.#state.isInitialized = true;
+    console.info('[StateManager] Hydration tamamlandı.');
   }
 
   /** @private */
-  _schedulePersist(key, value) {
-    if (!this._storage) return;
+  #schedulePersist(key, value) {
+    if (!this.#storage) return;
 
-    const existing = this._persistDebounceTimers.get(key);
+    const existing = this.#persistDebounceTimers.get(key);
     if (existing) clearTimeout(existing);
 
     const id = setTimeout(async () => {
-      this._persistDebounceTimers.delete(key);
+      this.#persistDebounceTimers.delete(key);
       try {
-        await this._storage.set(`state:${key}`, this._serialize(key, value));
+        await this.#storage.set(`state:${key}`, this.#serialize(key, value));
       } catch (err) {
-        
+        console.error(`[StateManager] Persist hatası (${key}):`, err);
       }
     }, 16);
 
-    this._persistDebounceTimers.set(key, id);
+    this.#persistDebounceTimers.set(key, id);
   }
 
   /**
@@ -4286,39 +4327,39 @@ class StateManager {
    * Sekme kapanmadan önce veri kaybını önler.
    */
   async flushPersist() {
-    if (!this._storage) return;
+    if (!this.#storage) return;
 
     const promises = [];
-    this._persistDebounceTimers.forEach((id, key) => {
+    this.#persistDebounceTimers.forEach((id, key) => {
       clearTimeout(id);
-      const value = this._state[key];
+      const value = this.#state[key];
       promises.push(
-        this._storage
-          .set(`state:${key}`, this._serialize(key, value))
-          .catch(function(err) {})
+        this.#storage
+          .set(`state:${key}`, this.#serialize(key, value))
+          .catch((err) => console.error(`[StateManager] Flush persist hatası (${key}):`, err))
       );
     });
-    this._persistDebounceTimers.clear();
+    this.#persistDebounceTimers.clear();
 
     if (promises.length > 0) {
       await Promise.all(promises);
-      
+      console.info(`[StateManager] ${promises.length} persist flush edildi.`);
     }
   }
 
   /** @private */
-  _serialize(key, value)  { return JSON.stringify(value); }
+  #serialize(key, value)  { return JSON.stringify(value); }
 
   /** @private */
-  _deserialize(key, raw) {
+  #deserialize(key, raw) {
     try   { return JSON.parse(raw); }
     catch { return raw; }
   }
 
   async clearPersistedState() {
-    if (!this._storage) return;
+    if (!this.#storage) return;
     await Promise.all(
-      [...PERSISTED_KEYS].map((k) => this._storage.remove(`state:${k}`).catch(() => {}))
+      [...PERSISTED_KEYS].map((k) => this.#storage.remove(`state:${k}`).catch(() => {}))
     );
   }
 
@@ -4326,29 +4367,29 @@ class StateManager {
   // BÖLÜM 4 — Oynatma & Ses Kontrolü
   // ══════════════════════════════════════════════════════════════════════════
 
-  setPlaying(value)          { this._rawSet('playing', Boolean(value)); }
+  setPlaying(value)          { this.#rawSet('playing', Boolean(value)); }
   setCurrentScene(scene) {
     if (typeof scene !== 'string' || !scene.trim()) {
       throw new TypeError('[StateManager] Geçersiz sahne adı');
     }
-    this._rawSet('currentScene', scene.trim());
+    this.#rawSet('currentScene', scene.trim());
   }
   setAudioTracks(tracks) {
     if (!Array.isArray(tracks)) throw new TypeError('[StateManager] audioTracks bir dizi olmalıdır');
-    this._rawSet('audioTracks', tracks);
+    this.#rawSet('audioTracks', tracks);
   }
   updateTrackVolume(trackName, volume) {
     const clamped = Math.min(1, Math.max(0, volume));
-    const tracks  = this._state.audioTracks.map((t) =>
+    const tracks  = this.#state.audioTracks.map((t) =>
       t.name === trackName ? { ...t, volume: clamped } : t
     );
-    this._rawSet('audioTracks', tracks);
+    this.#rawSet('audioTracks', tracks);
   }
   setMasterVolume(volume) {
-    this._rawSet('masterVolume', Math.min(1, Math.max(0, volume)));
+    this.#rawSet('masterVolume', Math.min(1, Math.max(0, volume)));
   }
   setIntensity(value) {
-    this._rawSet('intensity', Math.min(1, Math.max(0, value)));
+    this.#rawSet('intensity', Math.min(1, Math.max(0, value)));
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4362,7 +4403,7 @@ class StateManager {
         `[StateManager] Geçersiz mood: "${mood}". Geçerli: ${validMoods.join(', ')}`
       );
     }
-    this._rawSet('selectedMood', mood);
+    this.#rawSet('selectedMood', mood);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4370,28 +4411,28 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   startSession() {
-    this._rawSet('sessionStartTime', Date.now());
-    this._rawSet('currentSessionDuration', 0);
+    this.#rawSet('sessionStartTime', Date.now());
+    this.#rawSet('currentSessionDuration', 0);
   }
 
   endSession() {
-    const start = this._state.sessionStartTime;
+    const start = this.#state.sessionStartTime;
     if (!start) return null;
 
     const duration = Math.floor((Date.now() - start) / 1000);
-    this._rawSet('currentSessionDuration', duration);
-    this._rawSet('sessionStartTime', null);
+    this.#rawSet('currentSessionDuration', duration);
+    this.#rawSet('sessionStartTime', null);
 
     return {
       duration,
-      mood:  this._state.selectedMood,
-      scene: this._state.currentScene,
+      mood:  this.#state.selectedMood,
+      scene: this.#state.currentScene,
       date:  new Date().toISOString(),
     };
   }
 
   getCurrentSessionDuration() {
-    const start = this._state.sessionStartTime;
+    const start = this.#state.sessionStartTime;
     if (!start) return 0;
     return Math.floor((Date.now() - start) / 1000);
   }
@@ -4408,33 +4449,33 @@ class StateManager {
     this.cancelSleepTimer();
 
     const endTime  = Date.now() + minutes * 60 * 1000;
-    this._rawSet('isTimerActive', true);
-    this._rawSet('sleepTimer', minutes);
-    this._rawSet('sleepTimerEnd', endTime);
+    this.#rawSet('isTimerActive', true);
+    this.#rawSet('sleepTimer', minutes);
+    this.#rawSet('sleepTimerEnd', endTime);
 
     const timerId = setTimeout(() => {
-      this._rawSet('isTimerActive', false);
-      this._rawSet('sleepTimer', null);
-      this._rawSet('sleepTimerEnd', null);
-      this._timers.delete(timerId);
+      this.#rawSet('isTimerActive', false);
+      this.#rawSet('sleepTimer', null);
+      this.#rawSet('sleepTimerEnd', null);
+      this.#timers.delete(timerId);
       if (typeof onExpire === 'function') {
         try { onExpire(); }
-        catch (err) {  }
+        catch (err) { console.error('[StateManager] onExpire hatası:', err); }
       }
     }, minutes * 60 * 1000);
 
-    this._timers.add(timerId);
+    this.#timers.add(timerId);
     return timerId;
   }
 
   cancelSleepTimer() {
-    this._rawSet('isTimerActive', false);
-    this._rawSet('sleepTimer', null);
-    this._rawSet('sleepTimerEnd', null);
+    this.#rawSet('isTimerActive', false);
+    this.#rawSet('sleepTimer', null);
+    this.#rawSet('sleepTimerEnd', null);
   }
 
   getRemainingTimerSeconds() {
-    const end = this._state.sleepTimerEnd;
+    const end = this.#state.sleepTimerEnd;
     if (!end) return 0;
     return Math.max(0, Math.floor((end - Date.now()) / 1000));
   }
@@ -4455,42 +4496,42 @@ class StateManager {
     }
 
     if (receiptToken) {
-      
+      console.info('[StateManager] Receipt token mevcut — backend doğrulaması gerekli.');
     } else {
-      
+      console.warn('[StateManager] Receipt token sağlanmadı. Demo/offline mod aktif.');
     }
 
-    this._rawSet('isPremium', true);
-    this._rawSet('premiumPlan', plan);
-    this._rawSet('billingCycle', billingCycle);
-    this._rawSet('premiumExpiresAt', expiresAt);
+    this.#rawSet('isPremium', true);
+    this.#rawSet('premiumPlan', plan);
+    this.#rawSet('billingCycle', billingCycle);
+    this.#rawSet('premiumExpiresAt', expiresAt);
   }
 
   revokePremium() {
-    this._rawSet('isPremium', false);
-    this._rawSet('premiumPlan', PremiumPlan.NONE);
-    this._rawSet('premiumExpiresAt', null);
+    this.#rawSet('isPremium', false);
+    this.#rawSet('premiumPlan', PremiumPlan.NONE);
+    this.#rawSet('premiumExpiresAt', null);
   }
 
   checkContentAccess(contentId) {
     const requiredPlan = CONTENT_PERMISSIONS[contentId];
     if (!requiredPlan) return { allowed: true, reason: '' };
 
-    if (!this._state.isPremium) {
+    if (!this.#state.isPremium) {
       return { allowed: false, reason: `Bu içerik premium üyelik gerektiriyor (${requiredPlan}).` };
     }
 
-    const userRank     = PLAN_RANK[this._state.premiumPlan] ?? 0;
+    const userRank     = PLAN_RANK[this.#state.premiumPlan] ?? 0;
     const requiredRank = PLAN_RANK[requiredPlan] ?? 0;
 
     if (userRank < requiredRank) {
       return {
         allowed: false,
-        reason: `Bu içerik ${requiredPlan} planı gerektiriyor. Mevcut planınız: ${this._state.premiumPlan}.`,
+        reason: `Bu içerik ${requiredPlan} planı gerektiriyor. Mevcut planınız: ${this.#state.premiumPlan}.`,
       };
     }
 
-    if (this._isPremiumExpired()) {
+    if (this.#isPremiumExpired()) {
       this.revokePremium();
       return { allowed: false, reason: 'Premium aboneliğinizin süresi dolmuş.' };
     }
@@ -4505,23 +4546,23 @@ class StateManager {
   }
 
   /** @private — Her zaman false; güvenlik için client-side doğrulama yapılmaz */
-  _validatePurchaseToken(/* token */) {
+  #validatePurchaseToken(/* token */) {
     return false;
   }
 
   /** @private */
-  _validatePremiumExpiry() {
-    const expiresAt = this._state.premiumExpiresAt;
+  #validatePremiumExpiry() {
+    const expiresAt = this.#state.premiumExpiresAt;
     if (expiresAt && new Date(expiresAt) < new Date()) {
-      this._state.isPremium       = false;
-      this._state.premiumPlan     = PremiumPlan.NONE;
-      this._state.premiumExpiresAt = null;
+      this.#state.isPremium       = false;
+      this.#state.premiumPlan     = PremiumPlan.NONE;
+      this.#state.premiumExpiresAt = null;
     }
   }
 
   /** @private */
-  _isPremiumExpired() {
-    const exp = this._state.premiumExpiresAt;
+  #isPremiumExpired() {
+    const exp = this.#state.premiumExpiresAt;
     return exp ? new Date(exp) < new Date() : false;
   }
 
@@ -4529,27 +4570,27 @@ class StateManager {
   // BÖLÜM 9 — Kullanıcı Tercihleri
   // ══════════════════════════════════════════════════════════════════════════
 
-  setBannerDismissed(value) { this._rawSet('bannerDismissed', Boolean(value)); }
+  setBannerDismissed(value) { this.#rawSet('bannerDismissed', Boolean(value)); }
 
   setApiKey(key) {
     if (typeof key !== 'string') throw new TypeError('[StateManager] API key string olmalıdır');
-    this._apiKeyRuntime = key;
+    this.#apiKeyRuntime = key;
   }
 
-  getApiKey()  { return this._apiKeyRuntime; }
-  clearApiKey() { this._apiKeyRuntime = ''; }
+  getApiKey()  { return this.#apiKeyRuntime; }
+  clearApiKey() { this.#apiKeyRuntime = ''; }
 
-  setLanguage(lang)      { this._rawSet('language', lang); }
+  setLanguage(lang)      { this.#rawSet('language', lang); }
 
   setBillingCycle(cycle) {
     if (!Object.values(BillingCycle).includes(cycle)) {
       throw new RangeError(`[StateManager] Geçersiz fatura döngüsü: ${cycle}`);
     }
-    this._rawSet('billingCycle', cycle);
+    this.#rawSet('billingCycle', cycle);
   }
 
   setLastOpenDate(isoString = new Date().toISOString()) {
-    this._rawSet('lastOpenDate', isoString);
+    this.#rawSet('lastOpenDate', isoString);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4565,11 +4606,11 @@ class StateManager {
    *
    * visibilitychange event: Sekme gizlenince bekleyen persist'leri flush eder.
    */
-  _attachWindowListeners() {
+  #attachWindowListeners() {
     if (typeof window === 'undefined') return;
 
     /* ── Storage (cross-tab sync) ── */
-    this._boundStorageHandler = (event) => {
+    this.#boundStorageHandler = (event) => {
       try {
         if (!event.key || !event.key.startsWith('state:')) return;
         const stateKey = event.key.replace('state:', '');
@@ -4579,46 +4620,46 @@ class StateManager {
         if (!PERSISTED_KEYS.has(stateKey)) return;
 
         const newValue = event.newValue !== null
-          ? this._deserialize(stateKey, event.newValue)
+          ? this.#deserialize(stateKey, event.newValue)
           : DEFAULT_STATE[stateKey];
 
         /* State'i notify ile güncelle — ama persist tetikleme (cross-tab loop önle) */
-        const prev = this._state[stateKey];
+        const prev = this.#state[stateKey];
         if (!Object.is(prev, newValue)) {
-          this._state[stateKey] = newValue;
-          this._notify(stateKey, newValue, prev);
-          
+          this.#state[stateKey] = newValue;
+          this.#notify(stateKey, newValue, prev);
+          console.info(`[StateManager] Cross-tab sync: ${stateKey}`);
         }
       } catch (err) {
-        
+        console.warn('[StateManager] Storage event hatası:', err);
       }
     };
-    window.addEventListener('storage', this._boundStorageHandler);
+    window.addEventListener('storage', this.#boundStorageHandler);
 
     /* ── Visibility Change (persist flush) ── */
-    this._boundVisibilityHandler = () => {
-      if (document.hidden && this._persistDebounceTimers.size > 0) {
+    this.#boundVisibilityHandler = () => {
+      if (document.hidden && this.#persistDebounceTimers.size > 0) {
         /* Sekme gizlendiğinde bekleyen persist'leri hemen yaz */
         this.flushPersist().catch((err) => {
-          
+          console.warn('[StateManager] Visibility flush hatası:', err);
         });
       }
     };
-    document.addEventListener('visibilitychange', this._boundVisibilityHandler);
+    document.addEventListener('visibilitychange', this.#boundVisibilityHandler);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
   // BÖLÜM 11 — Timer & Kaynak Yönetimi
   // ══════════════════════════════════════════════════════════════════════════
 
-  registerTimer(timerId) { this._timers.add(timerId); }
+  registerTimer(timerId) { this.#timers.add(timerId); }
 
   clearAllTimers() {
-    this._timers.forEach((id) => {
+    this.#timers.forEach((id) => {
       clearTimeout(id);
       clearInterval(id);
     });
-    this._timers.clear();
+    this.#timers.clear();
   }
 
   /**
@@ -4630,43 +4671,43 @@ class StateManager {
    *   5. API key bellekten silinir
    */
   async dispose() {
-    
+    console.info('[StateManager] Dispose başlatılıyor...');
 
     /* 1. Timer'ları iptal et */
     this.clearAllTimers();
-    this._persistDebounceTimers.forEach((id) => clearTimeout(id));
+    this.#persistDebounceTimers.forEach((id) => clearTimeout(id));
 
     /* 2. Bekleyen persist'leri flush et */
     try {
       await this.flushPersist();
     } catch (err) {
-      
+      console.warn('[StateManager] Dispose flush hatası:', err);
     }
 
     /* 3. PHASE 5: Window event listener'larını kaldır — bellek sızıntısı önlemi */
     try {
-      if (this._boundStorageHandler && typeof window !== 'undefined') {
-        window.removeEventListener('storage', this._boundStorageHandler);
-        this._boundStorageHandler = null;
-        
+      if (this.#boundStorageHandler && typeof window !== 'undefined') {
+        window.removeEventListener('storage', this.#boundStorageHandler);
+        this.#boundStorageHandler = null;
+        console.info('[StateManager] Storage listener kaldırıldı.');
       }
-      if (this._boundVisibilityHandler && typeof document !== 'undefined') {
-        document.removeEventListener('visibilitychange', this._boundVisibilityHandler);
-        this._boundVisibilityHandler = null;
-        
+      if (this.#boundVisibilityHandler && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.#boundVisibilityHandler);
+        this.#boundVisibilityHandler = null;
+        console.info('[StateManager] Visibility listener kaldırıldı.');
       }
     } catch (err) {
-      
+      console.warn('[StateManager] Listener temizleme uyarısı:', err);
     }
 
     /* 4. Subscriber'ları temizle */
-    this._keyListeners.clear();
-    this._globalListeners.clear();
+    this.#keyListeners.clear();
+    this.#globalListeners.clear();
 
     /* 5. API key'i bellekten sil */
-    this._apiKeyRuntime = '';
+    this.#apiKeyRuntime = '';
 
-    
+    console.info('[StateManager] Dispose tamamlandı.');
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4674,15 +4715,21 @@ class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   debug() {
-    
-    const safeState = { ...this._state, apiKey: '[GİZLİ — runtime]' };
+    console.group('[StateManager] Mevcut State');
+    const safeState = { ...this.#state, apiKey: '[GİZLİ — runtime]' };
     console.table(safeState);
-    
-    
+    console.info('Listener sayısı:', {
+      keyListeners:    this.#keyListeners.size,
+      globalListeners: this.#globalListeners.size,
+      timers:          this.#timers.size,
+      pendingPersist:  this.#persistDebounceTimers.size,
+      hydrated:        this.#hydrated,
+    });
+    console.groupEnd();
   }
 
   toPlainObject() {
-    return { ...this._state };
+    return { ...this.#state };
   }
 }
 
@@ -4709,7 +4756,7 @@ function _resetStateManagerSingleton() {
   var _sm = null;
   function _getOrCreate() {
     if (!_sm) {
-      try { _sm = getStateManager(); } catch(e) {  }
+      try { _sm = getStateManager(); } catch(e) { console.warn('[StateManager] init hatası:', e); }
     }
     return _sm;
   }
@@ -4722,6 +4769,114 @@ function _resetStateManagerSingleton() {
   };
 
 })(window);
+
+/* ═══════════════════════════════════════════════════════════
+   9. AŞAMA — logActivity & stats
+═══════════════════════════════════════════════════════════ */
+
+window.SanctuaryStats = (function() {
+  var STORAGE_KEY = 'sanctuary_activity_log';
+
+  function _load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } 
+    catch(e) { return []; }
+  }
+
+  function _save(log) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(log.slice(-100))); } 
+    catch(e) {}
+  }
+
+  var MOOD_COLORS = {
+    'Sakin':     '#6ecdc4',
+    'Kaygılı':   '#9b8ec4',
+    'Minnettar': '#c9a96e',
+    'Huzursuz':  '#7a8fc4',
+    'Mutsuz':    '#c48ea0',
+    'Yorgun':    '#8ec4b0',
+  };
+
+  return {
+    logActivity: function(type, duration, mood) {
+      var log = _load();
+      log.push({
+        type: type || 'session',
+        duration: duration || 0,
+        mood: mood || localStorage.getItem('lastMood') || 'Sakin',
+        ts: Date.now(),
+        date: new Date().toISOString().slice(0,10),
+      });
+      _save(log);
+      // Toplam istatistikleri güncelle
+      try {
+        var total = parseInt(localStorage.getItem('totalMinutes') || '0');
+        localStorage.setItem('totalMinutes', total + Math.round((duration||0)/60));
+        var sessions = parseInt(localStorage.getItem('sessionCount') || '0');
+        localStorage.setItem('sessionCount', sessions + 1);
+      } catch(e) {}
+    },
+
+    getLast7Days: function() {
+      var log = _load();
+      var result = [];
+      for (var i = 6; i >= 0; i--) {
+        var d = new Date();
+        d.setDate(d.getDate() - i);
+        var dateStr = d.toISOString().slice(0,10);
+        var dayName = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][d.getDay()];
+        var entries = log.filter(function(e) { return e.date === dateStr; });
+        var totalMin = entries.reduce(function(s, e) { return s + Math.round((e.duration||0)/60); }, 0);
+        var moods = entries.map(function(e) { return e.mood; });
+        var topMood = moods.length ? moods[moods.length-1] : null;
+        result.push({ date: dateStr, day: dayName, minutes: totalMin, mood: topMood, count: entries.length });
+      }
+      return result;
+    },
+
+    getStreak: function() {
+      var log = _load();
+      if (!log.length) return 0;
+      var streak = 0;
+      var today = new Date().toISOString().slice(0,10);
+      for (var i = 0; i < 30; i++) {
+        var d = new Date();
+        d.setDate(d.getDate() - i);
+        var dateStr = d.toISOString().slice(0,10);
+        if (log.some(function(e) { return e.date === dateStr; })) streak++;
+        else if (i > 0) break;
+      }
+      return streak;
+    },
+
+    getPersonalizedMessage: function() {
+      var streak = this.getStreak();
+      var mood = localStorage.getItem('lastMood') || '';
+      var sessions = parseInt(localStorage.getItem('sessionCount') || '0');
+      if (streak >= 7) return '🔥 ' + streak + '. gününde! Ritmine bak, ne kadar güçlü.';
+      if (streak >= 3) return '✨ Bugün ' + streak + '. huzur günün. Devam et!';
+      if (mood === 'Yorgun' && sessions > 5) return '🌙 Bugün dinlenme günün. Kendine nazik ol.';
+      if (mood === 'Kaygılı') return '🌊 Nefes al. Her şey geçici, sen kalıcısın.';
+      if (sessions === 0) return '🌱 İlk adımı atmışsın. Buradan yalnızca büyüme var.';
+      return '🕯 Burada olman yeterli. Devam et.';
+    },
+
+    getSmartFreqSuggestion: function(mood) {
+      var map = {
+        'Yorgun':    { freq: 432, gen: 'binaural', beat: 4, label: '432 Hz — Derin dinlenme' },
+        'Kaygılı':   { freq: 528, gen: 'binaural', beat: 6, label: '528 Hz — Hücre onarımı' },
+        'Mutsuz':    { freq: 396, gen: 'rain',     beat: 5, label: '396 Hz — Özgürleşme' },
+        'Huzursuz':  { freq: 180, gen: 'waves',    beat: 6, label: '180 Hz — Sakinleşme' },
+        'Sakin':     { freq: 432, gen: 'binaural', beat: 7, label: '432 Hz — Derin huzur' },
+        'Minnettar': { freq: 528, gen: 'rain',     beat:10, label: '528 Hz — Şükran' },
+      };
+      return map[mood] || map['Sakin'];
+    },
+
+    getMoodColor: function(mood) { return MOOD_COLORS[mood] || '#7a7890'; },
+    getLog: function() { return _load(); },
+    clearLog: function() { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} },
+  };
+})();
 
 </script>
 <script>
@@ -4760,10 +4915,10 @@ var PageVisibilityManager = (function () {
         if (!_tabVisible && typeof h.onHide === 'function') h.onHide();
         if (_tabVisible  && typeof h.onShow === 'function') h.onShow();
       } catch (e) {
-        
+        console.warn('[PageVisibilityManager] Handler hatası:', e);
       }
     });
-    
+    console.debug('[PageVisibilityManager] Sekme:', _tabVisible ? 'görünür' : 'gizli');
   }
 
   function init() {
@@ -4853,7 +5008,7 @@ var RAFRegistry = (function () {
   function cancelAll() {
     _ids.forEach(function (id) { cancelAnimationFrame(id); });
     _ids.clear();
-    
+    console.info('[RAFRegistry] Tüm RAF döngüleri iptal edildi.');
   }
 
   return { add: add, remove: remove, cancelAll: cancelAll };
@@ -4871,7 +5026,7 @@ function stopWaveformLoop() {
       AudioEngine.getInstance().stopWaveformLoop();
     }
   } catch (e) { /* AudioEngine henüz yüklenmemiş olabilir */ }
-  
+  console.info('[main] Waveform döngüsü durduruldu.');
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -5013,7 +5168,7 @@ var ToastManager = (function () {
 /* Geriye dönük uyumluluk — eski showToast() çağrıları çalışmaya devam eder */
 function showToast(message, type, title) {
   type = type || 'info';
-  
+  console.info('[Toast]', type.toUpperCase() + ':', message);
   return ToastManager.show(message, type, title);
 }
 
@@ -5061,14 +5216,14 @@ var NetworkMonitor = (function () {
 
   function handleOffline() {
     _isOnline = false;
-    
+    console.warn('[NetworkMonitor] Çevrimdışı.');
     var panel = getOfflinePanel();
     panel.classList.add('show');
   }
 
   function handleOnline() {
     _isOnline = true;
-    
+    console.info('[NetworkMonitor] Çevrimiçi.');
 
     // Offline paneli kapat
     var panel = getOfflinePanel();
@@ -5121,7 +5276,7 @@ function fetchWithTimeout(url, options, timeoutMs) {
 
   var timeoutId = setTimeout(function () {
     controller.abort();
-    
+    console.error('[fetchWithTimeout] İstek zaman aşımına uğradı:', url);
   }, timeoutMs);
 
   return fetch(url, options)
@@ -5135,7 +5290,7 @@ function fetchWithTimeout(url, options, timeoutMs) {
     .catch(function (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
-        
+        console.error('[fetchWithTimeout] Timeout:', url);
         ToastManager.error(
           'Sunucudan yanıt alınamadı. Lütfen tekrar deneyin.',
           'İşlem Zaman Aşımına Uğradı',
@@ -5419,7 +5574,7 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
         engine.setMasterVolume(targetVol);
       }
     } catch (err) {
-      
+      console.warn('[BreathCycle] Volume sync hatası:', err);
       /* Ses senkronu kritik değil — sessizce devam et */
     }
   }
@@ -5471,11 +5626,11 @@ function initApiKey(key) {
     var state = (typeof getStateManager === 'function') ? getStateManager() : null;
     if (state && typeof state.setApiKey === 'function') {
       state.setApiKey(key.trim());
-      
+      console.info('[main] API key runtime belleğe yüklendi.');
       ToastManager.success('API anahtarı başarıyla yüklendi.', 'Hazır');
     }
   } catch (e) {
-    
+    console.error('[main] StateManager bulunamadı:', e);
     ToastManager.error('API anahtarı yüklenemedi: ' + e.message, 'API Hatası');
   }
 }
@@ -5485,7 +5640,7 @@ function clearApiKey() {
     var state = (typeof getStateManager === 'function') ? getStateManager() : null;
     if (state && typeof state.clearApiKey === 'function') state.clearApiKey();
   } catch (e) {
-    
+    console.warn('[main] clearApiKey hatası:', e);
   }
 }
 
@@ -5506,7 +5661,7 @@ function loadAudioWithFeedback(audioEl, src, playBtn) {
   audioEl.addEventListener('canplaythrough', function onReady() {
     audioEl.removeEventListener('canplaythrough', onReady);
     if (playBtn) LoadingManager.setPlayLoading(playBtn, false);
-    
+    console.info('[Audio] Hazır:', src);
   }, { once: true });
 
   audioEl.addEventListener('error', function onErr(e) {
@@ -5514,7 +5669,7 @@ function loadAudioWithFeedback(audioEl, src, playBtn) {
     if (playBtn) LoadingManager.setPlayLoading(playBtn, false);
 
     var code = audioEl.error ? audioEl.error.code : '?';
-    
+    console.error('[Audio] Ses dosyası yüklenemedi. Kod:', code, 'Src:', src);
     ToastManager.error(
       'Ses dosyası yüklenemedi. Lütfen tekrar deneyin.',
       'Ses Hatası',
@@ -5550,7 +5705,7 @@ function renderRoomList(container, category) {
 
       /* PHASE 5: Veri değişmediyse render atla */
       if (!RenderGuard.shouldRender(cacheKey, data)) {
-        
+        console.debug('[renderRoomList] Veri değişmedi, render atlandı:', cacheKey);
         return;
       }
 
@@ -5582,7 +5737,7 @@ function renderRoomList(container, category) {
 
       _bindRoomCards(container);
     } catch (err) {
-      
+      console.error('[renderRoomList] Oda listesi yüklenemedi:', err);
       ToastManager.error('Oda listesi yüklenemedi. Sayfayı yenileyin.', 'Yükleme Hatası');
       container.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p class="empty-title">Yükleme başarısız</p></div>';
     }
@@ -5647,7 +5802,7 @@ function handleCreateRoom(formData) {
   formData = formData || {};
 
   if (typeof RoomManager === 'undefined') {
-    
+    console.error('[handleCreateRoom] RoomManager yüklenmedi.');
     ToastManager.error('Oda sistemi şu an kullanılamıyor. Lütfen sayfayı yenileyin.', 'Sistem Hatası');
     return null;
   }
@@ -5658,7 +5813,7 @@ function handleCreateRoom(formData) {
       if (result.error && result.error.includes('Premium')) {
         document.dispatchEvent(new CustomEvent('sanctuary:showPaywall', { detail: { reason: result.error } }));
       } else {
-        
+        console.error('[handleCreateRoom] Hata:', result.error);
         ToastManager.error(result.error || 'Oda oluşturulamadı.', 'Oda Hatası');
       }
       return null;
@@ -5668,7 +5823,7 @@ function handleCreateRoom(formData) {
     if (grid) renderRoomList(grid);
     return result.room;
   } catch (err) {
-    
+    console.error('[handleCreateRoom] Beklenmedik hata:', err);
     ToastManager.error('Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.', 'Hata');
     return null;
   }
@@ -5676,7 +5831,7 @@ function handleCreateRoom(formData) {
 
 function handleJoinRoom(roomId, password) {
   if (typeof RoomManager === 'undefined') {
-    
+    console.error('[handleJoinRoom] RoomManager yüklenmedi.');
     ToastManager.error('Oda sistemi şu an kullanılamıyor.', 'Sistem Hatası');
     return;
   }
@@ -5685,7 +5840,7 @@ function handleJoinRoom(roomId, password) {
     password = password || null;
     var room   = RoomManager.getRoomById(roomId);
     if (!room) {
-      
+      console.error('[handleJoinRoom] Oda bulunamadı:', roomId);
       ToastManager.error('Bu oda artık mevcut değil.', 'Oda Bulunamadı');
       return;
     }
@@ -5695,14 +5850,14 @@ function handleJoinRoom(roomId, password) {
       if (result.error && result.error.includes('Premium')) {
         document.dispatchEvent(new CustomEvent('sanctuary:showPaywall', { detail: { reason: result.error } }));
       } else {
-        
+        console.error('[handleJoinRoom] Katılım hatası:', result.error);
         ToastManager.error(result.error || 'Odaya katılınamadı.', 'Katılım Hatası');
       }
       return;
     }
     ToastManager.success('"' + room.name + '" odasına katıldınız.', 'Katıldınız');
   } catch (err) {
-    
+    console.error('[handleJoinRoom] Beklenmedik hata:', err);
     ToastManager.error('Odaya katılırken bir hata oluştu.', 'Hata');
   }
 }
@@ -5712,7 +5867,7 @@ function handleDeleteRoom(roomId) {
   try {
     var result = RoomManager.deleteRoom(roomId);
     if (!result.success) {
-      
+      console.error('[handleDeleteRoom] Silme hatası:', result.error);
       ToastManager.error(result.error || 'Oda silinemedi.', 'Silme Hatası');
       return;
     }
@@ -5720,7 +5875,7 @@ function handleDeleteRoom(roomId) {
     var grid = document.querySelector('.rooms-grid');
     if (grid) renderRoomList(grid);
   } catch (err) {
-    
+    console.error('[handleDeleteRoom] Beklenmedik hata:', err);
     ToastManager.error('Oda silinirken bir hata oluştu.', 'Hata');
   }
 }
@@ -5730,7 +5885,7 @@ function handleLeaveRoom(roomId) {
   try {
     var result = RoomManager.leaveRoom(roomId);
     if (!result.success) {
-      
+      console.error('[handleLeaveRoom] Ayrılma hatası:', result.error);
       ToastManager.error(result.error || 'Odadan ayrılınamadı.', 'Ayrılma Hatası');
       return;
     }
@@ -5741,7 +5896,7 @@ function handleLeaveRoom(roomId) {
     var grid = document.querySelector('.rooms-grid');
     if (grid) renderRoomList(grid);
   } catch (err) {
-    
+    console.error('[handleLeaveRoom] Beklenmedik hata:', err);
     ToastManager.error('Odadan ayrılırken bir hata oluştu.', 'Hata');
   }
 }
@@ -5784,7 +5939,7 @@ var AiOracleUI = (function () {
     // 10 saniyelik timeout
     var timeoutId = setTimeout(function () {
       hideProcessing();
-      
+      console.error('[AiOracle] İstek zaman aşımına uğradı.');
       ToastManager.error('AI Oracle yanıt vermedi. Lütfen tekrar deneyin.', 'Zaman Aşımı', 6000);
     }, 10000);
 
@@ -5801,7 +5956,7 @@ var AiOracleUI = (function () {
       .catch(function (err) {
         clearTimeout(timeoutId);
         hideProcessing();
-        
+        console.error('[AiOracle] Frekans üretim hatası:', err);
 
         if (err && err.message && err.message.includes('TIMEOUT')) return; // zaten bildirildi
 
@@ -5839,37 +5994,37 @@ document.addEventListener('DOMContentLoaded', function () {
       function onHide() {
         /* Sekme gizlendi — ripple spawn'unu durdur */
         window._rippleDisabled = true;
-        
+        console.debug('[main] Ripple devre dışı (sekme gizli)');
       },
       function onShow() {
         /* Sekme görünür — ripple'ı yeniden etkinleştir */
         window._rippleDisabled = false;
-        
+        console.debug('[main] Ripple etkin (sekme görünür)');
       }
     );
   } catch (e) {
-    
+    console.warn('[init] PageVisibilityManager başlatılamadı:', e);
   }
 
   /* 0b. PHASE 5: Ağ izleme */
   try {
     NetworkMonitor.init();
   } catch (e) {
-    
+    console.error('[init] NetworkMonitor başlatılamadı:', e);
   }
 
   /* 1. Ripple efekti */
   try {
     initRippleEffect();
   } catch (e) {
-    
+    console.error('[init] Ripple başlatılamadı:', e);
   }
 
   /* 2. Sekme animasyonları */
   try {
     initTabAnimations();
   } catch (e) {
-    
+    console.error('[init] TabAnimations başlatılamadı:', e);
   }
 
   /* 3. Oda listesi */
@@ -5878,7 +6033,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       renderRoomList(roomsGrid);
     } catch (e) {
-      
+      console.error('[init] Oda listesi yüklenemedi:', e);
       ToastManager.error('Oda listesi yüklenemedi.', 'Yükleme Hatası');
     }
   }
@@ -5891,7 +6046,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var modal = document.getElementById('createRoomModal');
         if (modal) modal.classList.add('open');
       } catch (e) {
-        
+        console.error('[init] Modal açılamadı:', e);
         ToastManager.error('Modal açılamadı.', 'Hata');
       }
     });
@@ -5911,7 +6066,7 @@ document.addEventListener('DOMContentLoaded', function () {
           renderRoomList(grid, (cat === 'all' || cat === 'tümü') ? null : cat);
         }
       } catch (e) {
-        
+        console.error('[filter] Filtre hatası:', e);
         ToastManager.error('Filtre uygulanamadı.', 'Hata');
       }
     });
@@ -5926,7 +6081,7 @@ document.addEventListener('DOMContentLoaded', function () {
         e.target.value       = '';
         e.target.placeholder = '••••••••••••••••';
       } catch (e2) {
-        
+        console.error('[init] API key işlenemedi:', e2);
         ToastManager.error('API anahtarı işlenemedi.', 'Hata');
       }
     });
@@ -6001,18 +6156,18 @@ document.addEventListener('DOMContentLoaded', function () {
             if (grid) renderRoomList(grid);
           } catch (e) {
             restore();
-            
+            console.error('[submitRoom] Oda oluşturma hatası:', e);
             ToastManager.error('Oda oluşturulamadı. Tekrar deneyin.', 'Hata');
           }
         }, 900);
       } catch (e) {
-        
+        console.error('[submitRoom] Beklenmedik hata:', e);
         ToastManager.error('Beklenmedik bir hata oluştu.', 'Hata');
       }
     });
   }
 
-  
+  console.info('[Sanctuary] 5. Aşama yüklendi. PageVisibilityManager, RenderGuard, RAFRegistry hazır.');
 });
 
 /* ══════════════════════════════════════════════════════════════════
@@ -6025,7 +6180,7 @@ function _globalCleanup() {
   try { RAFRegistry.cancelAll(); }  catch (e) { /* no-op */ }
   try { PageVisibilityManager.dispose(); } catch (e) { /* no-op */ }
   try { stopWaveformLoop(); }    catch (e) { /* no-op */ }
-  
+  console.info('[Sanctuary] Kaynaklar temizlendi.');
 }
 
 window.addEventListener('beforeunload', _globalCleanup);
@@ -6129,13 +6284,11 @@ window.SanctuarySessionBuffer = (function() {
   }
 
   window.onerror = function(msg, src, line) {
-    
-    _showErrorToast('Bir şeyler ters gitti. Lütfen sayfayı yenileyin.');
-    return false;
+    return false; // sessizce yakala
   };
 
   window.addEventListener('unhandledrejection', function(e) {
-    
+    console.error('[Sanctuary Promise]', e.reason);
     _showErrorToast('Arka plan işlemi başarısız oldu.');
   });
 })();
@@ -6159,27 +6312,169 @@ window.Sanctuary = {
   cancelSleepTimer: function()   { if(window.cancelSleepTimer)window.cancelSleepTimer();},
 };
 
+console.info('[Sanctuary] 8. Aşama yüklendi ✓ — window.Sanctuary hazır');
 
+/* ═══════════════════════════════════════════════════════════
+   9. AŞAMA — Zihin Haritası, Akıllı Öneriler, Duygu-Ses
+═══════════════════════════════════════════════════════════ */
 
-/* ── Ekran yönetimi (index.html onclick'leri için) ── */
-window.goSanctuary = function() {
-  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
-  var t = document.getElementById('screen-sanctuary');
-  if (t) { t.classList.remove('off'); t.classList.add('on'); }
-};
+/* ── Zihin Haritası Render ── */
+window.renderMindMap = function() {
+  var stats = window.SanctuaryStats;
+  if (!stats) return;
+  var days = stats.getLast7Days();
+  var dotsEl = document.getElementById('mind-map-dots');
+  var streakEl = document.getElementById('mind-map-streak');
+  if (!dotsEl) return;
 
-window.goBack = function() {
-  var analytics = document.getElementById('screen-analytics');
-  if (analytics && analytics.classList.contains('on')) {
-    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
-    var t = document.getElementById('screen-sanctuary');
-    if (t) { t.classList.remove('off'); t.classList.add('on'); }
-  } else {
-    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
-    var t = document.getElementById('screen-mood');
-    if (t) { t.classList.remove('off'); t.classList.add('on'); }
+  var maxMin = Math.max.apply(null, days.map(function(d){ return d.minutes; }).concat([1]));
+
+  dotsEl.innerHTML = '';
+  days.forEach(function(day) {
+    var dot = document.createElement('div');
+    dot.className = 'mind-map-dot' + (day.count === 0 ? ' empty' : '');
+    var h = day.count > 0 ? Math.max(12, Math.round((day.minutes / maxMin) * 44)) : 8;
+    dot.style.height = h + 'px';
+    dot.style.background = day.mood ? stats.getMoodColor(day.mood) : 'rgba(255,255,255,0.06)';
+    if (day.count > 0) dot.style.boxShadow = '0 0 8px ' + stats.getMoodColor(day.mood) + '55';
+    dot.setAttribute('data-label', day.day + (day.mood ? ' · ' + day.mood : '') + (day.minutes > 0 ? ' · ' + day.minutes + 'dk' : ''));
+    dotsEl.appendChild(dot);
+  });
+
+  var streak = stats.getStreak();
+  if (streakEl) {
+    streakEl.textContent = streak > 0 ? '🔥 ' + streak + ' günlük seri' : '';
   }
 };
+
+/* ── Kişiselleştirilmiş Karşılama ── */
+window.updatePersonalizedGreeting = function() {
+  var stats = window.SanctuaryStats;
+  if (!stats) return;
+  var msgEl = document.getElementById('s-message');
+  if (msgEl) {
+    var msg = stats.getPersonalizedMessage();
+    if (msg) msgEl.textContent = msg;
+  }
+};
+
+/* ── Akıllı Frekans Önerisi ── */
+window.showSmartSuggestion = function(mood) {
+  var stats = window.SanctuaryStats;
+  if (!stats) return;
+  var suggest = document.getElementById('smart-suggest');
+  var suggestText = document.getElementById('smart-suggest-text');
+  if (!suggest || !suggestText) return;
+
+  var rec = stats.getSmartFreqSuggestion(mood);
+  suggestText.textContent = '✦ Senin için öneri: ' + rec.label + ' — şimdi dene?';
+  suggest.style.display = 'flex';
+  suggest.onclick = function() {
+    if (window.switchSound) window.switchSound(rec.gen, rec.freq, rec.beat, rec.label);
+    try {
+      localStorage.setItem('lastGen', rec.gen);
+      localStorage.setItem('lastBase', rec.freq);
+      localStorage.setItem('lastBeat', rec.beat);
+    } catch(e) {}
+    suggest.style.display = 'none';
+  };
+};
+
+/* ── Duygu-Ses İlişkilendirmesi (Journal) ── */
+window.analyzeJournalAndModulate = function(text) {
+  if (!text || !window.switchSound) return;
+  var lower = text.toLowerCase();
+  var wordCount = text.trim().split(/\s+/).length;
+
+  // Anahtar kelime bazlı ses modülasyonu
+  if (lower.includes('fırtına') || lower.includes('öfke') || lower.includes('sinir')) {
+    window.switchSound('waves', 180, 6, 'Sakinleştirici Dalgalar');
+  } else if (lower.includes('deniz') || lower.includes('okyanus') || lower.includes('huzur')) {
+    window.switchSound('waves', 200, 4, 'Okyanus Huzuru');
+  } else if (lower.includes('sakin') || lower.includes('nefes') || lower.includes('dingin')) {
+    window.switchSound('binaural', 432, 7, 'Derin Huzur');
+  } else if (lower.includes('uyku') || lower.includes('yorgun') || lower.includes('dinlen')) {
+    window.switchSound('rain', 174, 3, 'Uyku Yağmuru');
+  } else if (wordCount > 50) {
+    // Uzun yazı = yoğun düşünceler → sakinleştirici
+    window.switchSound('binaural', 396, 5, 'Zihin Berraklığı');
+  }
+};
+
+/* ── pickMood'u intercept et — akıllı öneri ve aktivite kaydı ── */
+(function() {
+  var _origPickMood = window.pickMood;
+  window.pickMood = function(el) {
+    if (_origPickMood) _origPickMood(el);
+    var mood = el ? el.getAttribute('data-mood') : null;
+    if (!mood) return;
+    // Akıllı öneri göster
+    setTimeout(function() { window.showSmartSuggestion(mood); }, 300);
+    // Aktivite kaydı başlat
+    window._sessionStart = Date.now();
+    window._sessionMood = mood;
+    // Kişiselleştirilmiş mesaj güncelle
+    setTimeout(window.updatePersonalizedGreeting, 100);
+  };
+})();
+
+/* ── Journal kaydetme — ses modülasyonu ── */
+(function() {
+  var _origSave = window.saveJournalEntry;
+  window.saveJournalEntry = function() {
+    if (_origSave) _origSave();
+    var ta = document.getElementById('journal-textarea');
+    var text = ta ? ta.value : '';
+    if (text.trim().length > 10) {
+      window.analyzeJournalAndModulate(text);
+    }
+    // Aktivite logla
+    if (window.SanctuaryStats) {
+      window.SanctuaryStats.logActivity('journal', 0, localStorage.getItem('lastMood'));
+    }
+  };
+})();
+
+/* ── Ses bitişinde aktivite logla ── */
+(function() {
+  var _origToggle = window.togglePlay;
+  window.togglePlay = function() {
+    // Oturum bitişi — süreyi hesapla
+    if (window._sessionStart) {
+      var duration = Math.round((Date.now() - window._sessionStart) / 1000);
+      if (duration > 10 && window.SanctuaryStats) {
+        window.SanctuaryStats.logActivity('audio', duration, window._sessionMood || localStorage.getItem('lastMood'));
+      }
+      window._sessionStart = null;
+    }
+    if (_origToggle) _origToggle();
+    // Ses başladığında süre takibini başlat
+    if (window._sessionStart === null) {
+      window._sessionStart = Date.now();
+    }
+  };
+})();
+
+/* ── Sayfa yüklenince zihin haritasını render et ── */
+(function() {
+  function _initPhase9() {
+    window.renderMindMap && window.renderMindMap();
+    window.updatePersonalizedGreeting && window.updatePersonalizedGreeting();
+    // Journal tab'ına geçilince haritayı yenile
+    var _origSwitch = window.switchTab;
+    window.switchTab = function(tabId) {
+      if (_origSwitch) _origSwitch(tabId);
+      if (tabId === 'tab-journal') {
+        setTimeout(function() { window.renderMindMap && window.renderMindMap(); }, 100);
+      }
+    };
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initPhase9);
+  } else {
+    setTimeout(_initPhase9, 500);
+  }
+})();
 
 </script>
 
@@ -6341,6 +6636,20 @@ window.goBack = function() {
 </script>
 <script>
 /* ── Eksik yardımcı fonksiyonlar ── */
+
+/* Ekran geçişleri */
+window.goSanctuary = function() {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
+  var t = document.getElementById('screen-sanctuary');
+  if (t) { t.classList.remove('off'); t.classList.add('on'); }
+};
+window.goBack = function() {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
+  var analytics = document.getElementById('screen-analytics');
+  var target = (analytics && analytics.classList.contains('on')) ? 'screen-sanctuary' : 'screen-mood';
+  var t = document.getElementById(target);
+  if (t) { t.classList.remove('off'); t.classList.add('on'); }
+};
 window.acceptDisclaimer = function(){
   var d=document.getElementById('legal-disclaimer');
   if(d)d.style.display='none';
