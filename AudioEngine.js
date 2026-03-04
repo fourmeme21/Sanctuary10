@@ -209,6 +209,41 @@ class AudioLayer {
   }
 
   _initFallbackGenerator() {
+    /* FM tipi: FMSynthesizer varsa kullan */
+    if (this.type === 'fm' && window.FMSynthesizer) {
+      try {
+        this._fmSynth = new window.FMSynthesizer(this._ctx, this.gainNode, {
+          carrierFreq    : this.params.baseFreq      || 432,
+          modulatorRatio : this.params.modulatorRatio || 2.0,
+          modulationIndex: this.params.modulationIndex || 3.0,
+          volume         : this.params.volume         || 0.5,
+          binaural       : !!this.params.binaural,
+          binauralBeat   : this.params.beatFreq       || 7,
+          adsr           : this.params.adsr,
+        });
+        return;
+      } catch (e) {
+        console.warn('[AudioLayer] FMSynthesizer başlatılamadı, buffer fallback:', e);
+      }
+    }
+
+    /* Granular tipi: GranularEngine varsa kullan */
+    if (this.type === 'granular' && window.GranularEngine) {
+      try {
+        this._granular = new window.GranularEngine(this._ctx, this.gainNode, {
+          grainSize: this.params.grainSize || 120,
+          grainRate: this.params.grainRate || 12,
+          pitch    : this.params.pitch     || 1.0,
+          scatter  : this.params.scatter   || 0.5,
+          volume   : this.params.volume    || 0.6,
+        });
+        this._granular.generateBuffer(this.params.generator || 'wind');
+        return;
+      } catch (e) {
+        console.warn('[AudioLayer] GranularEngine başlatılamadı, buffer fallback:', e);
+      }
+    }
+
     const sampleRate = this._ctx.sampleRate;
     const bufferSize = sampleRate * AUDIO_CONFIG.PRELOAD_BUFFER_SECONDS;
     const buffer     = this._ctx.createBuffer(2, bufferSize, sampleRate);
@@ -266,7 +301,11 @@ class AudioLayer {
 
     const offset = this._pauseOffset;
 
-    if (this._workletNode) {
+    if (this._fmSynth) {
+      this._fmSynth.start();
+    } else if (this._granular) {
+      this._granular.start();
+    } else if (this._workletNode) {
       this._workletNode.port.postMessage({ type: 'play' });
     } else if (this._source) {
       if (this._state === 'paused' && this._buffer) {
@@ -283,7 +322,12 @@ class AudioLayer {
     if (this._state !== 'playing') return;
     this._pauseOffset = (this._ctx.currentTime - this._startTime) % (this._buffer?.duration || 1);
 
-    if (this._workletNode) {
+    if (this._fmSynth) {
+      this._fmSynth.stop();
+      this._fmSynth = null;   // FM her seferinde yeniden başlatılır
+    } else if (this._granular) {
+      this._granular.stop();
+    } else if (this._workletNode) {
       this._workletNode.port.postMessage({ type: 'pause' });
     } else if (this._source) {
       try { this._source.stop(); } catch { /* zaten durmuş */ }
@@ -330,6 +374,8 @@ class AudioLayer {
    * PHASE 5: dispose() — AudioLayer'ı tamamen serbest bırakır
    */
   dispose() {
+    if (this._fmSynth)  { try { this._fmSynth.dispose();  } catch { /**/ } this._fmSynth  = null; }
+    if (this._granular) { try { this._granular.dispose();  } catch { /**/ } this._granular = null; }
     this.stop();
     this.gainNode     = null;
     this._buffer      = null;
@@ -1259,6 +1305,20 @@ export {
   createLegacyAdapter,
   AUDIO_CONFIG,
 };
+
+/**
+ * ── İnsan Sesi / TTS Efekt Zinciri İskeleti ────────────────────────────────
+ * FMSynthesizer.addReverb() ve FMSynthesizer.addSaturation() metodları
+ * birleştirilerek TTS sesine de uygulanabilir:
+ *
+ *   const fm = new FMSynthesizer(ctx, dest, { carrierFreq: 432 });
+ *   fm.addReverb(0.4, 0.3);      // oda boyutu, ıslak mix
+ *   fm.addSaturation(0.15);       // sıcaklık miktarı
+ *   fm.start();
+ *
+ * TTS entegrasyonu için: MediaElementAudioSourceNode → gainNode → reverb → dest
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 
 /* ── Browser / Node çift uyumluluk ── */
 if (typeof module !== 'undefined') {
