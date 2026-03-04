@@ -1,34 +1,30 @@
 /**
- * StateManager.js
- * ================
- * Ambient AI Ses Orkestrasyonu uygulaması için merkezi state yönetim sınıfı.
- *
- * Tasarım ilkeleri:
- *  - Observer Pattern  → subscribe/notify ile reaktif UI güncellemeleri
- *  - Persistence       → StorageAdapter üzerinden otomatik hydration & persist
- *  - Security Layer    → Premium ve kısıtlı içerik için doğrulama katmanı
- *  - Zero DOM          → Hiçbir document/window referansı yok; saf iş mantığı
- *  - Portable          → Zustand/Redux'a taşınabilir slice yapısı
- *
- * 3. Aşama Güvenlik Değişiklikleri:
- *  - apiKey artık localStorage'a YAZILMIYOR (PERSISTED_KEYS'den çıkarıldı).
- *  - apiKey sadece runtime bellekte, private #apiKeyRuntime alanında tutulur.
- *  - validatePurchaseToken frontend doğrulaması tamamen kaldırıldı; backend
- *    olmadan güvenli false döndürür — asla client-side token "doğrulaması" yapılmaz.
- *  - setPremiumStatus artık receiptToken doğrulamasında uyarı yerine açık hata
- *    bilgisi verir ve offline/demo modunu açıkça işaretler.
+ * StateManager.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Phase 5 Değişiklikleri:
+ *   1. Storage event listener → cross-tab sync için eklendi, dispose()'da kaldırılır
+ *   2. _boundStorageHandler → window.removeEventListener ile temizlenir (bellek sızıntısı önlemi)
+ *   3. dispose() → storageListener + tüm timer'lar + listener'lar güvenli şekilde temizlenir
+ *   4. Visibility API desteği → sekme gizlendiğinde persist debounce flush edilir
+ *   5. Debug bilgisi iyileştirildi — cache ve listener sayıları görünür
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 3. Aşama Güvenlik Değişiklikleri (korundu):
+ *   - apiKey artık localStorage'a YAZILMIYOR (PERSISTED_KEYS'den çıkarıldı).
+ *   - apiKey sadece runtime bellekte, private #apiKeyRuntime alanında tutulur.
+ *   - validatePurchaseToken frontend doğrulaması tamamen kaldırıldı.
+ *   - setPremiumStatus receiptToken doğrulamasında offline/demo modu açıkça işaretler.
  */
 
 // ─── Tip Sabitleri ────────────────────────────────────────────────────────────
 
 /** @enum {string} */
 export const Mood = Object.freeze({
-  HUZURSUZ:   'Huzursuz',
-  YORGUN:     'Yorgun',
-  KAYGILI:    'Kaygılı',
-  MUTSUZ:     'Mutsuz',
-  SAKIN:      'Sakin',
-  MINNETTAR:  'Minnettar',
+  HUZURSUZ:  'Huzursuz',
+  YORGUN:    'Yorgun',
+  KAYGILI:   'Kaygılı',
+  MUTSUZ:    'Mutsuz',
+  SAKIN:     'Sakin',
+  MINNETTAR: 'Minnettar',
 });
 
 /** @enum {string} */
@@ -47,45 +43,28 @@ export const BillingCycle = Object.freeze({
 // ─── Varsayılan (Initial) State ───────────────────────────────────────────────
 
 const DEFAULT_STATE = Object.freeze({
-  // ── Oynatma ──────────────────────────────────────────────────────────────
-  playing:              false,
-  currentScene:         'sessiz orman',
-  audioTracks:          [],           // [{ name, volume, parameters }]
-  masterVolume:         0.8,
-  intensity:            0.5,
-
-  // ── Ruh Hali ─────────────────────────────────────────────────────────────
-  selectedMood:         Mood.SAKIN,
-
-  // ── Seans ────────────────────────────────────────────────────────────────
-  sessionStartTime:     null,         // epoch ms | null
-  currentSessionDuration: 0,          // saniye
-
-  // ── Uyku Zamanlayıcı ─────────────────────────────────────────────────────
-  isTimerActive:        false,
-  sleepTimer:           null,         // dakika | null
-  sleepTimerEnd:        null,         // epoch ms | null
-
-  // ── Premium & Abonelik ────────────────────────────────────────────────────
-  isPremium:            false,
-  premiumPlan:          PremiumPlan.NONE,
-  billingCycle:         BillingCycle.MONTHLY,
-  premiumExpiresAt:     null,         // ISO string | null
-
-  // ── Kullanıcı Tercihleri ──────────────────────────────────────────────────
-  bannerDismissed:      false,
-  // FIX: apiKey artık bu state objesinde SAKLANMIYOR.
-  // Bunun yerine #apiKeyRuntime private alanında tutulur ve persist edilmez.
-  language:             'tr-TR',
-
-  // ── Uygulama Meta ─────────────────────────────────────────────────────────
-  isInitialized:        false,
-  lastOpenDate:         null,         // ISO string | null
+  playing:                false,
+  currentScene:           'sessiz orman',
+  audioTracks:            [],
+  masterVolume:           0.8,
+  intensity:              0.5,
+  selectedMood:           Mood.SAKIN,
+  sessionStartTime:       null,
+  currentSessionDuration: 0,
+  isTimerActive:          false,
+  sleepTimer:             null,
+  sleepTimerEnd:          null,
+  isPremium:              false,
+  premiumPlan:            PremiumPlan.NONE,
+  billingCycle:           BillingCycle.MONTHLY,
+  premiumExpiresAt:       null,
+  bannerDismissed:        false,
+  language:               'tr-TR',
+  isInitialized:          false,
+  lastOpenDate:           null,
 });
 
 // ─── Kalıcı Saklanacak Key'ler ────────────────────────────────────────────────
-// FIX: 'apiKey' bu listeden ÇIKARILDI — API anahtarları localStorage'a yazılmaz.
-// Sadece bu key'ler StorageAdapter'a yazılır.
 
 const PERSISTED_KEYS = new Set([
   'selectedMood',
@@ -94,13 +73,14 @@ const PERSISTED_KEYS = new Set([
   'billingCycle',
   'premiumExpiresAt',
   'bannerDismissed',
-  // 'apiKey' — KASITLI OLARAK ÇIKARILDI: API key localStorage'a yazılmaz
+  // 'apiKey' — KASITLI OLARAK ÇIKARILDI
   'language',
   'masterVolume',
   'lastOpenDate',
 ]);
 
 // ─── Kısıtlı İçerik Tanımları ─────────────────────────────────────────────────
+
 const CONTENT_PERMISSIONS = {
   'derin_odak_pro':   PremiumPlan.PRO,
   'binaural_beats':   PremiumPlan.BASIC,
@@ -114,25 +94,13 @@ const PLAN_RANK = {
   [PremiumPlan.PRO]:   2,
 };
 
-// ─── StorageAdapter Arayüzü ───────────────────────────────────────────────────
-/**
- * @typedef {Object} StorageAdapter
- * @property {function(string): Promise<string|null>} get
- * @property {function(string, string): Promise<void>} set
- * @property {function(string): Promise<void>} remove
- */
-
 // ─── Ana Sınıf ────────────────────────────────────────────────────────────────
 
 export class StateManager {
   /** @type {Object} */
   #state;
 
-  /**
-   * FIX: API anahtarı yalnızca bu private runtime alanında tutulur.
-   * localStorage'a hiçbir zaman yazılmaz, snapshot'a dahil edilmez.
-   * @type {string}
-   */
+  /** @type {string} */
   #apiKeyRuntime;
 
   /** @type {Map<string, Set<Function>>} */
@@ -154,17 +122,36 @@ export class StateManager {
   #hydrated;
 
   /**
+   * PHASE 5: Storage event listener referansı — dispose()'da kaldırılır.
+   * Cross-tab senkronizasyonu için localStorage değişikliklerini dinler.
+   * @type {Function|null}
+   */
+  #boundStorageHandler;
+
+  /**
+   * PHASE 5: Visibility change handler referansı — dispose()'da kaldırılır.
+   * Sekme gizlenince bekleyen persist'leri flush eder.
+   * @type {Function|null}
+   */
+  #boundVisibilityHandler;
+
+  /**
    * @param {StorageAdapter|null} storageAdapter
    */
   constructor(storageAdapter = null) {
-    this.#state                = { ...DEFAULT_STATE };
-    this.#apiKeyRuntime        = '';           // API key bellekte, persist edilmez
-    this.#keyListeners         = new Map();
-    this.#globalListeners      = new Set();
-    this.#storage              = storageAdapter;
-    this.#persistDebounceTimers = new Map();
-    this.#timers               = new Set();
-    this.#hydrated             = false;
+    this.#state                  = { ...DEFAULT_STATE };
+    this.#apiKeyRuntime          = '';
+    this.#keyListeners           = new Map();
+    this.#globalListeners        = new Set();
+    this.#storage                = storageAdapter;
+    this.#persistDebounceTimers  = new Map();
+    this.#timers                 = new Set();
+    this.#hydrated               = false;
+    this.#boundStorageHandler    = null;
+    this.#boundVisibilityHandler = null;
+
+    /* PHASE 5: Event listener'ları başlat */
+    this.#attachWindowListeners();
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -172,14 +159,12 @@ export class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   get(key) {
-    // FIX: 'apiKey' getter'ı #apiKeyRuntime'a yönlendirilir
     if (key === 'apiKey') return this.#apiKeyRuntime;
     return this.#state[key];
   }
 
   /** @private */
   #rawSet(key, value) {
-    // FIX: 'apiKey' set işlemi #apiKeyRuntime'a yönlendirilir; state'e/persist'e dokunulmaz
     if (key === 'apiKey') {
       this.#apiKeyRuntime = value ?? '';
       return;
@@ -196,13 +181,7 @@ export class StateManager {
     }
   }
 
-  /**
-   * State'in anlık kopyasını döndürür.
-   * FIX: API key snapshot'a dahil edilmez — güvenlik için.
-   * @returns {Readonly<Object>}
-   */
   getSnapshot() {
-    // apiKey kasıtlı olarak snapshot'a dahil edilmez
     const { ...snapshot } = this.#state;
     return Object.freeze(snapshot);
   }
@@ -268,14 +247,12 @@ export class StateManager {
 
     await Promise.all(loadPromises);
 
-    // FIX: Hydration sırasında apiKey storage'dan OKUNMAZ
-    // API key uygulama başlangıcında setApiKey() ile runtime'a yüklenir.
-
     this.#validatePremiumExpiry();
 
     this.#hydrated = true;
     this.#notify('isInitialized', true, false);
     this.#state.isInitialized = true;
+    console.info('[StateManager] Hydration tamamlandı.');
   }
 
   /** @private */
@@ -297,18 +274,38 @@ export class StateManager {
     this.#persistDebounceTimers.set(key, id);
   }
 
-  /** @private */
-  #serialize(key, value) {
-    return JSON.stringify(value);
+  /**
+   * PHASE 5: Bekleyen tüm persist işlemlerini hemen çalıştırır.
+   * Sekme kapanmadan önce veri kaybını önler.
+   */
+  async flushPersist() {
+    if (!this.#storage) return;
+
+    const promises = [];
+    this.#persistDebounceTimers.forEach((id, key) => {
+      clearTimeout(id);
+      const value = this.#state[key];
+      promises.push(
+        this.#storage
+          .set(`state:${key}`, this.#serialize(key, value))
+          .catch((err) => console.error(`[StateManager] Flush persist hatası (${key}):`, err))
+      );
+    });
+    this.#persistDebounceTimers.clear();
+
+    if (promises.length > 0) {
+      await Promise.all(promises);
+      console.info(`[StateManager] ${promises.length} persist flush edildi.`);
+    }
   }
 
   /** @private */
+  #serialize(key, value)  { return JSON.stringify(value); }
+
+  /** @private */
   #deserialize(key, raw) {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return raw;
-    }
+    try   { return JSON.parse(raw); }
+    catch { return raw; }
   }
 
   async clearPersistedState() {
@@ -322,40 +319,29 @@ export class StateManager {
   // BÖLÜM 4 — Oynatma & Ses Kontrolü
   // ══════════════════════════════════════════════════════════════════════════
 
-  setPlaying(value) {
-    this.#rawSet('playing', Boolean(value));
-  }
-
+  setPlaying(value)          { this.#rawSet('playing', Boolean(value)); }
   setCurrentScene(scene) {
     if (typeof scene !== 'string' || !scene.trim()) {
       throw new TypeError('[StateManager] Geçersiz sahne adı');
     }
     this.#rawSet('currentScene', scene.trim());
   }
-
   setAudioTracks(tracks) {
-    if (!Array.isArray(tracks)) {
-      throw new TypeError('[StateManager] audioTracks bir dizi olmalıdır');
-    }
+    if (!Array.isArray(tracks)) throw new TypeError('[StateManager] audioTracks bir dizi olmalıdır');
     this.#rawSet('audioTracks', tracks);
   }
-
   updateTrackVolume(trackName, volume) {
-    const clampedVol = Math.min(1, Math.max(0, volume));
-    const tracks = this.#state.audioTracks.map((t) =>
-      t.name === trackName ? { ...t, volume: clampedVol } : t
+    const clamped = Math.min(1, Math.max(0, volume));
+    const tracks  = this.#state.audioTracks.map((t) =>
+      t.name === trackName ? { ...t, volume: clamped } : t
     );
     this.#rawSet('audioTracks', tracks);
   }
-
   setMasterVolume(volume) {
-    const clamped = Math.min(1, Math.max(0, volume));
-    this.#rawSet('masterVolume', clamped);
+    this.#rawSet('masterVolume', Math.min(1, Math.max(0, volume)));
   }
-
   setIntensity(value) {
-    const clamped = Math.min(1, Math.max(0, value));
-    this.#rawSet('intensity', clamped);
+    this.#rawSet('intensity', Math.min(1, Math.max(0, value)));
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -366,7 +352,7 @@ export class StateManager {
     const validMoods = Object.values(Mood);
     if (!validMoods.includes(mood)) {
       throw new RangeError(
-        `[StateManager] Geçersiz mood: "${mood}". Geçerli değerler: ${validMoods.join(', ')}`
+        `[StateManager] Geçersiz mood: "${mood}". Geçerli: ${validMoods.join(', ')}`
       );
     }
     this.#rawSet('selectedMood', mood);
@@ -377,8 +363,7 @@ export class StateManager {
   // ══════════════════════════════════════════════════════════════════════════
 
   startSession() {
-    const now = Date.now();
-    this.#rawSet('sessionStartTime', now);
+    this.#rawSet('sessionStartTime', Date.now());
     this.#rawSet('currentSessionDuration', 0);
   }
 
@@ -415,8 +400,7 @@ export class StateManager {
 
     this.cancelSleepTimer();
 
-    const endTime = Date.now() + minutes * 60 * 1000;
-
+    const endTime  = Date.now() + minutes * 60 * 1000;
     this.#rawSet('isTimerActive', true);
     this.#rawSet('sleepTimer', minutes);
     this.#rawSet('sleepTimerEnd', endTime);
@@ -426,7 +410,6 @@ export class StateManager {
       this.#rawSet('sleepTimer', null);
       this.#rawSet('sleepTimerEnd', null);
       this.#timers.delete(timerId);
-
       if (typeof onExpire === 'function') {
         try { onExpire(); }
         catch (err) { console.error('[StateManager] onExpire hatası:', err); }
@@ -453,14 +436,6 @@ export class StateManager {
   // BÖLÜM 8 — Premium & Güvenlik Katmanı
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Premium aboneliği aktif eder.
-   *
-   * FIX: validatePurchaseToken artık client-side "doğrulama" YAPMIYOR.
-   * Backend entegrasyonu olmadan token doğrulaması güvenli değildir.
-   * receiptToken parametresi gelecekteki backend entegrasyonu için
-   * imza alanı olarak korunuyor; şimdilik sadece loglanıyor.
-   */
   setPremiumStatus({ plan, billingCycle, expiresAt = null, receiptToken = '' }) {
     if (!Object.values(PremiumPlan).includes(plan)) {
       throw new RangeError(`[StateManager] Geçersiz plan: ${plan}`);
@@ -472,10 +447,6 @@ export class StateManager {
       throw new Error('[StateManager] setPremiumStatus ile NONE plan kurulamaz. revokePremium kullanın.');
     }
 
-    // FIX: Frontend doğrulaması kaldırıldı.
-    // receiptToken backend'e iletilmek üzere loglanır; client-side geçerlilik
-    // kontrolü yapılmaz — böyle bir kontrol bypass edilebilir olduğundan güvensizdir.
-    // Gerçek uygulamada: await backendVerifyReceipt(receiptToken) çağrısı yapılmalı.
     if (receiptToken) {
       console.info('[StateManager] Receipt token mevcut — backend doğrulaması gerekli.');
     } else {
@@ -496,16 +467,10 @@ export class StateManager {
 
   checkContentAccess(contentId) {
     const requiredPlan = CONTENT_PERMISSIONS[contentId];
-
-    if (!requiredPlan) {
-      return { allowed: true, reason: '' };
-    }
+    if (!requiredPlan) return { allowed: true, reason: '' };
 
     if (!this.#state.isPremium) {
-      return {
-        allowed: false,
-        reason: `Bu içerik premium üyelik gerektiriyor (${requiredPlan}).`,
-      };
+      return { allowed: false, reason: `Bu içerik premium üyelik gerektiriyor (${requiredPlan}).` };
     }
 
     const userRank     = PLAN_RANK[this.#state.premiumPlan] ?? 0;
@@ -528,27 +493,12 @@ export class StateManager {
 
   unlockContent(scene) {
     const { allowed, reason } = this.checkContentAccess(scene);
-    if (!allowed) {
-      throw new Error(`[StateManager] Erişim reddedildi — ${reason}`);
-    }
+    if (!allowed) throw new Error(`[StateManager] Erişim reddedildi — ${reason}`);
     this.setCurrentScene(scene);
   }
 
-  /**
-   * FIX: validatePurchaseToken tamamen güvenli hale getirildi.
-   *
-   * Önceki implementasyon token uzunluğunu kontrol ediyordu — bu client-side
-   * doğrulama kolayca bypass edilebilirdi. Şimdi her zaman false döndürür:
-   * token geçerliliği YALNIZCA backend'de kontrol edilebilir.
-   *
-   * @returns {false} — Her zaman false; gerçek doğrulama backend'e bırakılıyor.
-   * @private
-   */
+  /** @private — Her zaman false; güvenlik için client-side doğrulama yapılmaz */
   #validatePurchaseToken(/* token */) {
-    // Güvenlik notu: Client-side token doğrulaması anlamsızdır —
-    // kullanıcı token formatını taklit edebilir. Bu metod artık
-    // hiçbir doğrulama yapmaz ve her zaman false döndürür.
-    // Üretim ortamında: token'ı sunucuya gönderin ve sunucu yanıtına göre hareket edin.
     return false;
   }
 
@@ -556,8 +506,8 @@ export class StateManager {
   #validatePremiumExpiry() {
     const expiresAt = this.#state.premiumExpiresAt;
     if (expiresAt && new Date(expiresAt) < new Date()) {
-      this.#state.isPremium    = false;
-      this.#state.premiumPlan  = PremiumPlan.NONE;
+      this.#state.isPremium       = false;
+      this.#state.premiumPlan     = PremiumPlan.NONE;
       this.#state.premiumExpiresAt = null;
     }
   }
@@ -572,46 +522,17 @@ export class StateManager {
   // BÖLÜM 9 — Kullanıcı Tercihleri
   // ══════════════════════════════════════════════════════════════════════════
 
-  setBannerDismissed(value) {
-    this.#rawSet('bannerDismissed', Boolean(value));
-  }
+  setBannerDismissed(value) { this.#rawSet('bannerDismissed', Boolean(value)); }
 
-  /**
-   * API anahtarını runtime belleğe kaydeder.
-   * FIX: localStorage'a YAZILMAZ — #apiKeyRuntime private alanında saklanır.
-   * Uygulama her açılışında kullanıcıdan tekrar alınmalı veya güvenli bir
-   * native store (Keychain/SecureStore) üzerinden inject edilmelidir.
-   *
-   * @param {string} key
-   */
   setApiKey(key) {
-    if (typeof key !== 'string') {
-      throw new TypeError('[StateManager] API key string olmalıdır');
-    }
-    // Güvenlik notu: key localStorage/sessionStorage'a asla yazılmıyor.
-    // Sadece bu session için bellekte tutuluyor.
+    if (typeof key !== 'string') throw new TypeError('[StateManager] API key string olmalıdır');
     this.#apiKeyRuntime = key;
   }
 
-  /**
-   * Runtime API anahtarını döndürür.
-   * Snapshot veya persist mekanizmasının dışındadır.
-   * @returns {string}
-   */
-  getApiKey() {
-    return this.#apiKeyRuntime;
-  }
+  getApiKey()  { return this.#apiKeyRuntime; }
+  clearApiKey() { this.#apiKeyRuntime = ''; }
 
-  /**
-   * API anahtarını bellekten siler (logout / güvenli temizleme).
-   */
-  clearApiKey() {
-    this.#apiKeyRuntime = '';
-  }
-
-  setLanguage(lang) {
-    this.#rawSet('language', lang);
-  }
+  setLanguage(lang)      { this.#rawSet('language', lang); }
 
   setBillingCycle(cycle) {
     if (!Object.values(BillingCycle).includes(cycle)) {
@@ -625,12 +546,65 @@ export class StateManager {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // BÖLÜM 10 — Timer & Kaynak Yönetimi
+  // BÖLÜM 10 — PHASE 5: Window Event Listener Yönetimi
   // ══════════════════════════════════════════════════════════════════════════
 
-  registerTimer(timerId) {
-    this.#timers.add(timerId);
+  /**
+   * PHASE 5: Window storage + visibility listener'larını bağlar.
+   * Referanslar private alanlara kaydedilir — dispose()'da kaldırılır.
+   *
+   * storage event: Başka sekmedeki localStorage değişikliklerini yakalar
+   * (cross-tab sync). API key HİÇBİR ZAMAN storage üzerinden senkronize edilmez.
+   *
+   * visibilitychange event: Sekme gizlenince bekleyen persist'leri flush eder.
+   */
+  #attachWindowListeners() {
+    if (typeof window === 'undefined') return;
+
+    /* ── Storage (cross-tab sync) ── */
+    this.#boundStorageHandler = (event) => {
+      try {
+        if (!event.key || !event.key.startsWith('state:')) return;
+        const stateKey = event.key.replace('state:', '');
+
+        /* Güvenlik: API key storage üzerinden senkronize edilmez */
+        if (stateKey === 'apiKey') return;
+        if (!PERSISTED_KEYS.has(stateKey)) return;
+
+        const newValue = event.newValue !== null
+          ? this.#deserialize(stateKey, event.newValue)
+          : DEFAULT_STATE[stateKey];
+
+        /* State'i notify ile güncelle — ama persist tetikleme (cross-tab loop önle) */
+        const prev = this.#state[stateKey];
+        if (!Object.is(prev, newValue)) {
+          this.#state[stateKey] = newValue;
+          this.#notify(stateKey, newValue, prev);
+          console.info(`[StateManager] Cross-tab sync: ${stateKey}`);
+        }
+      } catch (err) {
+        console.warn('[StateManager] Storage event hatası:', err);
+      }
+    };
+    window.addEventListener('storage', this.#boundStorageHandler);
+
+    /* ── Visibility Change (persist flush) ── */
+    this.#boundVisibilityHandler = () => {
+      if (document.hidden && this.#persistDebounceTimers.size > 0) {
+        /* Sekme gizlendiğinde bekleyen persist'leri hemen yaz */
+        this.flushPersist().catch((err) => {
+          console.warn('[StateManager] Visibility flush hatası:', err);
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', this.#boundVisibilityHandler);
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BÖLÜM 11 — Timer & Kaynak Yönetimi
+  // ══════════════════════════════════════════════════════════════════════════
+
+  registerTimer(timerId) { this.#timers.add(timerId); }
 
   clearAllTimers() {
     this.#timers.forEach((id) => {
@@ -640,30 +614,73 @@ export class StateManager {
     this.#timers.clear();
   }
 
-  dispose() {
+  /**
+   * PHASE 5: dispose() — Tam temizleme
+   *   1. Tüm timer'lar iptal edilir
+   *   2. Bekleyen persist'ler flush edilir
+   *   3. window.storage + visibilitychange listener'ları removeEventListener ile kaldırılır
+   *   4. Tüm subscriber'lar temizlenir
+   *   5. API key bellekten silinir
+   */
+  async dispose() {
+    console.info('[StateManager] Dispose başlatılıyor...');
+
+    /* 1. Timer'ları iptal et */
     this.clearAllTimers();
     this.#persistDebounceTimers.forEach((id) => clearTimeout(id));
-    this.#persistDebounceTimers.clear();
+
+    /* 2. Bekleyen persist'leri flush et */
+    try {
+      await this.flushPersist();
+    } catch (err) {
+      console.warn('[StateManager] Dispose flush hatası:', err);
+    }
+
+    /* 3. PHASE 5: Window event listener'larını kaldır — bellek sızıntısı önlemi */
+    try {
+      if (this.#boundStorageHandler && typeof window !== 'undefined') {
+        window.removeEventListener('storage', this.#boundStorageHandler);
+        this.#boundStorageHandler = null;
+        console.info('[StateManager] Storage listener kaldırıldı.');
+      }
+      if (this.#boundVisibilityHandler && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.#boundVisibilityHandler);
+        this.#boundVisibilityHandler = null;
+        console.info('[StateManager] Visibility listener kaldırıldı.');
+      }
+    } catch (err) {
+      console.warn('[StateManager] Listener temizleme uyarısı:', err);
+    }
+
+    /* 4. Subscriber'ları temizle */
     this.#keyListeners.clear();
     this.#globalListeners.clear();
-    // API key'i bellekten temizle
+
+    /* 5. API key'i bellekten sil */
     this.#apiKeyRuntime = '';
+
+    console.info('[StateManager] Dispose tamamlandı.');
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // BÖLÜM 11 — Debug / DevTools
+  // BÖLÜM 12 — Debug / DevTools
   // ══════════════════════════════════════════════════════════════════════════
 
   debug() {
     console.group('[StateManager] Mevcut State');
-    // FIX: apiKey debug çıktısına dahil edilmez
     const safeState = { ...this.#state, apiKey: '[GİZLİ — runtime]' };
     console.table(safeState);
+    console.info('Listener sayısı:', {
+      keyListeners:    this.#keyListeners.size,
+      globalListeners: this.#globalListeners.size,
+      timers:          this.#timers.size,
+      pendingPersist:  this.#persistDebounceTimers.size,
+      hydrated:        this.#hydrated,
+    });
     console.groupEnd();
   }
 
   toPlainObject() {
-    // FIX: apiKey dışa aktarılan objeye dahil edilmez
     return { ...this.#state };
   }
 }
@@ -680,6 +697,8 @@ export function getStateManager(storageAdapter = null) {
 }
 
 export function _resetStateManagerSingleton() {
-  _instance?.dispose();
-  _instance = null;
+  if (_instance) {
+    _instance.dispose().catch(() => {});
+    _instance = null;
+  }
 }
