@@ -1815,7 +1815,138 @@ window.sendReaction = function(emoji) {
   }
 })();
 
-/* ── Oda Oluşturma Modal Submit ── */
+/* ── Nefes-Aura Senkronizasyonu (Phase 10) ── */
+
+/**
+ * startBreathCycle'ı RoomManager ile entegre et.
+ * Kullanıcı nefes yaptığında küresi titreşir; odadaki herkes görür.
+ * Orijinal startBreathCycle fonksiyonunu wrap eder.
+ */
+(function() {
+  var _origStartBreath = window.startBreathCycle || (typeof startBreathCycle === 'function' ? startBreathCycle : null);
+
+  window.startBreathCycleRoom = function(engine, breathWrap, guideEl, options, roomId) {
+    roomId = roomId || null;
+    var userId = 'user_local';
+
+    // Aura küresi referansı — odadaki kendi noktamız
+    var selfAura = null;
+    if (roomId) {
+      selfAura = document.querySelector('#auras-' + roomId + ' .aura-dot[title="' + userId + '"]');
+    }
+
+    /* Orijinal döngüyü başlat */
+    var stopFn = typeof startBreathCycle === 'function'
+      ? startBreathCycle(engine, breathWrap, guideEl, options)
+      : null;
+
+    /* RoomManager'a bildir */
+    if (roomId && typeof RoomManager !== 'undefined') {
+      RoomManager.setBreathing(roomId, userId, true);
+    }
+
+    /* AudioEngine köprüsü */
+    try {
+      if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+        AudioEngine.getInstance().startBreathBroadcast(roomId, userId);
+      }
+    } catch (e) {}
+
+    /* Aura küresi animasyonu */
+    if (selfAura) selfAura.classList.add('breathing');
+
+    /* Aura UI periyodik güncelleme (500ms) */
+    var _auraTimer = null;
+    if (roomId) {
+      _auraTimer = setInterval(function() {
+        var wrap = document.getElementById('auras-' + roomId);
+        if (!wrap || typeof RoomManager === 'undefined') return;
+        var room = RoomManager.getRoomById(roomId);
+        if (!room) return;
+        wrap.innerHTML = _buildAuras(room);
+      }, 500);
+    }
+
+    /* Stop wrapper */
+    return function stopBreathRoom() {
+      if (typeof stopFn === 'function') stopFn();
+      if (_auraTimer) clearInterval(_auraTimer);
+
+      if (roomId && typeof RoomManager !== 'undefined') {
+        RoomManager.setBreathing(roomId, userId, false);
+      }
+
+      try {
+        if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+          AudioEngine.getInstance().stopBreathBroadcast(roomId, userId);
+        }
+      } catch (e) {}
+
+      if (selfAura) selfAura.classList.remove('breathing');
+    };
+  };
+})();
+
+/* ── Odaya katılınca Room Audio dinleyicisini başlat ── */
+(function() {
+  var _origJoin = window.handleJoinRoom;
+  window.handleJoinRoom = function(roomId, password) {
+    if (_origJoin) _origJoin(roomId, password);
+
+    /* AudioEngine'i room event'lerine abone et */
+    setTimeout(function() {
+      try {
+        if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+          var engine = AudioEngine.getInstance();
+          engine._listenRoomEvents && engine._listenRoomEvents(roomId);
+        }
+      } catch (e) {}
+    }, 300);
+  };
+})();
+
+/* ── Oda Modal Join butonuna nefes entegrasyonu ── */
+(function() {
+  /* Room modal render edilince join butonuna hook ekle */
+  var _origOpen = window.openRoomModal;
+  window.openRoomModal = function(roomId) {
+    if (_origOpen) _origOpen(roomId);
+
+    setTimeout(function() {
+      var joinBtn = document.querySelector('#room-modal .rm-join-btn');
+      if (!joinBtn || joinBtn._phase10breath) return;
+      joinBtn._phase10breath = true;
+
+      joinBtn.addEventListener('click', function() {
+        /* AudioEngine room sync dinleyicisini başlat */
+        try {
+          if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+            var eng = AudioEngine.getInstance();
+            if (eng._listenRoomEvents) eng._listenRoomEvents(roomId);
+          }
+        } catch(e) {}
+      });
+    }, 100);
+  };
+})();
+
+/* ── Host Ses Değiştirme Fonksiyonu (Host için) ── */
+window.hostSyncAudio = function(roomId, audioConfig) {
+  if (!roomId || !audioConfig) return;
+  try {
+    if (typeof RoomManager !== 'undefined') {
+      RoomManager.syncRoomAudio(roomId, audioConfig);
+      window.SanctuaryToast && window.SanctuaryToast.success(
+        audioConfig.base + ' Hz · ' + audioConfig.gen,
+        '🎵 Oda sesi güncellendi'
+      );
+    }
+  } catch(e) {
+    console.warn('[hostSyncAudio] Hata:', e);
+  }
+};
+
+console.info('[Sanctuary] 10. Aşama — Nefes-Aura Senkronizasyonu & Room Audio Köprüsü hazır ✓');
 (function() {
   var _origSubmit = document.getElementById('btnSubmitRoom');
   function _hookSubmit() {
