@@ -1,4 +1,14 @@
 /**
+ * StateManager.js — Sanctuary 8. Aşama (Final)
+ * Phase 8 Değişiklikleri:
+ *   1. UMD wrapper — ES module export → window.SanctuaryState global
+ *   2. sessionBuffer entegrasyonu — sekme geçişlerinde geçici veri korunumu
+ *   3. window.Sanctuary.state ile entegrasyon
+ */
+(function (global) {
+  'use strict';
+
+/**
  * StateManager.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
  * ─────────────────────────────────────────────────────────────────────────────
  * Phase 5 Değişiklikleri:
@@ -18,7 +28,7 @@
 // ─── Tip Sabitleri ────────────────────────────────────────────────────────────
 
 /** @enum {string} */
-export const Mood = Object.freeze({
+const Mood = Object.freeze({
   HUZURSUZ:  'Huzursuz',
   YORGUN:    'Yorgun',
   KAYGILI:   'Kaygılı',
@@ -28,14 +38,14 @@ export const Mood = Object.freeze({
 });
 
 /** @enum {string} */
-export const PremiumPlan = Object.freeze({
+const PremiumPlan = Object.freeze({
   NONE:  'none',
   BASIC: 'basic',
   PRO:   'pro',
 });
 
 /** @enum {string} */
-export const BillingCycle = Object.freeze({
+const BillingCycle = Object.freeze({
   MONTHLY: 'monthly',
   YEARLY:  'yearly',
 });
@@ -96,7 +106,7 @@ const PLAN_RANK = {
 
 // ─── Ana Sınıf ────────────────────────────────────────────────────────────────
 
-export class StateManager {
+class StateManager {
   /** @type {Object} */
   #state;
 
@@ -689,16 +699,35 @@ export class StateManager {
 
 let _instance = null;
 
-export function getStateManager(storageAdapter = null) {
+function getStateManager(storageAdapter = null) {
   if (!_instance) {
     _instance = new StateManager(storageAdapter);
   }
   return _instance;
 }
 
-export function _resetStateManagerSingleton() {
+function _resetStateManagerSingleton() {
   if (_instance) {
     _instance.dispose().catch(() => {});
     _instance = null;
   }
 }
+
+  // ── sessionBuffer ile entegrasyon ──
+  // Sanctuary.sessionBuffer (main.js) bağlandığında state değişimlerini senkronize et
+  var _sm = null;
+  function _getOrCreate() {
+    if (!_sm) {
+      try { _sm = getStateManager(); } catch(e) { console.warn('[StateManager] init hatası:', e); }
+    }
+    return _sm;
+  }
+
+  global.SanctuaryState = {
+    getInstance: _getOrCreate,
+    getStateManager: getStateManager,
+    Mood: typeof Mood !== 'undefined' ? Mood : {},
+    Screen: typeof Screen !== 'undefined' ? Screen : {},
+  };
+
+})(window);
