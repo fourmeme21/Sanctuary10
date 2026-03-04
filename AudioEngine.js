@@ -1,5 +1,5 @@
 /**
- * AudioEngine.js — Sanctuary 11. Aşama (Safari/iOS Uyumluluğu)
+ * AudioEngine.js — Sanctuary 12. Aşama (Safari/iOS Uyumluluğu)
  * ─────────────────────────────────────────────────────────────────────────────
  * Değişiklikler (Phase 6):
  *   1. Safari ses politikası: ilk kullanıcı etkileşiminde AudioContext.resume()
@@ -405,11 +405,20 @@ class AmbientProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super(options);
     this.generator = 'wind';
-    this.phase     = 0;
+    this.phase     = 0;      /* PHASE 12 — her zaman sıfır ile başla, NaN'a karşı güvenli */
     this.active    = true;
     this.port.onmessage = ({ data }) => {
-      if (data.type === 'init')  { this.generator = data.generator || 'wind'; }
-      if (data.type === 'param') { Object.assign(this, data); }
+      if (data.type === 'init') {
+        const newGen = data.generator || 'wind';
+        /* Generator değiştiğinde phase'i sıfırla — geçiş anında 'pop' engellenir */
+        if (newGen !== this.generator) { this.phase = 0; }
+        this.generator = newGen;
+      }
+      if (data.type === 'param') {
+        /* generator değişimi varsa phase sıfırla */
+        if (data.generator && data.generator !== this.generator) { this.phase = 0; }
+        Object.assign(this, data);
+      }
       if (data.type === 'stop')  { this.active = false; }
       if (data.type === 'play')  { this.active = true; }
       if (data.type === 'pause') { this.active = false; }
@@ -418,17 +427,45 @@ class AmbientProcessor extends AudioWorkletProcessor {
 
   process(inputs, outputs) {
     const out = outputs[0];
+    if (!out || out.length === 0) return true;
+
+    /* NaN koruması — sampleRate geçersizse sessiz çıkış ver */
+    const sr = typeof sampleRate === 'number' && isFinite(sampleRate) && sampleRate > 0
+      ? sampleRate : 44100;
+
     for (let ch = 0; ch < out.length; ch++) {
       const channel = out[ch];
+      if (!channel) continue;
       for (let i = 0; i < channel.length; i++) {
         if (!this.active) { channel[i] = 0; continue; }
+
+        /* phase hiçbir zaman NaN olmasın */
+        if (!isFinite(this.phase)) this.phase = 0;
+
+        let sample = 0;
         switch (this.generator) {
-          case 'rain':   channel[i] = (Math.random() * 2 - 1) * 0.22; break;
-          case 'waves':  channel[i] = Math.sin(this.phase * 0.0008) * 0.18 + (Math.random() * 2 - 1) * 0.06; break;
-          case 'fire':   channel[i] = (Math.random() * 2 - 1) * 0.14 * (0.8 + Math.sin(this.phase * 0.003) * 0.2); break;
-          default:       channel[i] = (Math.random() * 2 - 1) * 0.14 * Math.abs(Math.sin(this.phase * 0.0002));
+          case 'rain':
+            sample = (Math.random() * 2 - 1) * 0.22;
+            break;
+          case 'waves':
+            sample = Math.sin(this.phase * (0.0008 * 44100 / sr)) * 0.18
+                   + (Math.random() * 2 - 1) * 0.06;
+            break;
+          case 'fire':
+            sample = (Math.random() * 2 - 1) * 0.14
+                   * (0.8 + Math.sin(this.phase * (0.003 * 44100 / sr)) * 0.2);
+            break;
+          default: /* wind */
+            sample = (Math.random() * 2 - 1) * 0.14
+                   * Math.abs(Math.sin(this.phase * (0.0002 * 44100 / sr)));
         }
+
+        /* Çıkış örneğini [-1, 1] aralığına sıkıştır */
+        channel[i] = Math.max(-1, Math.min(1, isFinite(sample) ? sample : 0));
         this.phase++;
+
+        /* phase taşmasını önle (2^31 sınırında sıfırla) */
+        if (this.phase > 2147483647) this.phase = 0;
       }
     }
     return true;
@@ -623,6 +660,9 @@ class AudioEngine {
     }
 
     this._emit('scriptLoaded', { scene: script.scene, trackCount: incoming.size });
+    /* PHASE 12 — Frekansı kaydet (getFrequency() için) */
+    const baseTrack = script.tracks?.find(t => t.baseFreq || t.type === 'binaural');
+    if (baseTrack?.baseFreq) this._currentFreq = baseTrack.baseFreq;
     return script;
   }
 
@@ -793,6 +833,39 @@ class AudioEngine {
   get masterVolume() { return this._masterGain?.gain.value ?? 0; }
   get activeLayers() { return Array.from(this._layers.keys()); }
   get contextState() { return this._ctx?.state ?? 'closed'; }
+
+  /* ── PHASE 12: Frekans ve Ses Seviyesi Erişim Metodları ──── */
+
+  /**
+   * Mevcut temel frekansı döndürür.
+   * loadScript() çağrıldığında _currentFreq güncellenir.
+   */
+  getFrequency() {
+    return this._currentFreq ?? 432;
+  }
+
+  /**
+   * Temel frekansı değiştirir — binaural beat layer'larına parametre olarak gönderir.
+   * @param {number} hz — yeni temel frekans (Hz)
+   */
+  setFrequency(hz) {
+    const freq = isFinite(hz) && hz > 0 ? hz : 432;
+    this._currentFreq = freq;
+    this._layers.forEach((layer) => {
+      if (layer.type === 'binaural') {
+        layer.setParameter('baseFreq', freq);
+      }
+    });
+    this._emit('frequencyChange', { frequency: freq });
+  }
+
+  /**
+   * Mevcut master volume değerini döndürür (0–1 arası).
+   * masterVolume getter ile aynı işlev; harici kod için alias.
+   */
+  getMasterVolume() {
+    return this._masterGain?.gain.value ?? 0;
+  }
 
   /* ── Background Audio ────────────────────────────────────── */
 
