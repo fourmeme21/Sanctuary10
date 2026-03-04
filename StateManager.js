@@ -731,3 +731,111 @@ function _resetStateManagerSingleton() {
   };
 
 })(window);
+
+/* ═══════════════════════════════════════════════════════════
+   9. AŞAMA — logActivity & stats
+═══════════════════════════════════════════════════════════ */
+
+window.SanctuaryStats = (function() {
+  var STORAGE_KEY = 'sanctuary_activity_log';
+
+  function _load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } 
+    catch(e) { return []; }
+  }
+
+  function _save(log) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(log.slice(-100))); } 
+    catch(e) {}
+  }
+
+  var MOOD_COLORS = {
+    'Sakin':     '#6ecdc4',
+    'Kaygılı':   '#9b8ec4',
+    'Minnettar': '#c9a96e',
+    'Huzursuz':  '#7a8fc4',
+    'Mutsuz':    '#c48ea0',
+    'Yorgun':    '#8ec4b0',
+  };
+
+  return {
+    logActivity: function(type, duration, mood) {
+      var log = _load();
+      log.push({
+        type: type || 'session',
+        duration: duration || 0,
+        mood: mood || localStorage.getItem('lastMood') || 'Sakin',
+        ts: Date.now(),
+        date: new Date().toISOString().slice(0,10),
+      });
+      _save(log);
+      // Toplam istatistikleri güncelle
+      try {
+        var total = parseInt(localStorage.getItem('totalMinutes') || '0');
+        localStorage.setItem('totalMinutes', total + Math.round((duration||0)/60));
+        var sessions = parseInt(localStorage.getItem('sessionCount') || '0');
+        localStorage.setItem('sessionCount', sessions + 1);
+      } catch(e) {}
+    },
+
+    getLast7Days: function() {
+      var log = _load();
+      var result = [];
+      for (var i = 6; i >= 0; i--) {
+        var d = new Date();
+        d.setDate(d.getDate() - i);
+        var dateStr = d.toISOString().slice(0,10);
+        var dayName = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][d.getDay()];
+        var entries = log.filter(function(e) { return e.date === dateStr; });
+        var totalMin = entries.reduce(function(s, e) { return s + Math.round((e.duration||0)/60); }, 0);
+        var moods = entries.map(function(e) { return e.mood; });
+        var topMood = moods.length ? moods[moods.length-1] : null;
+        result.push({ date: dateStr, day: dayName, minutes: totalMin, mood: topMood, count: entries.length });
+      }
+      return result;
+    },
+
+    getStreak: function() {
+      var log = _load();
+      if (!log.length) return 0;
+      var streak = 0;
+      var today = new Date().toISOString().slice(0,10);
+      for (var i = 0; i < 30; i++) {
+        var d = new Date();
+        d.setDate(d.getDate() - i);
+        var dateStr = d.toISOString().slice(0,10);
+        if (log.some(function(e) { return e.date === dateStr; })) streak++;
+        else if (i > 0) break;
+      }
+      return streak;
+    },
+
+    getPersonalizedMessage: function() {
+      var streak = this.getStreak();
+      var mood = localStorage.getItem('lastMood') || '';
+      var sessions = parseInt(localStorage.getItem('sessionCount') || '0');
+      if (streak >= 7) return '🔥 ' + streak + '. gününde! Ritmine bak, ne kadar güçlü.';
+      if (streak >= 3) return '✨ Bugün ' + streak + '. huzur günün. Devam et!';
+      if (mood === 'Yorgun' && sessions > 5) return '🌙 Bugün dinlenme günün. Kendine nazik ol.';
+      if (mood === 'Kaygılı') return '🌊 Nefes al. Her şey geçici, sen kalıcısın.';
+      if (sessions === 0) return '🌱 İlk adımı atmışsın. Buradan yalnızca büyüme var.';
+      return '🕯 Burada olman yeterli. Devam et.';
+    },
+
+    getSmartFreqSuggestion: function(mood) {
+      var map = {
+        'Yorgun':    { freq: 432, gen: 'binaural', beat: 4, label: '432 Hz — Derin dinlenme' },
+        'Kaygılı':   { freq: 528, gen: 'binaural', beat: 6, label: '528 Hz — Hücre onarımı' },
+        'Mutsuz':    { freq: 396, gen: 'rain',     beat: 5, label: '396 Hz — Özgürleşme' },
+        'Huzursuz':  { freq: 180, gen: 'waves',    beat: 6, label: '180 Hz — Sakinleşme' },
+        'Sakin':     { freq: 432, gen: 'binaural', beat: 7, label: '432 Hz — Derin huzur' },
+        'Minnettar': { freq: 528, gen: 'rain',     beat:10, label: '528 Hz — Şükran' },
+      };
+      return map[mood] || map['Sakin'];
+    },
+
+    getMoodColor: function(mood) { return MOOD_COLORS[mood] || '#7a7890'; },
+    getLog: function() { return _load(); },
+    clearLog: function() { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} },
+  };
+})();
