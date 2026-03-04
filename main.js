@@ -1740,7 +1740,7 @@ window.openRoomModal = function(roomId) {
   if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz · ' + (cfg.gen||'') : '—';
 
   modal.style.display = 'flex';
-  requestAnimationFrame(function(){ modal.classList.add('show'); });
+  requestAnimationFrame(function(){ modal.classList.add('open'); });
   document.body.style.overflow = 'hidden';
 
   // Odaya katılınca sesi senkronize et
@@ -1791,7 +1791,7 @@ function _createRoomModal() {
 window.closeRoomModal = function() {
   var m = document.getElementById('room-modal');
   if (!m) return;
-  m.classList.remove('show');
+  m.classList.remove('open');
   setTimeout(function(){ m.style.display='none'; document.body.style.overflow=''; }, 350);
 };
 
