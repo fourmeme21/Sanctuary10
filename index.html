@@ -3360,6 +3360,122 @@ _gen-canvas {
 .smart-suggest-icon{font-size:16px;flex-shrink:0;}
 .smart-suggest-text{font-size:12px;color:var(--text-dim);line-height:1.55;font-style:italic;}
 
+
+/* ═══════════════════════════════════════
+   10. AŞAMA — Avatar Aura, Reaksiyonlar
+═══════════════════════════════════════ */
+
+/* ── Aura Küreleri ── */
+.room-auras {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 8px 0 4px;
+}
+.aura-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: rgba(110,205,196,0.5);
+  border: 1px solid rgba(110,205,196,0.3);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+.aura-dot.breathing {
+  animation: aura-pulse 4s ease-in-out infinite;
+  background: rgba(110,205,196,0.9);
+  box-shadow: 0 0 6px rgba(110,205,196,0.7), 0 0 12px rgba(110,205,196,0.3);
+}
+.aura-dot.aura-more {
+  background: rgba(122,120,144,0.3);
+  border-color: rgba(122,120,144,0.2);
+  font-size: 7px;
+  color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+  width: auto; padding: 0 4px; border-radius: 6px; height: 10px;
+}
+@keyframes aura-pulse {
+  0%, 100% { transform: scale(1);   opacity: 0.6; }
+  50%       { transform: scale(1.6); opacity: 1;   }
+}
+
+/* ── Floating Reaksiyonlar ── */
+.floating-reaction {
+  position: absolute;
+  font-size: 22px;
+  animation: float-up var(--dur, 2s) ease-out forwards;
+  pointer-events: none;
+  user-select: none;
+}
+@keyframes float-up {
+  0%   { transform: translateY(0) scale(1);    opacity: 1; }
+  60%  { transform: translateY(-80px) scale(1.2); opacity: 0.8; }
+  100% { transform: translateY(-160px) scale(0.6); opacity: 0; }
+}
+
+/* ── Reaksiyon Butonları ── */
+.rm-reaction-bar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin: 12px 0;
+}
+.reaction-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 50%;
+  width: 42px; height: 42px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.reaction-btn:active {
+  transform: scale(0.85);
+  background: rgba(255,255,255,0.12);
+}
+
+/* ── Oda Modal ── */
+.room-modal-sheet {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rm-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-prime);
+  margin: 0;
+}
+.rm-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.rm-freq-wrap {
+  font-size: 11px;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+  padding: 8px 12px;
+  background: rgba(201,169,110,0.08);
+  border-radius: 10px;
+  border: 1px solid rgba(201,169,110,0.15);
+}
+.rm-join-btn {
+  margin-top: 4px;
+  width: 100%;
+}
+.room-reactions { min-height: 4px; }
+
 </style>
 
 
@@ -6803,6 +6919,495 @@ window.showAnalytics = function(){
   });
 };
 </script>
+<script>
+/**
+ * RoomManager.js — Sanctuary 10. Aşama (Senkronize Odalar & Canlı Etkileşim)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Phase 10 Değişiklikleri:
+ *   1. syncRoomAudio()   — Host ses değişince tüm katılımcılara broadcast
+ *   2. Avatar Aura       — Katılımcı nefes durumu takibi
+ *   3. Reaksiyon sistemi — Emoji tabanlı floating reaksiyonlar
+ *   4. Host devri        — Host ayrılınca otomatik atama
+ *   5. UMD wrapper       — ES module yerine window.RoomManager global
+ */
+(function(global) {
+  'use strict';
+
+  /* ── Şifre Hash ── */
+  function hashPassword(pw) {
+    if (!pw) return '';
+    try { return btoa('sanctuary::' + pw); }
+    catch(e) { return btoa(encodeURIComponent('sanctuary::' + pw)); }
+  }
+
+  /* ── ID Üretici ── */
+  function generateRoomId(type) {
+    var prefix = type === 'private' ? 'PRIV' : type === 'guru' ? 'GURU' : 'GRUP';
+    var d = new Date();
+    var datePart = String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var rand = Array.from({length:4}, function(){ return chars[Math.floor(Math.random()*chars.length)]; }).join('');
+    return prefix + '-' + datePart + '-' + rand;
+  }
+
+  /* ── Demo Oda Verisi ── */
+  var DEMO_ROOMS = [
+    { id:'GRUP-0304-AAA1', type:'public', name:'Gece Odak Seansı',   hostId:'user_zeynep', participants:['user_zeynep','u2','u3','u4','u5'], capacity:8,  password:null, category:'odak',       isActive:true, createdAt:Date.now()-3600000, audioConfig:{gen:'binaural',base:40,beat:10} },
+    { id:'GRUP-0304-BBB2', type:'public', name:'Derin Uyku Rituali', hostId:'user_mert',   participants:['user_mert','u6'],                  capacity:6,  password:null, category:'uyku',       isActive:true, createdAt:Date.now()-7200000, audioConfig:{gen:'rain',base:174,beat:3}    },
+    { id:'GRUP-0304-CCC3', type:'public', name:'Sabah Meditasyonu',  hostId:'user_selin',  participants:['user_selin','u7','u8'],             capacity:10, password:null, category:'meditasyon', isActive:true, createdAt:Date.now()-1800000, audioConfig:{gen:'waves',base:432,beat:7}   },
+    { id:'GRUP-0304-DDD4', type:'public', name:'432 Hz Şifa Odası',  hostId:'user_ayse',   participants:['user_ayse','u9','u10','u11','u12','u13','u14','u15','u16'], capacity:12, password:null, category:'meditasyon', isActive:true, createdAt:Date.now()-900000, audioConfig:{gen:'binaural',base:432,beat:7} },
+    { id:'GRUP-0304-EEE5', type:'public', name:'Çalışma Müziği',     hostId:'user_can',    participants:['user_can','u17','u18','u19','u20','u21'], capacity:20, password:null, category:'odak', isActive:true, createdAt:Date.now()-600000, audioConfig:{gen:'wind',base:40,beat:10} },
+    { id:'PRIV-0304-FFF6', type:'private',name:'Özel Seans',         hostId:'user_nilufer',participants:['user_nilufer','u22'], capacity:4, password:hashPassword('demo'), category:'uyku', isActive:true, createdAt:Date.now()-300000, audioConfig:{gen:'rain',base:528,beat:6} },
+  ];
+
+  /* ── Broadcast Simülasyonu ── */
+  var _listeners = {};
+  function _broadcast(event, data) {
+    var handlers = _listeners[event] || [];
+    handlers.forEach(function(fn){ try { fn(data); } catch(e){} });
+    // Diğer sekmelere de gönder (cross-tab simülasyon)
+    try { localStorage.setItem('sanctuary_room_event', JSON.stringify({event:event,data:data,ts:Date.now()})); } catch(e){}
+  }
+
+  function _on(event, fn) {
+    if (!_listeners[event]) _listeners[event] = [];
+    _listeners[event].push(fn);
+  }
+
+  /* ── Storage ── */
+  var _rooms = null;
+  function _load() {
+    if (_rooms) return _rooms;
+    try {
+      var stored = localStorage.getItem('sanctuary_rooms');
+      if (stored) { _rooms = JSON.parse(stored); return _rooms; }
+    } catch(e) {}
+    // Demo odaları yükle
+    _rooms = {};
+    DEMO_ROOMS.forEach(function(r){ _rooms[r.id] = r; });
+    _persist();
+    return _rooms;
+  }
+
+  function _persist() {
+    try { localStorage.setItem('sanctuary_rooms', JSON.stringify(_rooms)); } catch(e) {}
+  }
+
+  /* ── Katılımcı Host Adları ── */
+  var HOST_NAMES = {
+    'user_zeynep':'Zeynep A.','user_mert':'Mert K.','user_selin':'Selin T.',
+    'user_ayse':'Ayşe D.','user_can':'Can B.','user_nilufer':'Nilüfer Y.',
+  };
+  function _hostName(id) { return HOST_NAMES[id] || (id ? id.replace('user_','').replace('_',' ') : 'Misafir'); }
+
+  /* ── Nefes Durumu ── */
+  var _breathingUsers = {};
+  function _setBreathing(userId, isBreathing) {
+    _breathingUsers[userId] = isBreathing;
+    _broadcast('breath_update', {userId:userId, breathing:isBreathing});
+  }
+
+  /* ── Ana API ── */
+  var RoomManager = {
+
+    on: _on,
+
+    getRooms: function() { return _load(); },
+
+    getPublicRooms: function(category) {
+      var rooms = _load();
+      return Object.values(rooms).filter(function(r){
+        return r.isActive && (!category || category==='all' || r.category===category);
+      }).map(function(r){ return Object.assign({}, r, {current: r.participants.length}); });
+    },
+
+    getRoomById: function(id) {
+      var r = _load()[id]; 
+      return r ? Object.assign({}, r, {current:r.participants.length}) : null;
+    },
+
+    createRoom: function(opts) {
+      opts = opts || {};
+      var rooms = _load();
+      var room = {
+        id: generateRoomId(opts.type||'public'),
+        type: opts.type||'public',
+        name: opts.name||'Yeni Oda',
+        hostId: opts.hostId||'user_local',
+        participants: [opts.hostId||'user_local'],
+        capacity: opts.capacity||10,
+        password: opts.type==='private' ? hashPassword(opts.password) : null,
+        category: opts.category||'genel',
+        isActive: true,
+        createdAt: Date.now(),
+        audioConfig: opts.audioConfig||{gen:'binaural',base:432,beat:7},
+      };
+      rooms[room.id] = room;
+      _rooms = rooms;
+      _persist();
+      _broadcast('room_created', room);
+      return {success:true, room:room};
+    },
+
+    joinRoom: function(roomId, password) {
+      var rooms = _load();
+      var room = rooms[roomId];
+      if (!room) return {success:false, error:'Oda bulunamadı.'};
+      if (!room.isActive) return {success:false, error:'Oda aktif değil.'};
+      if (room.participants.length >= room.capacity) return {success:false, error:'Oda dolu.'};
+      if (room.type==='private' && room.password) {
+        if (hashPassword(password) !== room.password) return {success:false, error:'Şifre yanlış.'};
+      }
+      var userId = 'user_local';
+      if (!room.participants.includes(userId)) {
+        room.participants = room.participants.concat([userId]);
+        _rooms = rooms;
+        _persist();
+        _broadcast('user_joined', {roomId:roomId, userId:userId});
+      }
+      return {success:true, room:room};
+    },
+
+    leaveRoom: function(roomId) {
+      var rooms = _load();
+      var room = rooms[roomId];
+      if (!room) return {success:false, error:'Oda bulunamadı.'};
+      var userId = 'user_local';
+      room.participants = room.participants.filter(function(id){ return id!==userId; });
+      var result = {success:true, deleted:false, newHost:null};
+      if (room.participants.length === 0) {
+        delete rooms[roomId];
+        result.deleted = true;
+      } else if (room.hostId === userId) {
+        room.hostId = room.participants[0];
+        result.newHost = room.hostId;
+        _broadcast('host_changed', {roomId:roomId, newHost:room.hostId});
+      }
+      _rooms = rooms;
+      _persist();
+      return result;
+    },
+
+    /* ── Senkronize Ses (10. Aşama) ── */
+    syncRoomAudio: function(roomId, audioConfig) {
+      var rooms = _load();
+      var room = rooms[roomId];
+      if (!room) return;
+      room.audioConfig = audioConfig;
+      _rooms = rooms;
+      _persist();
+      _broadcast('audio_sync', {roomId:roomId, audioConfig:audioConfig});
+      // Yerel ses motorunu güncelle
+      if (global.switchSound && audioConfig) {
+        global.switchSound(audioConfig.gen, audioConfig.base, audioConfig.beat, audioConfig.label||'');
+      }
+    },
+
+    /* ── Nefes Durumu ── */
+    setBreathing: function(roomId, userId, isBreathing) {
+      _setBreathing(userId, isBreathing);
+    },
+
+    isBreathing: function(userId) {
+      return !!_breathingUsers[userId];
+    },
+
+    /* ── Host Adı ── */
+    getHostName: function(hostId) { return _hostName(hostId); },
+
+    buildRoomCard: function(room) {
+      var cnt = room.participants.length;
+      return {
+        id:room.id, name:room.name, category:room.category,
+        type:room.type, hostId:room.hostId,
+        hostName: _hostName(room.hostId),
+        isPrivate: room.type==='private',
+        isLive: room.isActive,
+        current: cnt, capacity: room.capacity,
+        capacityFill: Math.min(1, cnt/room.capacity),
+        isFull: cnt>=room.capacity,
+        audioConfig: room.audioConfig||{},
+      };
+    },
+
+    reset: function() {
+      _rooms = null;
+      try { localStorage.removeItem('sanctuary_rooms'); } catch(e) {}
+    },
+  };
+
+  global.RoomManager = RoomManager;
+
+  // Cross-tab sync dinle
+  try {
+    global.addEventListener('storage', function(e) {
+      if (e.key === 'sanctuary_rooms') { _rooms = null; }
+    });
+  } catch(e) {}
+
+})(window);
+
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   10. AŞAMA — Senkronize Odalar, Avatar Aura, Reaksiyonlar
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Oda Render (RoomManager entegreli) ── */
+window.renderRooms = function(filter) {
+  var grid = document.getElementById('roomsGrid');
+  if (!grid) return;
+  var rm = window.RoomManager;
+  if (!rm) return;
+
+  var rooms = rm.getPublicRooms(filter || 'all');
+  grid.innerHTML = '';
+
+  if (!rooms.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
+    return;
+  }
+
+  var catLabels = {odak:'🎯 Odak', uyku:'😴 Uyku', meditasyon:'🧘 Meditasyon', doga:'🌿 Doğa', genel:'✨ Genel'};
+
+  rooms.forEach(function(room) {
+    var card = rm.buildRoomCard(room);
+    var pct = Math.round(card.capacityFill * 100);
+    var initials = card.hostName.split(' ').map(function(w){ return w[0]||''; }).join('').slice(0,2).toUpperCase();
+
+    var el = document.createElement('div');
+    el.className = 'room-card';
+    el.setAttribute('data-room-id', card.id);
+    el.innerHTML =
+      '<div class="card-top">' +
+        '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
+        (card.isPrivate ? '<span class="badge-private">🔒 Özel</span>' : '') +
+      '</div>' +
+      '<div class="room-name">' + card.name + '</div>' +
+      '<div class="room-category">' + (catLabels[card.category]||card.category) + '</div>' +
+      '<div class="room-auras" id="auras-' + card.id + '">' + _buildAuras(room) + '</div>' +
+      '<div class="card-footer">' +
+        '<div class="host-info">' +
+          '<div class="host-avatar">' + initials + '</div>' +
+          '<span class="host-name">' + card.hostName + '</span>' +
+        '</div>' +
+        '<div class="capacity-bar-wrap">' +
+          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' kişi</div>' +
+          '<div class="capacity-bar"><div class="capacity-fill" style="width:' + pct + '%"></div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="room-reactions" id="reactions-' + card.id + '"></div>';
+
+    el.addEventListener('click', function(e) {
+      if (e.target.classList.contains('reaction-btn')) return;
+      window.openRoomModal && window.openRoomModal(card.id);
+    });
+
+    grid.appendChild(el);
+  });
+};
+
+function _buildAuras(room) {
+  var html = '';
+  var shown = room.participants.slice(0,5);
+  shown.forEach(function(uid, i) {
+    var breathing = window.RoomManager && window.RoomManager.isBreathing(uid);
+    html += '<div class="aura-dot' + (breathing ? ' breathing' : '') + '" title="' + uid + '"></div>';
+  });
+  if (room.participants.length > 5) {
+    html += '<div class="aura-dot aura-more">+' + (room.participants.length-5) + '</div>';
+  }
+  return html;
+}
+
+/* ── Oda Modal ── */
+window.openRoomModal = function(roomId) {
+  var rm = window.RoomManager;
+  if (!rm) return;
+  var room = rm.getRoomById(roomId);
+  if (!room) return;
+
+  var modal = document.getElementById('room-modal');
+  if (!modal) {
+    modal = _createRoomModal();
+    document.body.appendChild(modal);
+  }
+
+  var card = rm.buildRoomCard(room);
+  modal.querySelector('.rm-title').textContent = card.name;
+  modal.querySelector('.rm-host').textContent = '🎙 Host: ' + card.hostName;
+  modal.querySelector('.rm-count').textContent = card.current + '/' + card.capacity + ' katılımcı';
+  modal.setAttribute('data-room-id', roomId);
+
+  // Ses senkronizasyonu
+  var cfg = room.audioConfig || {};
+  var freqEl = modal.querySelector('.rm-freq');
+  if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz · ' + (cfg.gen||'') : '—';
+
+  modal.style.display = 'flex';
+  requestAnimationFrame(function(){ modal.classList.add('show'); });
+  document.body.style.overflow = 'hidden';
+
+  // Odaya katılınca sesi senkronize et
+  var joinBtn = modal.querySelector('.rm-join-btn');
+  if (joinBtn) {
+    joinBtn.onclick = function() {
+      var res = rm.joinRoom(roomId);
+      if (res.success && res.room.audioConfig && window.switchSound) {
+        var a = res.room.audioConfig;
+        window.switchSound(a.gen, a.base, a.beat, a.label||'');
+        try{localStorage.setItem('lastGen',a.gen);localStorage.setItem('lastBase',a.base);localStorage.setItem('lastBeat',a.beat);}catch(e){}
+      }
+      window.closeRoomModal && window.closeRoomModal();
+    };
+  }
+};
+
+function _createRoomModal() {
+  var m = document.createElement('div');
+  m.id = 'room-modal';
+  m.className = 'modal-overlay';
+  m.style.display = 'none';
+  m.innerHTML =
+    '<div class="modal-sheet room-modal-sheet">' +
+      '<div class="modal-handle-bar"></div>' +
+      '<div class="rm-header">' +
+        '<h3 class="rm-title"></h3>' +
+        '<button class="modal-close-btn" onclick="window.closeRoomModal()">✕</button>' +
+      '</div>' +
+      '<div class="rm-meta">' +
+        '<span class="rm-host"></span>' +
+        '<span class="rm-count"></span>' +
+      '</div>' +
+      '<div class="rm-freq-wrap">🎵 <span class="rm-freq"></span></div>' +
+      '<div class="rm-reaction-bar">' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'❤️\')">❤️</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'✨\')">✨</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'🙏\')">🙏</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'🌊\')">🌊</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'🔥\')">🔥</button>' +
+      '</div>' +
+      '<button class="rm-join-btn cta-btn">✦ Odaya Katıl</button>' +
+    '</div>';
+  m.addEventListener('click', function(e){ if(e.target===m) window.closeRoomModal(); });
+  return m;
+}
+
+window.closeRoomModal = function() {
+  var m = document.getElementById('room-modal');
+  if (!m) return;
+  m.classList.remove('show');
+  setTimeout(function(){ m.style.display='none'; document.body.style.overflow=''; }, 350);
+};
+
+/* ── Floating Reaksiyon Sistemi ── */
+window.sendReaction = function(emoji) {
+  var container = document.getElementById('reaction-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'reaction-container';
+    container.style.cssText = 'position:fixed;bottom:120px;left:0;right:0;pointer-events:none;z-index:9999;';
+    document.body.appendChild(container);
+  }
+
+  for (var i = 0; i < 3; i++) {
+    (function(delay) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.className = 'floating-reaction';
+        el.textContent = emoji;
+        el.style.left = (20 + Math.random() * 60) + '%';
+        el.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+        container.appendChild(el);
+        setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
+      }, delay);
+    })(i * 200);
+  }
+};
+
+/* ── Filtre bar güncelle ── */
+(function() {
+  function _initRooms() {
+    window.renderRooms('all');
+    var bar = document.getElementById('roomFilterBar');
+    if (bar) {
+      bar.addEventListener('click', function(e) {
+        var chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        bar.querySelectorAll('.filter-chip').forEach(function(c){ c.classList.remove('active'); });
+        chip.classList.add('active');
+        window.renderRooms(chip.getAttribute('data-filter'));
+      });
+    }
+
+    // RoomManager event'lerini dinle
+    if (window.RoomManager) {
+      window.RoomManager.on('audio_sync', function(data) {
+        // Host ses değiştirdi — bildirim göster
+        var toast = document.getElementById('notif-toast');
+        if (toast) {
+          var t = toast.querySelector('.nt-title');
+          var b = toast.querySelector('.nt-body');
+          if (t) t.textContent = '🎵 Host sesi güncelledi';
+          if (b) b.textContent = (data.audioConfig.base||'') + ' Hz · ' + (data.audioConfig.gen||'');
+          toast.classList.add('show');
+          setTimeout(function(){ toast.classList.remove('show'); }, 3000);
+        }
+      });
+
+      window.RoomManager.on('host_changed', function(data) {
+        window.renderRooms && window.renderRooms('all');
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initRooms);
+  } else {
+    setTimeout(_initRooms, 300);
+  }
+})();
+
+/* ── Oda Oluşturma Modal Submit ── */
+(function() {
+  var _origSubmit = document.getElementById('btnSubmitRoom');
+  function _hookSubmit() {
+    var btn = document.getElementById('btnSubmitRoom');
+    if (!btn || btn._phase10) return;
+    btn._phase10 = true;
+    btn.addEventListener('click', function() {
+      var name = (document.getElementById('roomName')||{}).value;
+      if (!name || !name.trim()) { var ni=document.getElementById('roomName'); if(ni)ni.focus(); return; }
+      var category = (document.getElementById('roomCategory')||{}).value || 'genel';
+      var isPriv = !!(document.querySelector('.type-btn.selected') && document.querySelector('.type-btn.selected').getAttribute('data-type')==='private');
+      var cap = parseInt((document.getElementById('capValue')||{}).textContent||'10') || 10;
+      var pwd = isPriv ? ((document.getElementById('roomPassword')||{}).value||'') : null;
+
+      var res = window.RoomManager && window.RoomManager.createRoom({
+        type: isPriv ? 'private' : 'public',
+        name: name.trim(),
+        hostId: 'user_local',
+        capacity: cap,
+        password: pwd,
+        category: category,
+        audioConfig: {gen:'binaural', base:432, beat:7},
+      });
+
+      window.renderRooms && window.renderRooms('all');
+      var modal = document.getElementById('createRoomModal');
+      if (modal) modal.style.display = 'none';
+      var ni = document.getElementById('roomName'); if(ni) ni.value='';
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _hookSubmit);
+  } else {
+    setTimeout(_hookSubmit, 500);
+  }
+})();
+
+</script>
+
 <script>
 /* ══════════════════════════════════════════════════
    SANCTUARY — GENERATIVE BACKGROUND ENGINE
