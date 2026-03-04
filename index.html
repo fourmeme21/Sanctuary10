@@ -4601,6 +4601,84 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('createRoomModal').addEventListener('click', function(e) {
     if (e.target === this) this.style.display = 'none';
   });
+
+  // ── CANLI ODALAR ──
+  var ROOMS_DATA = [
+    { id:1, name:'Gece Odak Seansı',    category:'odak',       host:'Zeynep A.', capacity:8,  joined:5, live:true,  priv:false },
+    { id:2, name:'Derin Uyku Rituali',  category:'uyku',       host:'Mert K.',   capacity:6,  joined:6, live:true,  priv:false },
+    { id:3, name:'Sabah Meditasyonu',   category:'meditasyon', host:'Selin T.',  capacity:10, joined:3, live:true,  priv:false },
+    { id:4, name:'432 Hz Şifa Odası',   category:'meditasyon', host:'Ayşe D.',   capacity:12, joined:9, live:true,  priv:false },
+    { id:5, name:'Çalışma Müziği',      category:'odak',       host:'Can B.',    capacity:20, joined:11,live:true,  priv:false },
+    { id:6, name:'Özel Seans',          category:'uyku',       host:'Nilüfer Y.',capacity:4,  joined:2, live:true,  priv:true  },
+  ];
+
+  var _activeFilter = 'all';
+
+  function renderRooms(filter) {
+    var grid = document.getElementById('roomsGrid');
+    if (!grid) return;
+    var filtered = filter === 'all' ? ROOMS_DATA : ROOMS_DATA.filter(function(r) {
+      return r.category === filter || (filter === 'tr' && true);
+    });
+    grid.innerHTML = '';
+    filtered.forEach(function(room) {
+      var pct = Math.round(room.joined / room.capacity * 100);
+      var initials = room.host.split(' ').map(function(w){ return w[0]; }).join('').slice(0,2);
+      var catLabels = { odak:'🎯 Odak', uyku:'😴 Uyku', meditasyon:'🧘 Meditasyon', doga:'🌿 Doğa' };
+      var card = document.createElement('div');
+      card.className = 'room-card';
+      card.innerHTML =
+        '<div class="card-top">' +
+          '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
+          (room.priv ? '<span class="badge-private"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Özel</span>' : '') +
+        '</div>' +
+        '<div class="room-name">' + room.name + '</div>' +
+        '<div class="room-category">' + (catLabels[room.category] || room.category) + '</div>' +
+        '<div class="card-footer">' +
+          '<div class="host-info">' +
+            '<div class="host-avatar">' + initials + '</div>' +
+            '<span class="host-name">' + room.host + '</span>' +
+          '</div>' +
+          '<div class="capacity-bar-wrap">' +
+            '<div class="capacity-text">' + room.joined + '/' + room.capacity + ' kişi</div>' +
+            '<div class="capacity-bar"><div class="capacity-fill" style="width:' + pct + '%"></div></div>' +
+          '</div>' +
+        '</div>';
+      card.addEventListener('click', function() {
+        alert('🎵 "' + room.name + '" odasına katılıyorsunuz...');
+      });
+      grid.appendChild(card);
+    });
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
+    }
+  }
+
+  renderRooms('all');
+
+  // Filtre butonları
+  document.getElementById('roomFilterBar').addEventListener('click', function(e) {
+    var chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+    document.querySelectorAll('.filter-chip').forEach(function(c){ c.classList.remove('active'); });
+    chip.classList.add('active');
+    _activeFilter = chip.getAttribute('data-filter');
+    renderRooms(_activeFilter);
+  });
+
+  // Oda oluşturma formu submit
+  document.getElementById('btnSubmitRoom').removeEventListener('click', function(){});
+  document.getElementById('btnSubmitRoom').onclick = function() {
+    var name = document.getElementById('roomName').value.trim();
+    if (!name) { document.getElementById('roomName').focus(); return; }
+    var category = document.getElementById('roomCategory').value;
+    var isPrivate = document.querySelector('.type-btn.selected')?.getAttribute('data-type') === 'private';
+    var cap = parseInt(document.getElementById('capValue').textContent);
+    ROOMS_DATA.unshift({ id: Date.now(), name: name, category: category, host: 'Sen', capacity: cap, joined: 1, live: true, priv: isPrivate });
+    renderRooms(_activeFilter);
+    document.getElementById('createRoomModal').style.display = 'none';
+    document.getElementById('roomName').value = '';
+  };
 });
 
 // ========== DİĞER ==========
