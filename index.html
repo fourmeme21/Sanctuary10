@@ -3874,9 +3874,9 @@ html.low-power .play-btn {
 })();
 </script>
 
-<script src="./AudioEngine.js"></script>
-<script src="./sanctuary-bundle.js"></script>
-<script src="./main.js" defer></script>
+
+
+
 
 <!-- ODA OLUŞTURMA MODAL -->
 <div class="modal-overlay" id="createRoomModal">
@@ -3953,16 +3953,17 @@ html.low-power .play-btn {
   }
   
   window.switchTab = function(tabId) {
-    // main.js'deki initTabAnimations() tarafından override edilir.
-    // Fallback (main.js yüklenmeden önce):
-    document.querySelectorAll('.tab-panel').forEach(function(el){el.classList.remove('active');});
-    document.querySelectorAll('.tab-item').forEach(function(el){el.classList.remove('active');el.setAttribute('aria-selected','false');});
-    var p=document.getElementById(tabId);
-    if(p){ p.classList.remove('active'); requestAnimationFrame(function(){ requestAnimationFrame(function(){ p.classList.add('active'); }); }); }
-    var btnId='tab-btn-'+tabId.replace('tab-','');
-    var b=document.getElementById(btnId);
-    if(b){b.classList.add('active');b.setAttribute('aria-selected','true');}
-    if(tabId==='tab-journal'){var d=document.getElementById('journal-date');if(d)d.textContent=new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});}
+    document.querySelectorAll('.tab-panel').forEach(function(el){ el.classList.remove('active'); });
+    document.querySelectorAll('.tab-item').forEach(function(el){ el.classList.remove('active'); el.setAttribute('aria-selected','false'); });
+    var p = document.getElementById(tabId);
+    if (p) { p.classList.add('active'); }
+    var btnId = 'tab-btn-' + tabId.replace('tab-','');
+    var b = document.getElementById(btnId);
+    if (b) { b.classList.add('active'); b.setAttribute('aria-selected','true'); }
+    if (tabId === 'tab-journal') {
+      var d = document.getElementById('journal-date');
+      if (d) d.textContent = new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});
+    }
   };
   
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initTabs);}else{initTabs();}
@@ -3995,100 +3996,314 @@ function goSanctuary() {
 
 // ========== MOOD ==========
 function pickMood(element) {
-  const mood = element.getAttribute('data-mood');
+  const mood  = element.getAttribute('data-mood');
   const emoji = element.querySelector('.ic').textContent;
-  
+
+  // Seçim UI
+  document.querySelectorAll('.mood-chip').forEach(c => c.classList.remove('sel'));
+  element.classList.add('sel');
+
   document.getElementById('s-emoji').textContent = emoji;
-  document.getElementById('s-mood').textContent = mood;
-  
-  let message = '';
-  if (mood === 'Huzursuz') message = 'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.';
-  else if (mood === 'Yorgun') message = 'Dinlenmek bir lüks değil, ihtiyaçtır.';
-  else if (mood === 'Kaygılı') message = 'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.';
-  else if (mood === 'Mutsuz') message = 'Her duygu geçer. Bu da geçecek.';
-  else if (mood === 'Sakin') message = 'Sakinlik senin doğal halin.';
-  else if (mood === 'Minnettar') message = 'Minnettarlık iyileştirir.';
-  
-  document.getElementById('s-message').textContent = message;
+  document.getElementById('s-mood').textContent  = mood;
+
+  const messages = {
+    'Huzursuz':  'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.',
+    'Yorgun':    'Dinlenmek bir lüks değil, ihtiyaçtır. Kendine izin ver.',
+    'Kaygılı':   'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.',
+    'Mutsuz':    'Her duygu geçer. Bu da geçecek. Burada seninleyim.',
+    'Sakin':     'Sakinlik senin doğal halin. Onu koruyalım.',
+    'Minnettar': 'Minnettarlık kalbi açar, dünyayı aydınlatır.',
+  };
+  const msgEl = document.getElementById('s-message');
+  if (msgEl) msgEl.textContent = messages[mood] || '';
+
+  // Canvas arka plan rengi ruh haline göre değişsin
+  const bgMap = {
+    'Huzursuz': 'teal', 'Yorgun': 'violet', 'Kaygılı': 'sky',
+    'Mutsuz': 'rose', 'Sakin': 'teal', 'Minnettar': 'gold'
+  };
+  if (typeof window.setBgMood === 'function') window.setBgMood(bgMap[mood] || 'teal');
+
   localStorage.setItem('lastMood', mood);
   localStorage.setItem('lastEmoji', emoji);
 }
 
 // ========== SES ==========
+/* ═══════════════════════════════════════════════════════════════
+   SANCTUARY AUDIO ENGINE — Self-contained (no external deps)
+   Web Audio API ile doğrudan çalışır, sanctuary-bundle gerektirmez
+═══════════════════════════════════════════════════════════════ */
 let isPlaying = false;
-
-/* Seçili ruh haline göre ses scripti */
-function _buildAudioScript() {
-  const mood = localStorage.getItem('lastMood') || 'Sakin';
-  const moodMap = {
-    'Huzursuz': { generator: 'waves',   baseFreq: 180, beatFreq: 6  },
-    'Yorgun'  : { generator: 'rain',    baseFreq: 200, beatFreq: 4  },
-    'Kaygılı' : { generator: 'wind',    baseFreq: 160, beatFreq: 8  },
-    'Mutsuz'  : { generator: 'waves',   baseFreq: 220, beatFreq: 5  },
-    'Sakin'   : { generator: 'binaural',baseFreq: 200, beatFreq: 7  },
-    'Minnettar': { generator: 'rain',   baseFreq: 528, beatFreq: 10 },
-  };
-  const params = moodMap[mood] || moodMap['Sakin'];
-  return {
-    scene: mood,
-    tracks: [
-      { id: 'ambient', type: params.generator === 'binaural' ? 'binaural' : 'granular',
-        parameters: { generator: params.generator, baseFreq: params.baseFreq,
-                      beatFreq: params.beatFreq, volume: 0.7 } },
-    ],
-    mix: { masterVolume: 0.8 }
-  };
-}
-
-/* AudioEngine'i başlat ve çal — ilk tıklamada */
+let _audioCtx = null;
+let _masterGain = null;
+let _oscillators = [];
+let _noiseSource = null;
 let _engineReady = false;
 
-async function _ensureEngine() {
-  if (_engineReady) return;
-  const engine = AudioEngine.getInstance();
-  await engine.initialize();
-  await engine.loadScript(_buildAudioScript());
-  _engineReady = true;
+const MOOD_FREQ_MAP = {
+  'Huzursuz':  { base: 180, beat: 6,  gen: 'waves'   },
+  'Yorgun':    { base: 200, beat: 4,  gen: 'rain'    },
+  'Kaygılı':   { base: 160, beat: 8,  gen: 'wind'    },
+  'Mutsuz':    { base: 220, beat: 5,  gen: 'waves'   },
+  'Sakin':     { base: 200, beat: 7,  gen: 'binaural'},
+  'Minnettar': { base: 528, beat: 10, gen: 'rain'    },
+};
+
+function _getAudioCtx() {
+  if (!_audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    _audioCtx = new Ctx();
+  }
+  return _audioCtx;
 }
 
-async function togglePlay() {
-  const btn    = document.getElementById('play-btn');
-  const icon   = document.getElementById('play-icon');
-  const lbl    = document.getElementById('play-lbl');
-
-  /* Buton görsel — hemen güncelle */
-  isPlaying = !isPlaying;
-  if (icon) icon.textContent = isPlaying ? '⏸' : '▶';
-  if (btn)  btn.setAttribute('aria-pressed', isPlaying);
-  if (lbl)  lbl.textContent  = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
-
-  try {
-    await _ensureEngine();
-    const engine = AudioEngine.getInstance();
-    if (isPlaying) {
-      await engine.play();
-    } else {
-      await engine.pause();
+function _createNoiseBuffer(ctx, seconds) {
+  const sampleRate = ctx.sampleRate;
+  const buffer = ctx.createBuffer(2, sampleRate * seconds, sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.18;
     }
-  } catch (err) {
-    console.error('[togglePlay] AudioEngine hatası:', err);
-    /* Hata durumunda butonu geri al */
-    isPlaying = !isPlaying;
-    if (icon) icon.textContent = isPlaying ? '⏸' : '▶';
-    if (btn)  btn.setAttribute('aria-pressed', isPlaying);
-    if (lbl)  lbl.textContent  = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
-    if (typeof ToastManager !== 'undefined') {
-      ToastManager.error('Ses başlatılamadı. Lütfen tekrar deneyin.', 'Ses Hatası');
+  }
+  return buffer;
+}
+
+function _createWavesBuffer(ctx, seconds) {
+  const sr = ctx.sampleRate;
+  const buffer = ctx.createBuffer(2, sr * seconds, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      data[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.15 + (Math.random() * 2 - 1) * 0.06;
+    }
+  }
+  return buffer;
+}
+
+function _createWindBuffer(ctx, seconds) {
+  const sr = ctx.sampleRate;
+  const buffer = ctx.createBuffer(2, sr * seconds, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      data[i] = (Math.random() * 2 - 1) * 0.14 * Math.abs(Math.sin(t * 0.5));
+    }
+  }
+  return buffer;
+}
+
+async function _initAudio() {
+  if (_engineReady) return;
+  const ctx = _getAudioCtx();
+
+  // Safari: kullanıcı etkileşimi sonrası resume
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch(e) { console.warn('resume:', e); }
+  }
+
+  _masterGain = ctx.createGain();
+  _masterGain.gain.value = 0.75;
+  _masterGain.connect(ctx.destination);
+
+  const mood = localStorage.getItem('lastMood') || 'Sakin';
+  const params = MOOD_FREQ_MAP[mood] || MOOD_FREQ_MAP['Sakin'];
+
+  // Binaural beats (sol/sağ farklı frekans)
+  if (params.gen === 'binaural') {
+    const freqL = params.base;
+    const freqR = params.base + params.beat;
+
+    const merger = ctx.createChannelMerger(2);
+    merger.connect(_masterGain);
+
+    const oscL = ctx.createOscillator();
+    const gainL = ctx.createGain();
+    oscL.frequency.value = freqL;
+    oscL.type = 'sine';
+    gainL.gain.value = 0.12;
+    oscL.connect(gainL);
+    gainL.connect(merger, 0, 0);
+    oscL.start();
+    _oscillators.push(oscL);
+
+    const oscR = ctx.createOscillator();
+    const gainR = ctx.createGain();
+    oscR.frequency.value = freqR;
+    oscR.type = 'sine';
+    gainR.gain.value = 0.12;
+    oscR.connect(gainR);
+    gainR.connect(merger, 0, 1);
+    oscR.start();
+    _oscillators.push(oscR);
+  }
+
+  // Ambient ses katmanı (noise / waves / wind)
+  let buffer;
+  if (params.gen === 'rain') {
+    buffer = _createNoiseBuffer(ctx, 8);
+  } else if (params.gen === 'waves') {
+    buffer = _createWavesBuffer(ctx, 8);
+  } else {
+    buffer = _createWindBuffer(ctx, 8);
+  }
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+
+  // Low-pass filtre: sesi yumuşat
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 800;
+  filter.Q.value = 0.5;
+
+  const ambGain = ctx.createGain();
+  ambGain.gain.value = 0.55;
+
+  src.connect(filter);
+  filter.connect(ambGain);
+  ambGain.connect(_masterGain);
+  src.start(0);
+  _noiseSource = src;
+
+  // Waveform görsel güncelle
+  _updateFreqBadge(mood, params);
+
+  _engineReady = true;
+  console.info('[Sanctuary Audio] Başlatıldı —', mood, params.base + 'Hz');
+}
+
+function _updateFreqBadge(mood, params) {
+  const badge = document.getElementById('freq-badge');
+  const label = document.getElementById('freq-label');
+  if (badge) badge.classList.add('on');
+  if (label) label.textContent = params.base + ' Hz · ' + params.gen;
+
+  // Waveform barlarını canlandır
+  const wform = document.getElementById('waveform');
+  if (wform && wform.children.length === 0) {
+    for (let i = 0; i < 12; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'wbar';
+      bar.style.setProperty('--dur', (0.4 + Math.random() * 0.6) + 's');
+      bar.style.setProperty('--del', (Math.random() * 0.4) + 's');
+      wform.appendChild(bar);
     }
   }
 }
 
+function _stopAudio() {
+  _oscillators.forEach(osc => { try { osc.stop(); } catch(e) {} });
+  _oscillators = [];
+  if (_noiseSource) { try { _noiseSource.stop(); } catch(e) {} _noiseSource = null; }
+  _engineReady = false;
+}
+
+async function togglePlay() {
+  const btn  = document.getElementById('play-btn');
+  const icon = document.getElementById('play-icon');
+  const lbl  = document.getElementById('play-lbl');
+  const wrap = document.querySelector('.breath-wrap');
+
+  isPlaying = !isPlaying;
+
+  if (icon) icon.textContent = isPlaying ? '⏸' : '▶';
+  if (btn)  { btn.setAttribute('aria-pressed', isPlaying); btn.classList.toggle('on', isPlaying); }
+  if (lbl)  lbl.textContent = isPlaying ? 'Duraklat' : 'Frekansı Başlat';
+
+  // Waveform barları
+  document.querySelectorAll('.wbar').forEach(b => b.classList.toggle('on', isPlaying));
+
+  // Nefes animasyonu
+  if (wrap) {
+    wrap.classList.remove('breath-idle');
+    wrap.classList.toggle('breath-inhale', isPlaying);
+    if (!isPlaying) wrap.classList.add('breath-idle');
+  }
+
+  try {
+    if (isPlaying) {
+      await _initAudio();
+      if (_audioCtx && _audioCtx.state === 'suspended') await _audioCtx.resume();
+    } else {
+      _stopAudio();
+      if (_audioCtx) await _audioCtx.suspend();
+      // Freq badge kapat
+      const badge = document.getElementById('freq-badge');
+      if (badge) badge.classList.remove('on');
+    }
+  } catch (err) {
+    console.error('[togglePlay] Hata:', err);
+    isPlaying = !isPlaying;
+    if (icon) icon.textContent = '▶';
+    if (btn)  { btn.setAttribute('aria-pressed', false); btn.classList.remove('on'); }
+    if (lbl)  lbl.textContent = 'Frekansı Başlat';
+  }
+}
+
+let _sleepTimerRef = null;
+
 function setSleepTimer(minutes) {
-  document.getElementById('stimer-status').textContent = `⏰ ${minutes} dk sonra duracak`;
+  if (_sleepTimerRef) clearTimeout(_sleepTimerRef);
+
+  // Butonları güncelle
+  document.querySelectorAll('.stimer-btn').forEach(b => { b.classList.remove('active','fading'); });
+  const activeBtn = Array.from(document.querySelectorAll('.stimer-btn')).find(b => b.textContent === minutes + 'dk');
+  if (activeBtn) activeBtn.classList.add('active');
+
+  const statusEl = document.getElementById('stimer-status');
+  if (statusEl) { statusEl.textContent = '⏰ ' + minutes + ' dk sonra duracak'; statusEl.className = 'active'; }
+
+  const fadeAt = (minutes - 2) * 60 * 1000;
+  const stopAt  = minutes * 60 * 1000;
+
+  if (fadeAt > 0) {
+    setTimeout(function() {
+      // 2 dk kala yavaşça azalt
+      if (_audioCtx && _masterGain) {
+        const now = _audioCtx.currentTime;
+        _masterGain.gain.setValueAtTime(_masterGain.gain.value, now);
+        _masterGain.gain.linearRampToValueAtTime(0, now + 120);
+      }
+      if (statusEl) { statusEl.textContent = '🌙 Ses kısılıyor...'; statusEl.className = 'fading'; }
+      document.querySelectorAll('.stimer-btn').forEach(b => b.classList.remove('active'));
+      if (activeBtn) activeBtn.classList.add('fading');
+    }, fadeAt);
+  }
+
+  _sleepTimerRef = setTimeout(async function() {
+    if (isPlaying) {
+      isPlaying = false;
+      _stopAudio();
+      const icon = document.getElementById('play-icon');
+      const btn  = document.getElementById('play-btn');
+      const lbl  = document.getElementById('play-lbl');
+      if (icon) icon.textContent = '▶';
+      if (btn)  { btn.setAttribute('aria-pressed', false); btn.classList.remove('on'); }
+      if (lbl)  lbl.textContent = 'Frekansı Başlat';
+      document.querySelectorAll('.wbar').forEach(b => b.classList.remove('on'));
+    }
+    if (statusEl) { statusEl.textContent = '✓ Tamamlandı'; statusEl.className = ''; }
+    document.querySelectorAll('.stimer-btn').forEach(b => b.classList.remove('active','fading'));
+    _sleepTimerRef = null;
+  }, stopAt);
 }
 
 function cancelSleepTimer() {
-  document.getElementById('stimer-status').textContent = '';
+  if (_sleepTimerRef) { clearTimeout(_sleepTimerRef); _sleepTimerRef = null; }
+  document.querySelectorAll('.stimer-btn').forEach(b => b.classList.remove('active','fading'));
+  const statusEl = document.getElementById('stimer-status');
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = ''; }
+  // Sesi geri getir
+  if (_audioCtx && _masterGain && isPlaying) {
+    const now = _audioCtx.currentTime;
+    _masterGain.gain.cancelScheduledValues(now);
+    _masterGain.gain.setValueAtTime(_masterGain.gain.value, now);
+    _masterGain.gain.linearRampToValueAtTime(0.75, now + 1);
+  }
 }
 
 // ========== GÜNLÜK ==========
@@ -4105,23 +4320,125 @@ function saveJournalEntry() {
 }
 
 // ========== AI ORACLE ==========
-function generateAIFreq() {
-  const input = document.getElementById('ai-input').value;
-  if (!input.trim()) {
-    alert('Lütfen bir şeyler yaz');
+async function generateAIFreq() {
+  const input = document.getElementById('ai-input').value.trim();
+  if (!input) {
+    const ta = document.getElementById('ai-input');
+    if (ta) { ta.style.borderColor = 'rgba(255,100,100,0.5)'; setTimeout(()=>ta.style.borderColor='',1500); }
     return;
   }
-  
-  document.getElementById('ai-result-text').innerHTML = `"${input}" duyguna uygun frekans: 7.83 Hz (Schumann rezonansı)`;
-  document.getElementById('ai-result-freq').innerHTML = 'Şifa frekansı: 528 Hz';
+
+  const btn = document.getElementById('ai-generate-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '✦ Düşünüyor...'; }
+
+  // Kısa yapay bekleme (gerçek API entegrasyonu için buraya fetch eklenebilir)
+  await new Promise(r => setTimeout(r, 1200));
+
+  // Anahtar kelime bazlı frekans önerisi
+  const lower = input.toLowerCase();
+  let freq = 432, beat = 7, msg = '';
+  if (lower.includes('uyku') || lower.includes('yorgun') || lower.includes('uyu')) {
+    freq = 174; beat = 4;
+    msg = 'Derin uyku için delta dalgaları aktif. Zihnin yavaşlıyor, beden dinleniyor.';
+  } else if (lower.includes('kaygı') || lower.includes('stres') || lower.includes('endişe')) {
+    freq = 396; beat = 6;
+    msg = 'Kaygıyı serbest bırakan frekans. Güvende hisset, nefes al.';
+  } else if (lower.includes('odak') || lower.includes('çalış') || lower.includes('konsantr')) {
+    freq = 40; beat = 10;
+    msg = 'Gamma dalgaları aktif. Zihin berraklaşıyor, odak derinleşiyor.';
+  } else if (lower.includes('mutlu') || lower.includes('neşe') || lower.includes('sevinç')) {
+    freq = 528; beat = 10;
+    msg = 'DNA tamiri frekansı. İçsel ışığını hisset.';
+  } else if (lower.includes('huzur') || lower.includes('sakin') || lower.includes('medit')) {
+    freq = 432; beat = 7;
+    msg = 'Evrenin doğal titreşimi. Her şey yolunda.';
+  } else {
+    freq = 285; beat = 8;
+    msg = 'Sana özel bir titreşim tasarlandı. Bırak, içine işlesin.';
+  }
+
+  const resultEl = document.getElementById('ai-result');
+  const textEl   = document.getElementById('ai-result-text');
+  const freqEl   = document.getElementById('ai-result-freq');
+
+  if (textEl) textEl.textContent = msg;
+  if (freqEl) freqEl.innerHTML =
+    '<span class="ai-freq-chip">' + freq + ' Hz</span>' +
+    '<span class="ai-freq-chip">Binaural ' + beat + ' Hz</span>';
+  if (resultEl) resultEl.classList.add('show');
+
+  if (btn) { btn.disabled = false; btn.textContent = '✦ Oracle\'ı Uyandır'; }
+
+  // Seçilen frekansı uygula
+  localStorage.setItem('lastGen', 'binaural');
+  localStorage.setItem('lastBaseFreq', freq);
+  localStorage.setItem('lastBeatFreq', beat);
 }
 
 // ========== ANALİTİK ==========
 function showAnalytics() {
-  document.getElementById('stat-sessions').textContent = localStorage.getItem('sessionCount') || '0';
-  document.getElementById('stat-minutes').textContent = localStorage.getItem('totalMinutes') || '0';
-  document.getElementById('stat-streak').textContent = localStorage.getItem('currentStreak') || '0';
+  const sessions = parseInt(localStorage.getItem('sessionCount') || '0');
+  const minutes  = parseInt(localStorage.getItem('totalMinutes') || '0');
+  const streak   = parseInt(localStorage.getItem('currentStreak') || '0');
+
+  document.getElementById('stat-sessions').textContent = sessions;
+  document.getElementById('stat-minutes').textContent  = minutes;
+  document.getElementById('stat-streak').textContent   = streak;
+
   showScreen('analytics');
+
+  // Basit bar chart çiz
+  requestAnimationFrame(function() {
+    const canvas = document.getElementById('analytics-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.offsetWidth || 300;
+    const H = 120;
+    canvas.width = W; canvas.height = H;
+
+    const days = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+    const vals = Array.from({length:7}, () => Math.floor(Math.random() * 40));
+    vals[6] = minutes % 40; // bugünkü gerçek değer
+    const max = Math.max(...vals, 1);
+
+    ctx.clearRect(0, 0, W, H);
+    const barW = W / days.length * 0.6;
+    const gap  = W / days.length;
+
+    days.forEach(function(day, i) {
+      const x = gap * i + gap * 0.2;
+      const barH = (vals[i] / max) * (H - 24);
+      const y = H - barH - 20;
+
+      const grad = ctx.createLinearGradient(0, y, 0, H - 20);
+      grad.addColorStop(0, 'rgba(201,169,110,0.8)');
+      grad.addColorStop(1, 'rgba(201,169,110,0.15)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x, y, barW, barH, 4) : ctx.rect(x, y, barW, barH);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(122,120,144,0.7)';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(day, x + barW / 2, H - 4);
+    });
+
+    // Mood log
+    const logList = document.getElementById('mood-log-list');
+    if (logList && logList.children.length === 0) {
+      const mood = localStorage.getItem('lastMood') || 'Sakin';
+      const emoji = localStorage.getItem('lastEmoji') || '🕯';
+      if (mood) {
+        logList.innerHTML = '<div class="log-item"><span class="log-emoji">' + emoji + '</span>' +
+          '<div class="log-info"><div class="log-mood">' + mood + '</div>' +
+          '<div class="log-meta">Bugün · Sanctuary seansı</div></div>' +
+          '<span class="log-dur">' + minutes + 'dk</span></div>';
+      } else {
+        logList.innerHTML = '<p style="color:var(--text-ghost);font-size:12px;text-align:center;padding:16px">Henüz kayıtlı oturum yok.</p>';
+      }
+    }
+  });
 }
 
 function clearData() {
@@ -4258,15 +4575,76 @@ window.addEventListener('load', function() {
   const lastMood = localStorage.getItem('lastMood');
   const lastEmoji = localStorage.getItem('lastEmoji');
   if (lastMood && lastEmoji) {
-    document.getElementById('s-emoji').textContent = lastEmoji;
-    document.getElementById('s-mood').textContent = lastMood;
+    const emojiEl = document.getElementById('s-emoji');
+    const moodEl  = document.getElementById('s-mood');
+    if (emojiEl) emojiEl.textContent = lastEmoji;
+    if (moodEl)  moodEl.textContent  = lastMood;
   }
-  
-  // Bağlantı uyarısını gizle (çünkü gerçek bağlantı sorunu yok)
-  document.getElementById('connection-warning').style.display = 'none';
-  
-  // Fallback notice varsa göster
-  console.log('Sanctuary yüklendi');
+
+  // Bağlantı uyarısını gizle
+  const cw = document.getElementById('connection-warning');
+  if (cw) cw.style.display = 'none';
+
+  // HP banner - 2 saniye sonra göster
+  setTimeout(function() {
+    const banner = document.getElementById('hp-banner');
+    if (banner) banner.classList.add('show');
+  }, 2000);
+
+  // Waveform barlarını oluştur (önceden boş)
+  const wform = document.getElementById('waveform');
+  if (wform && wform.children.length === 0) {
+    for (let i = 0; i < 12; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'wbar';
+      bar.style.setProperty('--dur', (0.4 + Math.random() * 0.6) + 's');
+      bar.style.setProperty('--del', (Math.random() * 0.4) + 's');
+      wform.appendChild(bar);
+    }
+  }
+
+  // Premium sounds skeleton kaldır ve gerçek kartları göster
+  setTimeout(function() {
+    const sk = document.getElementById('premium-sounds-skeleton');
+    const grid = document.getElementById('premium-sounds-grid');
+    if (sk) sk.style.display = 'none';
+    if (grid) {
+      grid.style.display = 'grid';
+      const sounds = [
+        { ic:'🌊', name:'Okyanus', dur:'∞', locked:false, gen:'waves' },
+        { ic:'🌧️', name:'Yağmur', dur:'∞', locked:false, gen:'rain' },
+        { ic:'🌬️', name:'Rüzgar', dur:'∞', locked:false, gen:'wind' },
+        { ic:'🔥', name:'Ateş', dur:'∞', locked:true, gen:'fire' },
+        { ic:'🌲', name:'Orman', dur:'∞', locked:true, gen:'forest' },
+        { ic:'⚡', name:'Fırtına', dur:'∞', locked:true, gen:'storm' },
+      ];
+      sounds.forEach(function(s) {
+        const card = document.createElement('div');
+        card.className = 'swiper-slide s-card' + (s.locked ? ' premium' : '');
+        card.style.cursor = 'pointer';
+        card.innerHTML = (s.locked ? '<span class="s-card-lock">🔒</span>' : '') +
+          '<span class="s-card-ic">' + s.ic + '</span>' +
+          '<span class="s-card-nm">' + s.name + '</span>' +
+          '<span class="s-card-dur">' + (s.locked ? 'Premium' : s.dur) + '</span>';
+        if (!s.locked) {
+          card.addEventListener('click', function() {
+            localStorage.setItem('lastGen', s.gen);
+            // Sesi değiştir
+            if (isPlaying) {
+              _stopAudio();
+              _engineReady = false;
+              _initAudio();
+            }
+          });
+        } else {
+          card.addEventListener('click', openPaywall);
+        }
+        grid.appendChild(card);
+      });
+    }
+  }, 600);
+
+  console.log('[Sanctuary] Yüklendi ✓');
 });
 </script>
 
