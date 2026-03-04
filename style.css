@@ -3852,3 +3852,128 @@ html.low-power .spinner {
   width: 100%;
 }
 .room-reactions { min-height: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   11. AŞAMA — Mikro-Etkileşimler (Polishing)
+   Buton & kart hover/touch: hafif parlama + scale
+   GPU-only: transform + box-shadow (composited layer)
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Genel buton parlama efekti ── */
+.cta-btn:hover,
+.cta-btn:focus-visible {
+  box-shadow:
+    0 0 15px rgba(201,169,110,0.45),
+    0 1px 0 rgba(255,220,140,0.35) inset,
+    0 -1px 0 rgba(0,0,0,0.2) inset;
+  transform: translate3d(0, -2px, 0) scale(1.02);
+}
+
+.back-btn:hover,
+.back-btn:focus-visible {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+  box-shadow: 0 0 12px rgba(201,169,110,0.25);
+  transform: translate3d(0, -1px, 0) scale(1.02);
+}
+
+.ai-generate-btn:hover:not(:disabled) {
+  box-shadow: 0 0 15px rgba(110,205,196,0.35), 0 0 30px rgba(155,142,196,0.2);
+  transform: translate3d(0, -2px, 0) scale(1.02);
+}
+
+/* ── Ses kartları (s-card) ── */
+.s-card:hover,
+.s-card:focus-visible {
+  border-color: var(--gold-dim);
+  box-shadow:
+    0 0 15px rgba(201,169,110,0.18),
+    0 1px 0 rgba(255,255,255,0.1) inset;
+  transform: translate3d(0, -3px, 0) scale(1.02);
+}
+
+/* ── Oda kartları (room-card) ── */
+.room-card:hover,
+.room-card:focus-visible {
+  border-color: var(--gold, #d4a853);
+  box-shadow:
+    0 0 15px rgba(201,169,110,0.22),
+    0 8px 32px rgba(0,0,0,0.45);
+  transform: translateY(-3px) scale(1.02);
+}
+
+/* ── Mood chip ── */
+.mood-chip:hover,
+.mood-chip:focus-visible {
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 12px rgba(201,169,110,0.2);
+  transform: translate3d(0, -3px, 0) scale(1.02);
+}
+
+/* ── Play butonu ── */
+.play-btn:hover {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 15px rgba(201,169,110,0.35),
+    0 1px 0 rgba(255,255,255,0.1) inset,
+    0 -1px 0 rgba(0,0,0,0.2) inset;
+}
+
+/* ── Stimer butonları ── */
+.stimer-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+  box-shadow: 0 0 10px rgba(201,169,110,0.18);
+  transform: scale(1.03);
+}
+
+/* ── Reaksiyon butonları ── */
+.reaction-btn:hover {
+  background: rgba(255,255,255,0.10);
+  box-shadow: 0 0 12px rgba(255,255,255,0.12);
+  transform: scale(1.12);
+}
+
+/* ── Filter chip ── */
+.filter-chip:hover {
+  border-color: var(--gold, #d4a853);
+  color: var(--gold, #d4a853);
+  box-shadow: 0 0 10px rgba(201,169,110,0.15);
+  transform: scale(1.03);
+}
+.filter-chip.active {
+  box-shadow: 0 0 12px rgba(201,169,110,0.2);
+}
+
+/* ── Touch cihazlar: :active ile aynı efekti ver ── */
+@media (hover: none) {
+  .cta-btn:active         { transform: scale(0.98); box-shadow: 0 0 10px rgba(201,169,110,0.3); }
+  .s-card:active          { transform: scale(0.98); box-shadow: 0 0 10px rgba(201,169,110,0.15); }
+  .room-card:active       { transform: scale(0.98); box-shadow: 0 0 10px rgba(201,169,110,0.2); }
+  .mood-chip:active       { transform: scale(0.96); }
+  .reaction-btn:active    { transform: scale(0.88); }
+  .filter-chip:active     { transform: scale(0.96); }
+  .stimer-btn:active      { transform: scale(0.95); }
+}
+
+/* ── Low power: mikro-etkileşimleri kapat ── */
+html.low-power .cta-btn:hover,
+html.low-power .s-card:hover,
+html.low-power .room-card:hover,
+html.low-power .mood-chip:hover,
+html.low-power .play-btn:hover,
+html.low-power .reaction-btn:hover,
+html.low-power .filter-chip:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* prefers-reduced-motion: scale/transform'u kaldır */
+@media (prefers-reduced-motion: reduce) {
+  .cta-btn, .s-card, .room-card, .mood-chip,
+  .play-btn, .reaction-btn, .filter-chip, .stimer-btn,
+  .back-btn, .ai-generate-btn {
+    transition: border-color 0.15s, color 0.15s !important;
+    transform: none !important;
+  }
+}
