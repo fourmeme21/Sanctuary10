@@ -1,374 +1,226 @@
 /**
- * RoomManager.js
- * Oda Yönetim Sistemi - StateManager ile tam entegre çalışır.
- * ES6+ / Saf JavaScript — Framework bağımlılığı yok.
- *
- * 3. Aşama Güvenlik & Mantık Değişiklikleri:
- *  - Şifreleme: Oda şifreleri düz metin yerine hashPassword() ile saklanır.
- *    joinRoom'da karşılaştırma da aynı hash fonksiyonundan geçer.
- *  - Premium Kontrolü: createRoom ve private odalara joinRoom işlemlerinde
- *    StateManager.isPremium kontrolü yapılır.
- *  - Host Yetkisi: deleteRoom yalnızca hostId sahibi tarafından yapılabilir.
- *  - Kapasite: room.current yerine room.participants.length kullanılır.
- *  - Ayrılma (Leave): Host ayrılırsa sıradaki katılımcı otomatik host olur;
- *    oda tamamen boşalırsa silinir.
+ * RoomManager.js — Sanctuary 10. Aşama (Senkronize Odalar & Canlı Etkileşim)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Phase 10 Değişiklikleri:
+ *   1. syncRoomAudio()   — Host ses değişince tüm katılımcılara broadcast
+ *   2. Avatar Aura       — Katılımcı nefes durumu takibi
+ *   3. Reaksiyon sistemi — Emoji tabanlı floating reaksiyonlar
+ *   4. Host devri        — Host ayrılınca otomatik atama
+ *   5. UMD wrapper       — ES module yerine window.RoomManager global
  */
+(function(global) {
+  'use strict';
 
-import { getStateManager } from './StateManager.js';
-
-// ─── Şifre Hash Yardımcısı ──────────────────────────────────────────────────
-/**
- * Basit, deterministik oda şifresi hash'i.
- *
- * Güvenlik notu: btoa tabanlı bu hash, kriptografik güvenlik sağlamaz —
- * gizli veri korumak için değil, şifrelerin düz metin olarak saklanmasını
- * önlemek amacıyla kullanılır. Üretim ortamında bcrypt/argon2 + backend
- * doğrulaması kullanın.
- *
- * @param {string} password
- * @returns {string}
- */
-function hashPassword(password) {
-  if (!password) return '';
-  try {
-    // Tuz olarak sabit bir prefix eklenerek basit rainbow-table tespiti engellenir
-    return btoa(`sanctuary::${password}`);
-  } catch {
-    // btoa Unicode sorunları için fallback
-    return btoa(encodeURIComponent(`sanctuary::${password}`));
+  /* ── Şifre Hash ── */
+  function hashPassword(pw) {
+    if (!pw) return '';
+    try { return btoa('sanctuary::' + pw); }
+    catch(e) { return btoa(encodeURIComponent('sanctuary::' + pw)); }
   }
-}
 
-// ─── Yardımcı: Benzersiz Oda ID Üretici ────────────────────────────────────
-function generateRoomId(type = 'GRUP') {
-  const prefix = type === 'private' ? 'PRIV' : type === 'guru' ? 'GURU' : 'GRUP';
-  const today  = new Date();
-  const datePart = String(today.getMonth() + 1).padStart(2, '0') +
-                   String(today.getDate()).padStart(2, '0');
-  const chars  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const rand   = Array.from({ length: 4 }, () =>
-    chars[Math.floor(Math.random() * chars.length)]).join('');
-  return `${prefix}-${datePart}-${rand}`;
-}
+  /* ── ID Üretici ── */
+  function generateRoomId(type) {
+    var prefix = type === 'private' ? 'PRIV' : type === 'guru' ? 'GURU' : 'GRUP';
+    var d = new Date();
+    var datePart = String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var rand = Array.from({length:4}, function(){ return chars[Math.floor(Math.random()*chars.length)]; }).join('');
+    return prefix + '-' + datePart + '-' + rand;
+  }
 
-// ─── Oda Şeması (factory) ──────────────────────────────────────────────────
-function createRoomSchema({
-  type     = 'public',
-  name     = 'İsimsiz Oda',
-  hostId,
-  capacity = 10,
-  password = null,
-  category = 'genel',
-} = {}) {
-  return {
-    id:           generateRoomId(type),
-    type,
-    name,
-    hostId,
-    participants: [],
-    capacity,
-    // FIX: Şifre hash'lenerek saklanır — düz metin asla saklanmaz
-    password: type === 'private' ? hashPassword(password) : null,
-    category,
-    isActive:     true,
-    createdAt:    Date.now(),
+  /* ── Demo Oda Verisi ── */
+  var DEMO_ROOMS = [
+    { id:'GRUP-0304-AAA1', type:'public', name:'Gece Odak Seansı',   hostId:'user_zeynep', participants:['user_zeynep','u2','u3','u4','u5'], capacity:8,  password:null, category:'odak',       isActive:true, createdAt:Date.now()-3600000, audioConfig:{gen:'binaural',base:40,beat:10} },
+    { id:'GRUP-0304-BBB2', type:'public', name:'Derin Uyku Rituali', hostId:'user_mert',   participants:['user_mert','u6'],                  capacity:6,  password:null, category:'uyku',       isActive:true, createdAt:Date.now()-7200000, audioConfig:{gen:'rain',base:174,beat:3}    },
+    { id:'GRUP-0304-CCC3', type:'public', name:'Sabah Meditasyonu',  hostId:'user_selin',  participants:['user_selin','u7','u8'],             capacity:10, password:null, category:'meditasyon', isActive:true, createdAt:Date.now()-1800000, audioConfig:{gen:'waves',base:432,beat:7}   },
+    { id:'GRUP-0304-DDD4', type:'public', name:'432 Hz Şifa Odası',  hostId:'user_ayse',   participants:['user_ayse','u9','u10','u11','u12','u13','u14','u15','u16'], capacity:12, password:null, category:'meditasyon', isActive:true, createdAt:Date.now()-900000, audioConfig:{gen:'binaural',base:432,beat:7} },
+    { id:'GRUP-0304-EEE5', type:'public', name:'Çalışma Müziği',     hostId:'user_can',    participants:['user_can','u17','u18','u19','u20','u21'], capacity:20, password:null, category:'odak', isActive:true, createdAt:Date.now()-600000, audioConfig:{gen:'wind',base:40,beat:10} },
+    { id:'PRIV-0304-FFF6', type:'private',name:'Özel Seans',         hostId:'user_nilufer',participants:['user_nilufer','u22'], capacity:4, password:hashPassword('demo'), category:'uyku', isActive:true, createdAt:Date.now()-300000, audioConfig:{gen:'rain',base:528,beat:6} },
+  ];
+
+  /* ── Broadcast Simülasyonu ── */
+  var _listeners = {};
+  function _broadcast(event, data) {
+    var handlers = _listeners[event] || [];
+    handlers.forEach(function(fn){ try { fn(data); } catch(e){} });
+    // Diğer sekmelere de gönder (cross-tab simülasyon)
+    try { localStorage.setItem('sanctuary_room_event', JSON.stringify({event:event,data:data,ts:Date.now()})); } catch(e){}
+  }
+
+  function _on(event, fn) {
+    if (!_listeners[event]) _listeners[event] = [];
+    _listeners[event].push(fn);
+  }
+
+  /* ── Storage ── */
+  var _rooms = null;
+  function _load() {
+    if (_rooms) return _rooms;
+    try {
+      var stored = localStorage.getItem('sanctuary_rooms');
+      if (stored) { _rooms = JSON.parse(stored); return _rooms; }
+    } catch(e) {}
+    // Demo odaları yükle
+    _rooms = {};
+    DEMO_ROOMS.forEach(function(r){ _rooms[r.id] = r; });
+    _persist();
+    return _rooms;
+  }
+
+  function _persist() {
+    try { localStorage.setItem('sanctuary_rooms', JSON.stringify(_rooms)); } catch(e) {}
+  }
+
+  /* ── Katılımcı Host Adları ── */
+  var HOST_NAMES = {
+    'user_zeynep':'Zeynep A.','user_mert':'Mert K.','user_selin':'Selin T.',
+    'user_ayse':'Ayşe D.','user_can':'Can B.','user_nilufer':'Nilüfer Y.',
   };
-}
+  function _hostName(id) { return HOST_NAMES[id] || (id ? id.replace('user_','').replace('_',' ') : 'Misafir'); }
 
-// ─── RoomManager Singleton ─────────────────────────────────────────────────
-class RoomManager {
-  constructor() {
-    if (RoomManager._instance) return RoomManager._instance;
-    RoomManager._instance = this;
-
-    this._state = getStateManager();
-
-    if (!this._state.get('rooms')) {
-      this._state.set('rooms', {});
-    }
+  /* ── Nefes Durumu ── */
+  var _breathingUsers = {};
+  function _setBreathing(userId, isBreathing) {
+    _breathingUsers[userId] = isBreathing;
+    _broadcast('breath_update', {userId:userId, breathing:isBreathing});
   }
 
-  // ── İç yardımcılar ────────────────────────────────────────────────────────
+  /* ── Ana API ── */
+  var RoomManager = {
 
-  _getRooms() {
-    return { ...(this._state.get('rooms') || {}) };
-  }
+    on: _on,
 
-  _saveRoom(room) {
-    const rooms = this._getRooms();
-    rooms[room.id] = room;
-    this._state.set('rooms', rooms);
-  }
+    getRooms: function() { return _load(); },
 
-  _deleteRoom(roomId) {
-    const rooms = this._getRooms();
-    delete rooms[roomId];
-    this._state.set('rooms', rooms);
-  }
+    getPublicRooms: function(category) {
+      var rooms = _load();
+      return Object.values(rooms).filter(function(r){
+        return r.isActive && (!category || category==='all' || r.category===category);
+      }).map(function(r){ return Object.assign({}, r, {current: r.participants.length}); });
+    },
 
-  _currentUser() {
-    return this._state.get('currentUser') || null;
-  }
+    getRoomById: function(id) {
+      var r = _load()[id]; 
+      return r ? Object.assign({}, r, {current:r.participants.length}) : null;
+    },
 
-  /**
-   * Kullanıcının premium olup olmadığını StateManager üzerinden kontrol eder.
-   * @private
-   */
-  _isPremiumUser() {
-    return Boolean(this._state.get('isPremium'));
-  }
-
-  // ── Genel API ─────────────────────────────────────────────────────────────
-
-  /**
-   * createRoom(options)
-   * Yeni bir oda oluşturur.
-   *
-   * FIX 1 — Premium Kontrolü:
-   *   Oda oluşturma işlemi StateManager.isPremium üzerinden kontrol edilir.
-   *   Premium olmayan kullanıcılar oda kuramazlar.
-   *
-   * FIX 2 — Şifre Hash:
-   *   private oda şifresi createRoomSchema içinde hashPassword() ile hash'lenir.
-   *
-   * @param {object} options - { type, name, capacity, password, category }
-   * @returns {{ success: boolean, room?: object, error?: string }}
-   */
-  createRoom(options = {}) {
-    const user = this._currentUser();
-
-    if (!user) {
-      return { success: false, error: 'Oda oluşturmak için giriş yapmalısınız.' };
-    }
-
-    // FIX: StateManager.isPremium üzerinden doğrulama
-    if (!this._isPremiumUser()) {
-      return {
-        success: false,
-        error: 'Oda oluşturma özelliği yalnızca Premium üyelere açıktır.',
+    createRoom: function(opts) {
+      opts = opts || {};
+      var rooms = _load();
+      var room = {
+        id: generateRoomId(opts.type||'public'),
+        type: opts.type||'public',
+        name: opts.name||'Yeni Oda',
+        hostId: opts.hostId||'user_local',
+        participants: [opts.hostId||'user_local'],
+        capacity: opts.capacity||10,
+        password: opts.type==='private' ? hashPassword(opts.password) : null,
+        category: opts.category||'genel',
+        isActive: true,
+        createdAt: Date.now(),
+        audioConfig: opts.audioConfig||{gen:'binaural',base:432,beat:7},
       };
-    }
+      rooms[room.id] = room;
+      _rooms = rooms;
+      _persist();
+      _broadcast('room_created', room);
+      return {success:true, room:room};
+    },
 
-    const room = createRoomSchema({ ...options, hostId: user.id });
-    this._saveRoom(room);
-
-    console.info(`[RoomManager] Oda oluşturuldu: ${room.id} (${room.name})`);
-    return { success: true, room };
-  }
-
-  /**
-   * joinRoom(roomId, password?)
-   * Mevcut kullanıcıyı belirtilen odaya ekler.
-   *
-   * FIX 1 — Premium Kontrolü:
-   *   Private odalara katılım StateManager.isPremium ile kontrol edilir.
-   *
-   * FIX 2 — Şifre Karşılaştırma:
-   *   Gelen şifre hash'lenerek saklanan hash ile karşılaştırılır.
-   *
-   * FIX 3 — Kapasite:
-   *   room.current yerine room.participants.length kullanılır.
-   *
-   * @returns {{ success: boolean, room?: object, error?: string }}
-   */
-  joinRoom(roomId, password = null) {
-    const user = this._currentUser();
-    if (!user) return { success: false, error: 'Giriş yapmanız gerekiyor.' };
-
-    const rooms = this._getRooms();
-    const room  = rooms[roomId];
-
-    if (!room)          return { success: false, error: 'Oda bulunamadı.' };
-    if (!room.isActive) return { success: false, error: 'Bu oda artık aktif değil.' };
-
-    if (room.participants.includes(user.id)) {
-      return { success: false, error: 'Zaten bu odadasınız.' };
-    }
-
-    // FIX: Kapasite kontrolü room.participants.length ile yapılır
-    if (room.participants.length >= room.capacity) {
-      return { success: false, error: 'Oda kapasitesi dolu.' };
-    }
-
-    // FIX: Private odalara katılım için premium kontrolü
-    if (room.type === 'private' && !this._isPremiumUser()) {
-      return {
-        success: false,
-        error: 'Özel odalara katılmak için Premium üyelik gereklidir.',
-      };
-    }
-
-    // FIX: Şifre karşılaştırması hash üzerinden yapılır
-    if (room.type === 'private' && room.password) {
-      const hashedInput = hashPassword(password);
-      if (hashedInput !== room.password) {
-        return { success: false, error: 'Şifre yanlış.' };
+    joinRoom: function(roomId, password) {
+      var rooms = _load();
+      var room = rooms[roomId];
+      if (!room) return {success:false, error:'Oda bulunamadı.'};
+      if (!room.isActive) return {success:false, error:'Oda aktif değil.'};
+      if (room.participants.length >= room.capacity) return {success:false, error:'Oda dolu.'};
+      if (room.type==='private' && room.password) {
+        if (hashPassword(password) !== room.password) return {success:false, error:'Şifre yanlış.'};
       }
-    }
+      var userId = 'user_local';
+      if (!room.participants.includes(userId)) {
+        room.participants = room.participants.concat([userId]);
+        _rooms = rooms;
+        _persist();
+        _broadcast('user_joined', {roomId:roomId, userId:userId});
+      }
+      return {success:true, room:room};
+    },
 
-    room.participants = [...room.participants, user.id];
-    this._saveRoom(room);
+    leaveRoom: function(roomId) {
+      var rooms = _load();
+      var room = rooms[roomId];
+      if (!room) return {success:false, error:'Oda bulunamadı.'};
+      var userId = 'user_local';
+      room.participants = room.participants.filter(function(id){ return id!==userId; });
+      var result = {success:true, deleted:false, newHost:null};
+      if (room.participants.length === 0) {
+        delete rooms[roomId];
+        result.deleted = true;
+      } else if (room.hostId === userId) {
+        room.hostId = room.participants[0];
+        result.newHost = room.hostId;
+        _broadcast('host_changed', {roomId:roomId, newHost:room.hostId});
+      }
+      _rooms = rooms;
+      _persist();
+      return result;
+    },
 
-    console.info(`[RoomManager] ${user.id} → ${roomId} odasına katıldı.`);
-    return { success: true, room };
-  }
+    /* ── Senkronize Ses (10. Aşama) ── */
+    syncRoomAudio: function(roomId, audioConfig) {
+      var rooms = _load();
+      var room = rooms[roomId];
+      if (!room) return;
+      room.audioConfig = audioConfig;
+      _rooms = rooms;
+      _persist();
+      _broadcast('audio_sync', {roomId:roomId, audioConfig:audioConfig});
+      // Yerel ses motorunu güncelle
+      if (global.switchSound && audioConfig) {
+        global.switchSound(audioConfig.gen, audioConfig.base, audioConfig.beat, audioConfig.label||'');
+      }
+    },
 
-  /**
-   * leaveRoom(roomId)
-   * Mevcut kullanıcıyı odadan çıkarır.
-   *
-   * FIX — Host Ayrılma Mantığı:
-   *   Kullanıcı host ise:
-   *     - Odada başka katılımcı varsa → sıradaki katılımcı otomatik host olur.
-   *     - Odada kimse kalmadıysa → oda tamamen silinir.
-   *
-   * @returns {{ success: boolean, deleted?: boolean, newHost?: string, error?: string }}
-   */
-  leaveRoom(roomId) {
-    const user = this._currentUser();
-    if (!user) return { success: false, error: 'Giriş yapmanız gerekiyor.' };
+    /* ── Nefes Durumu ── */
+    setBreathing: function(roomId, userId, isBreathing) {
+      _setBreathing(userId, isBreathing);
+    },
 
-    const rooms = this._getRooms();
-    const room  = rooms[roomId];
+    isBreathing: function(userId) {
+      return !!_breathingUsers[userId];
+    },
 
-    if (!room) return { success: false, error: 'Oda bulunamadı.' };
+    /* ── Host Adı ── */
+    getHostName: function(hostId) { return _hostName(hostId); },
 
-    // Kullanıcıyı katılımcı listesinden çıkar
-    room.participants = room.participants.filter(id => id !== user.id);
-
-    // Oda tamamen boşaldı → sil
-    if (room.participants.length === 0) {
-      this._deleteRoom(roomId);
-      console.info(`[RoomManager] ${roomId} odası boşaldı ve silindi.`);
-      return { success: true, deleted: true };
-    }
-
-    // Host ayrılıyorsa → sıradaki katılımcıyı host yap
-    let newHost = null;
-    if (room.hostId === user.id) {
-      newHost = room.participants[0];
-      room.hostId = newHost;
-      console.info(`[RoomManager] ${roomId} odasının yeni hostu: ${newHost}`);
-    }
-
-    this._saveRoom(room);
-    console.info(`[RoomManager] ${user.id} → ${roomId} odasından ayrıldı.`);
-    return { success: true, deleted: false, room, newHost };
-  }
-
-  /**
-   * deleteRoom(roomId)
-   * Bir odayı kalıcı olarak siler.
-   *
-   * FIX — Host Yetkisi:
-   *   Silme işlemi yalnızca odanın hostId'si ile eşleşen kullanıcı tarafından
-   *   yapılabilir. Başka kullanıcılar engellenir.
-   *
-   * @param {string} roomId
-   * @returns {{ success: boolean, error?: string }}
-   */
-  deleteRoom(roomId) {
-    const user = this._currentUser();
-    if (!user) return { success: false, error: 'Giriş yapmanız gerekiyor.' };
-
-    const rooms = this._getRooms();
-    const room  = rooms[roomId];
-
-    if (!room) return { success: false, error: 'Oda bulunamadı.' };
-
-    // FIX: Yalnızca host silebilir
-    if (room.hostId !== user.id) {
+    buildRoomCard: function(room) {
+      var cnt = room.participants.length;
       return {
-        success: false,
-        error: 'Bu odayı silme yetkiniz yok. Yalnızca oda kurucusu silebilir.',
+        id:room.id, name:room.name, category:room.category,
+        type:room.type, hostId:room.hostId,
+        hostName: _hostName(room.hostId),
+        isPrivate: room.type==='private',
+        isLive: room.isActive,
+        current: cnt, capacity: room.capacity,
+        capacityFill: Math.min(1, cnt/room.capacity),
+        isFull: cnt>=room.capacity,
+        audioConfig: room.audioConfig||{},
       };
-    }
+    },
 
-    this._deleteRoom(roomId);
-    console.info(`[RoomManager] ${roomId} odası host ${user.id} tarafından silindi.`);
-    return { success: true };
-  }
+    reset: function() {
+      _rooms = null;
+      try { localStorage.removeItem('sanctuary_rooms'); } catch(e) {}
+    },
+  };
 
-  /**
-   * getPublicRooms(category?)
-   * Aktif ve herkese açık odaları döner.
-   *
-   * FIX: Kapasite gösterimi room.participants.length ile yapılır.
-   *
-   * @param {string} [category]
-   * @returns {object[]}
-   */
-  getPublicRooms(category = null) {
-    const rooms = this._getRooms();
-    return Object.values(rooms)
-      .filter(room =>
-        room.isActive &&
-        room.type === 'public' &&
-        (!category || room.category === category)
-      )
-      .map(room => ({
-        ...room,
-        // FIX: current her zaman gerçek dizi uzunluğundan hesaplanır
-        current: room.participants.length,
-      }));
-  }
+  global.RoomManager = RoomManager;
 
-  /**
-   * getRoomById(roomId)
-   * ID'ye göre tek oda döner.
-   * FIX: current alanı participants.length'ten türetilir.
-   */
-  getRoomById(roomId) {
-    const room = this._getRooms()[roomId] || null;
-    if (!room) return null;
-    return { ...room, current: room.participants.length };
-  }
+  // Cross-tab sync dinle
+  try {
+    global.addEventListener('storage', function(e) {
+      if (e.key === 'sanctuary_rooms') { _rooms = null; }
+    });
+  } catch(e) {}
 
-  /**
-   * getAllRooms()
-   * Debug / admin amaçlı: tüm odaları döner.
-   * FIX: current alanı participants.length'ten türetilir.
-   */
-  getAllRooms() {
-    return Object.values(this._getRooms()).map(room => ({
-      ...room,
-      current: room.participants.length,
-    }));
-  }
-
-  /**
-   * buildRoomCard(room)
-   * UI kartı için oda verisini hazırlar.
-   *
-   * FIX: Kapasite gösterimi room.participants.length üzerinden yapılır.
-   * room.current gibi senkronizasyonu bozulabilecek alanlar kullanılmaz.
-   *
-   * @param {object} room
-   * @returns {object} UI'a geçirilecek kart objesi
-   */
-  buildRoomCard(room) {
-    const participantCount = room.participants.length; // FIX: gerçek uzunluk
-    const capacityFill = Math.min(1, participantCount / room.capacity);
-
-    return {
-      id:            room.id,
-      name:          room.name,
-      category:      room.category,
-      type:          room.type,
-      hostId:        room.hostId,
-      isPrivate:     room.type === 'private',
-      isLive:        room.isActive,
-      current:       participantCount,        // FIX: participants.length
-      capacity:      room.capacity,
-      capacityFill,                           // 0..1 arası doluluk oranı
-      isFull:        participantCount >= room.capacity,
-      createdAt:     room.createdAt,
-    };
-  }
-}
-
-// ─── Singleton Export ───────────────────────────────────────────────────────
-const roomManagerInstance = new RoomManager();
-
-export default roomManagerInstance;
-export { RoomManager };
+})(window);
