@@ -1578,9 +1578,12 @@ window.analyzeJournalAndModulate = function(text) {
     if (!mood) return;
     // Akıllı öneri göster
     setTimeout(function() { window.showSmartSuggestion(mood); }, 300);
-    // Aktivite kaydı başlat
+    // Aktivite kaydı başlat — _sessionMood yerine StateManager kullan
     window._sessionStart = Date.now();
-    window._sessionMood = mood;
+    try {
+      var sm = (typeof getStateManager === 'function') ? getStateManager() : null;
+      if (sm && typeof sm.setSelectedMood === 'function') sm.setSelectedMood(mood);
+    } catch(e) {}
     // Kişiselleştirilmiş mesaj güncelle
     setTimeout(window.updatePersonalizedGreeting, 100);
   };
@@ -1611,7 +1614,12 @@ window.analyzeJournalAndModulate = function(text) {
     if (window._sessionStart) {
       var duration = Math.round((Date.now() - window._sessionStart) / 1000);
       if (duration > 10 && window.SanctuaryStats) {
-        window.SanctuaryStats.logActivity('audio', duration, window._sessionMood || localStorage.getItem('lastMood'));
+        window.SanctuaryStats.logActivity('audio', duration, (function() {
+          try {
+            var sm = (typeof getStateManager === 'function') ? getStateManager() : null;
+            return (sm && sm.getSnapshot) ? sm.getSnapshot().mood : localStorage.getItem('lastMood');
+          } catch(e) { return localStorage.getItem('lastMood'); }
+        })());
       }
       window._sessionStart = null;
     }
@@ -1740,7 +1748,7 @@ window.openRoomModal = function(roomId) {
   if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz · ' + (cfg.gen||'') : '—';
 
   modal.style.display = 'flex';
-  requestAnimationFrame(function(){ modal.classList.add('open'); });
+  requestAnimationFrame(function(){ modal.classList.add('show'); });
   document.body.style.overflow = 'hidden';
 
   // Odaya katılınca sesi senkronize et
@@ -1791,7 +1799,7 @@ function _createRoomModal() {
 window.closeRoomModal = function() {
   var m = document.getElementById('room-modal');
   if (!m) return;
-  m.classList.remove('open');
+  m.classList.remove('show');
   setTimeout(function(){ m.style.display='none'; document.body.style.overflow=''; }, 350);
 };
 
