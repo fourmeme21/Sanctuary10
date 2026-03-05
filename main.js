@@ -310,7 +310,7 @@ var NetworkMonitor = (function () {
         '<span class="offline-dot"></span>',
         '<div class="offline-text">',
         '  <span class="offline-title">İnternet Bağlantısı Kesildi</span>',
-        '  <span class="offline-sub">Bağlantı yeniden kurulduğunda devam edecek…</span>',
+        '  <span class="offline-sub">Çevrimdışı Mod Aktif — Temel Sahneler Kullanılabilir</span>',
         '</div>',
         '<span class="offline-icon">📡</span>',
       ].join('');
