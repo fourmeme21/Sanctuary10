@@ -326,3 +326,38 @@
 
 })();
 /* ═══════════════════════════════════════════════════ */
+
+/* ══ ADIM 8: Listener adaptasyonu + syncStart ══ */
+
+  /* applyRemoteState — Host'tan gelen parametreleri uygula */
+  window.applyRemoteState = function(params) {
+    if (!params) return;
+    try {
+      if (params.volume !== undefined) window.setMasterVolume && window.setMasterVolume(params.volume);
+      if (params.gen && params.base) {
+        window.switchSound && window.switchSound(params.gen, params.base, params.beat||0);
+      }
+    } catch(e) { console.warn('[applyRemoteState]', e); }
+  };
+
+  /* syncStart — odadaki herkes aynı anda başlar */
+  window.syncStart = function(timestamp) {
+    var delay = Math.max(0, timestamp - Date.now());
+    setTimeout(function() {
+      if (!window._playing) window.togglePlay && window.togglePlay();
+    }, delay);
+    console.info('[syncStart] delay:', delay, 'ms');
+  };
+
+  /* Ses değişimlerini kaydet (RoomManager yayın için kullanır) */
+  var _origSwitchSound = window.switchSound;
+  window.switchSound = function(gen, base, beat, label) {
+    window._lastGen  = gen;
+    window._lastBase = base;
+    window._lastBeat = beat||0;
+    if (_origSwitchSound) _origSwitchSound.apply(this, arguments);
+    /* Host ise anında yayınla */
+    if (window.RoomManager && window.RoomManager.getRole()==='host') {
+      window.RoomManager.broadcastAudioState();
+    }
+  };
