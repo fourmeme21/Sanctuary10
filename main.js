@@ -2016,3 +2016,74 @@ console.info('[Sanctuary] 10. Aşama — Nefes-Aura Senkronizasyonu & Room Audio
     setTimeout(_hookSubmit, 500);
   }
 })();
+
+/* == ADIM 8: Rol Secimi == */
+(function() {
+  window.showRoleSelector = function() {
+    var existing = document.getElementById('role-selector-modal');
+    if (existing) { existing.style.display = 'flex'; return; }
+    var modal = document.createElement('div');
+    modal.id = 'role-selector-modal';
+    modal.style.cssText = [
+      'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000',
+      'display:flex;flex-direction:column;align-items:center;justify-content:center',
+      'gap:16px;padding:24px'
+    ].join(';');
+
+    var title = document.createElement('h2');
+    title.textContent = 'Odaya Katil';
+    title.style.cssText = 'color:#c9a96e;font-size:22px;margin:0 0 8px';
+    modal.appendChild(title);
+
+    var desc = document.createElement('p');
+    desc.textContent = 'Yonetici olarak oda kur ya da kod girerek katil';
+    desc.style.cssText = 'color:rgba(255,255,255,0.6);font-size:14px;margin:0 0 16px;text-align:center';
+    modal.appendChild(desc);
+
+    var hostBtn = document.createElement('button');
+    hostBtn.textContent = 'Oda Kur (Yonetici)';
+    hostBtn.style.cssText = 'width:100%;max-width:320px;padding:14px;border-radius:14px;background:linear-gradient(135deg,#c9a96e,#a07840);border:none;color:#fff;font-size:16px;cursor:pointer';
+    hostBtn.onclick = window._startAsHost;
+    modal.appendChild(hostBtn);
+
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;width:100%;max-width:320px';
+
+    var inp = document.createElement('input');
+    inp.id = 'room-code-input';
+    inp.placeholder = 'Oda kodu gir...';
+    inp.style.cssText = 'flex:1;padding:12px;border-radius:12px;border:1px solid rgba(201,169,110,0.4);background:rgba(255,255,255,0.05);color:#fff;font-size:15px;letter-spacing:3px;text-transform:uppercase';
+    row.appendChild(inp);
+
+    var joinBtn = document.createElement('button');
+    joinBtn.textContent = 'Katil';
+    joinBtn.style.cssText = 'padding:12px 16px;border-radius:12px;background:rgba(201,169,110,0.15);border:1px solid rgba(201,169,110,0.4);color:#c9a96e;cursor:pointer';
+    joinBtn.onclick = window._joinAsListener;
+    row.appendChild(joinBtn);
+    modal.appendChild(row);
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Vazgec';
+    cancelBtn.style.cssText = 'background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:13px';
+    cancelBtn.onclick = function() { modal.style.display = 'none'; };
+    modal.appendChild(cancelBtn);
+
+    document.body.appendChild(modal);
+  };
+
+  window._startAsHost = function() {
+    var name = 'Sanctuary Odasi ' + new Date().toLocaleTimeString('tr', {hour:'2-digit', minute:'2-digit'});
+    if (window.RoomManager) window.RoomManager.createRoom(name, 'meditasyon', 8);
+    var m = document.getElementById('role-selector-modal');
+    if (m) m.style.display = 'none';
+  };
+
+  window._joinAsListener = function() {
+    var inp = document.getElementById('room-code-input');
+    var code = inp ? inp.value : '';
+    if (!code.trim()) { alert('Lutfen oda kodunu girin.'); return; }
+    if (window.RoomManager) window.RoomManager.joinRoom(code.trim());
+    var m = document.getElementById('role-selector-modal');
+    if (m) m.style.display = 'none';
+  };
+})();
