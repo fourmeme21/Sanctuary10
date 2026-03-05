@@ -27,6 +27,13 @@ const CORE_ASSETS = [
   '/RoomManager.js',
   '/StateManager.js',
   '/AudioEngine.js',
+  '/GranularEngine.js',
+  '/FMSynthesizer.js',
+  '/GeminiAdapter.js',
+  '/SceneInterpreter.js',
+  '/FeedbackCollector.js',
+  '/PreferenceVector.js',
+  '/offline-fallback.json',
   '/manifest.json',
 ];
 
@@ -380,5 +387,29 @@ self.addEventListener('message', function (event) {
         });
       }
       break;
+  }
+});
+
+/* ── Gemini API Offline Fallback ── */
+self.addEventListener('fetch', function(event) {
+  var url = event.request.url;
+  if (url.includes('generativelanguage.googleapis.com')) {
+    event.respondWith(
+      fetch(event.request).catch(function() {
+        return caches.match('/offline-fallback.json').then(function(cached) {
+          if (cached) return cached;
+          return new Response(JSON.stringify({
+            default: {
+              sceneName: 'Çevrimdışı Huzur',
+              tempo: 60,
+              frequencySuggestion: 432,
+              layers: [{id:'ambient-1',type:'ambient',volume:0.6}],
+              breathPattern: {inhale:4,hold:2,exhale:6}
+            }
+          }), { headers: {'Content-Type':'application/json'} });
+        });
+      })
+    );
+    return;
   }
 });
