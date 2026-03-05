@@ -3507,6 +3507,25 @@ _gen-canvas {
   }
 })();
 </script>
+<style>
+/* ══ Adım 8: Oda Paneli ══ */
+.room-panel{position:fixed;bottom:-240px;left:0;right:0;background:linear-gradient(135deg,rgba(8,12,28,.97),rgba(4,6,16,.97));border-top:1px solid rgba(201,169,110,.3);border-radius:20px 20px 0 0;padding:16px 20px 36px;z-index:1000;transition:bottom .4s cubic-bezier(.34,1.56,.64,1);}
+.room-panel.active{bottom:0;}
+.rp-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.rp-role{font-size:13px;color:#c9a96e;font-weight:600;}
+.rp-code-wrap{flex:1;text-align:center;}
+.rp-code-label{font-size:10px;color:rgba(201,169,110,.6);letter-spacing:2px;display:block;}
+.rp-code{font-size:24px;font-weight:700;color:#c9a96e;letter-spacing:5px;}
+.rp-close{background:rgba(255,255,255,.1);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;}
+.rp-quality{font-size:12px;color:rgba(255,255,255,.5);text-align:center;margin-bottom:10px;}
+.rp-members{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;max-height:80px;overflow-y:auto;}
+.rp-member{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.8);}
+.rp-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);}
+.rp-dot.host{background:#c9a96e;}
+.rp-actions{display:flex;gap:8px;}
+.rp-btn{flex:1;padding:10px;border-radius:12px;border:1px solid rgba(201,169,110,.4);background:rgba(201,169,110,.15);color:#c9a96e;font-size:13px;cursor:pointer;}
+.rp-btn.sec{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6);}
+</style>
 </head>
 <body>
 
@@ -4170,5 +4189,24 @@ if ('serviceWorker' in navigator) {
 <script src="analytics.js"></script>
 <script src="premium.js"></script>
 <script src="adaptive-init.js"></script>
+
+<!-- ══ ADIM 8: Oda Paneli ══ -->
+<div id="room-panel" class="room-panel">
+  <div class="rp-header">
+    <span id="room-panel-role" class="rp-role">👑 Yönetici</span>
+    <div class="rp-code-wrap">
+      <span class="rp-code-label">ODA KODU</span>
+      <span id="room-panel-code" class="rp-code">——</span>
+    </div>
+    <button class="rp-close" onclick="window.RoomManager&&window.RoomManager.leaveRoom()">✕</button>
+  </div>
+  <div id="room-panel-quality" class="rp-quality">⚪ Bekleniyor</div>
+  <div id="room-panel-members" class="rp-members"></div>
+  <div class="rp-actions">
+    <button class="rp-btn" onclick="window.RoomManager&&window.RoomManager.broadcastCommand('syncStart',{timestamp:Date.now()+2000});window.syncStart&&window.syncStart(Date.now()+2000)">▶ Birlikte Başlat</button>
+    <button class="rp-btn sec" onclick="window.RoomManager&&window.RoomManager.broadcastCommand('syncStop',{});window._playing&&window.togglePlay&&window.togglePlay()">⏹ Durdur</button>
+  </div>
+</div>
+
 </body>
 </html>
