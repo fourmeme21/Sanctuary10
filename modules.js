@@ -1843,5 +1843,4 @@ function createLegacyAdapter() {
 /* ── Browser / Node çift uyumluluk ── */
 
 /* Browser global */
-window.AudioEngine = AudioEngine;
-
+/* window.AudioEngine = AudioEngine; — AudioEngine.js ile çakışır */
