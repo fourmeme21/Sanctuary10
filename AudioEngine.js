@@ -1,3 +1,535 @@
+
+/* ═══════════════════════════════════════════════════════════════
+   GRANULAR ENGINE
+   ═══════════════════════════════════════════════════════════════ */
+/**
+ * GranularEngine.js — Sanctuary Granular Sentez Motoru
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Rastgele grain (ses parçacığı) üreterek organik, "bulutsu" ses dokusu sağlar.
+ * Grain boyutu: 50–200ms | Yoğunluk: 8–20 grain/saniye
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+class GranularEngine {
+  /**
+   * @param {AudioContext} ctx
+   * @param {AudioNode}    destination  — bağlanacak hedef node
+   * @param {object}       params
+   * @param {number}       params.grainSize    — ms (50–200)
+   * @param {number}       params.grainRate    — grain/saniye (8–20)
+   * @param {number}       params.pitch        — playback hızı (0.5–2.0)
+   * @param {number}       params.scatter      — pozisyon rastgeleliği (0–1)
+   * @param {number}       params.volume       — çıkış seviyesi (0–1)
+   */
+  constructor(ctx, destination, params = {}) {
+    this._ctx         = ctx;
+    this._destination = destination;
+    this._buffer      = null;
+    this._active      = false;
+    this._grainTimer  = null;
+    this._grains      = [];          // aktif grain node'ları
+
+    this.params = {
+      grainSize : Math.max(50,  Math.min(200, params.grainSize || 120)),  // ms
+      grainRate : Math.max(8,   Math.min(20,  params.grainRate || 12)),   // /s
+      pitch     : Math.max(0.5, Math.min(2.0, params.pitch     || 1.0)),
+      scatter   : Math.max(0,   Math.min(1,   params.scatter   || 0.5)),
+      volume    : Math.max(0,   Math.min(1,   params.volume    || 0.6)),
+    };
+
+    /* Master gain */
+    this._masterGain = ctx.createGain();
+    this._masterGain.gain.value = this.params.volume;
+    this._masterGain.connect(destination);
+  }
+
+  /* ── Buffer yükle (PCM veya generate) ────────────────────────────────── */
+  setBuffer(buffer) {
+    this._buffer = buffer;
+    return this;
+  }
+
+  /**
+   * Doğal ses tipi için dahili buffer üret.
+   * @param {'waves'|'wind'|'rain'|'forest'} type
+   */
+  generateBuffer(type = 'wind') {
+    const ctx = this._ctx;
+    const sr  = ctx.sampleRate;
+    const dur = 4;                         // 4 saniyelik temel malzeme
+    const buf = ctx.createBuffer(2, sr * dur, sr);
+
+    for (let ch = 0; ch < 2; ch++) {
+      const d     = buf.getChannelData(ch);
+      let   phase = 0;
+
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        let v = 0;
+
+        switch (type) {
+          case 'waves':
+            phase += (2 * Math.PI * 0.08) / sr;
+            v = Math.sin(phase) * 0.3
+              + Math.sin(phase * 2.1 + 0.5) * 0.15
+              + (Math.random() * 2 - 1) * 0.05;
+            break;
+
+          case 'rain':
+            // Yağmur damlası: düzensiz darbe + gürültü
+            v = (Math.random() * 2 - 1) * 0.3
+              * (0.6 + Math.sin(t * 17.3) * 0.4);
+            break;
+
+          case 'forest':
+            phase += (2 * Math.PI * 0.05) / sr;
+            v = Math.sin(phase) * 0.1
+              + (Math.random() * 2 - 1) * 0.2
+              * Math.abs(Math.sin(t * 0.3));
+            break;
+
+          default: // wind
+            phase += (2 * Math.PI * 0.15) / sr;
+            v = (Math.random() * 2 - 1) * 0.25
+              * (0.5 + Math.abs(Math.sin(phase)));
+        }
+
+        d[i] = isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
+      }
+    }
+
+    this._buffer = buf;
+    return this;
+  }
+
+  /* ── Başlat ───────────────────────────────────────────────────────────── */
+  start() {
+    if (this._active) return;
+    if (!this._buffer) {
+      console.warn('[GranularEngine] Buffer yok — wind buffer üretiliyor.');
+      this.generateBuffer('wind');
+    }
+    this._active = true;
+    this._scheduleGrain();
+  }
+
+  /* ── Durdur ───────────────────────────────────────────────────────────── */
+  stop() {
+    this._active = false;
+    if (this._grainTimer) {
+      clearTimeout(this._grainTimer);
+      this._grainTimer = null;
+    }
+    /* Aktif grain'leri fade out ile kapat */
+    const now = this._ctx.currentTime;
+    this._grains.forEach((g) => {
+      try {
+        g.gain.gain.setValueAtTime(g.gain.gain.value, now);
+        g.gain.gain.linearRampToValueAtTime(0, now + 0.05);
+        g.source.stop(now + 0.06);
+      } catch { /* zaten durmuş */ }
+    });
+    this._grains = [];
+  }
+
+  /* ── Parametre güncelle ───────────────────────────────────────────────── */
+  setParam(key, value) {
+    if (!(key in this.params)) return;
+    this.params[key] = value;
+    if (key === 'volume' && this._masterGain) {
+      const now = this._ctx.currentTime;
+      this._masterGain.gain.setValueAtTime(this._masterGain.gain.value, now);
+      this._masterGain.gain.linearRampToValueAtTime(value, now + 0.2);
+    }
+  }
+
+  /* ── Temizlik ─────────────────────────────────────────────────────────── */
+  dispose() {
+    this.stop();
+    try { this._masterGain.disconnect(); } catch { /* ok */ }
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+   * ÖZEL METODLAR
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  _scheduleGrain() {
+    if (!this._active) return;
+
+    this._spawnGrain();
+
+    /* Bir sonraki grain: düşük jitter, yüksek overlap = pürüzsüz ses */
+    const interval = 1000 / this.params.grainRate;
+    const jitter   = interval * 0.08 * (Math.random() * 2 - 1); // %8 jitter
+    const nextMs   = Math.max(10, interval + jitter);
+
+    this._grainTimer = setTimeout(() => this._scheduleGrain(), nextMs);
+  }
+
+  _spawnGrain() {
+    if (!this._buffer || !this._ctx) return;
+
+    const ctx    = this._ctx;
+    const buf    = this._buffer;
+    const now    = ctx.currentTime;
+
+    /* Grain süresi: tutarlı, büyük = kesintisiz örtüşme */
+    const durMs  = this.params.grainSize * (0.9 + Math.random() * 0.2);
+    const durSec = Math.max(0.1, Math.min(0.25, durMs / 1000));
+
+    /* Başlangıç pozisyonu: buffer boyunca rastgele, scatter ile dağıtılmış */
+    const maxOffset  = Math.max(0, buf.duration - durSec);
+    const baseOffset = maxOffset * 0.5;
+    const scatterAmt = maxOffset * this.params.scatter * 0.5;
+    const offset     = Math.max(0, baseOffset + (Math.random() * 2 - 1) * scatterAmt);
+
+    /* Kaynak */
+    const src = ctx.createBufferSource();
+    src.buffer             = buf;
+    src.playbackRate.value = this.params.pitch * (0.9 + Math.random() * 0.2); // hafif pitch varyasyonu
+
+    /* Grain zarf: fade in → sustain → fade out (hann penceresi benzeri) */
+    const gainNode = ctx.createGain();
+    const fadeTime = Math.min(durSec * 0.4, 0.05);
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.8, now + fadeTime);
+    gainNode.gain.setValueAtTime(0.8, now + durSec - fadeTime);
+    gainNode.gain.linearRampToValueAtTime(0, now + durSec);
+
+    src.connect(gainNode);
+    gainNode.connect(this._masterGain);
+
+    src.start(now, offset, durSec);
+
+    /* Grain kaydı — temizlik için */
+    const grainRef = { source: src, gain: gainNode };
+    this._grains.push(grainRef);
+    src.onended = () => {
+      this._grains = this._grains.filter((g) => g !== grainRef);
+      try { gainNode.disconnect(); } catch { /* ok */ }
+    };
+  }
+}
+
+/* ── Export ───────────────────────────────────────────────────────────────── */
+
+/* Browser global */
+window.GranularEngine = GranularEngine;
+
+/* ═══════════════════════════════════════════════════════════════
+   FM SENTEZLEYİCİ
+   ═══════════════════════════════════════════════════════════════ */
+/**
+ * FMSynthesizer.js — Sanctuary FM Sentez Motoru
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 2 operatörlü FM sentezleyici: Taşıyıcı (Carrier) + Modülatör
+ * Derin frekanslar, binaural vuruşlar ve meditasyon tonları için ADSR zarf.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+class FMSynthesizer {
+  /**
+   * @param {AudioContext} ctx
+   * @param {AudioNode}    destination
+   * @param {object}       params
+   * @param {number}       params.carrierFreq    — Hz (taşıyıcı frekans)
+   * @param {number}       params.modulatorRatio — modülatör/taşıyıcı oranı
+   * @param {number}       params.modulationIndex — modülasyon derinliği
+   * @param {number}       params.volume          — 0–1
+   * @param {object}       params.adsr            — { attack, decay, sustain, release } saniye
+   * @param {boolean}      params.binaural        — stereo binaural mod
+   * @param {number}       params.binauralBeat    — Hz fark (binaural)
+   */
+  constructor(ctx, destination, params = {}) {
+    this._ctx         = ctx;
+    this._destination = destination;
+    this._active      = false;
+
+    /* Operatör node'ları */
+    this._carrier     = null;
+    this._modulator   = null;
+    this._modGain     = null;
+    this._outputGain  = null;
+    this._carrierR    = null;   // binaural sağ kanal
+    this._merger      = null;
+
+    this.params = {
+      carrierFreq    : params.carrierFreq     || 432,
+      modulatorRatio : params.modulatorRatio  || 2.0,
+      modulationIndex: params.modulationIndex || 3.0,
+      volume         : Math.max(0, Math.min(1, params.volume || 0.5)),
+      binaural       : params.binaural        || false,
+      binauralBeat   : params.binauralBeat    || 7,       // Hz
+      adsr           : {
+        attack : params.adsr?.attack  ?? 2.0,    // saniye
+        decay  : params.adsr?.decay   ?? 1.0,
+        sustain: params.adsr?.sustain ?? 0.75,   // seviye (0–1)
+        release: params.adsr?.release ?? 3.0,
+      },
+    };
+  }
+
+  /* ── Başlat ───────────────────────────────────────────────────────────── */
+  start() {
+    if (this._active) return;
+    this._active = true;
+
+    const ctx = this._ctx;
+    const now = ctx.currentTime;
+    const p   = this.params;
+
+    /* ── Çıkış gain ── */
+    this._outputGain = ctx.createGain();
+    this._outputGain.gain.setValueAtTime(0, now);
+    this._outputGain.connect(this._destination);
+
+    if (p.binaural) {
+      this._startBinaural(now);
+    } else {
+      this._startMono(now);
+    }
+
+    /* ADSR: Attack → Decay → Sustain */
+    this._applyADSR(now);
+  }
+
+  /* ── Durdur (Release fazı) ─────────────────────────────────────────────── */
+  stop() {
+    if (!this._active) return;
+    this._active = false;
+
+    const ctx     = this._ctx;
+    const now     = ctx.currentTime;
+    const release = this.params.adsr.release;
+
+    /* Release fade */
+    this._outputGain.gain.cancelScheduledValues(now);
+    this._outputGain.gain.setValueAtTime(this._outputGain.gain.value, now);
+    this._outputGain.gain.linearRampToValueAtTime(0, now + release);
+
+    /* Tüm osc'ları release sonrası kapat */
+    const stopTime = now + release + 0.1;
+    [this._carrier, this._carrierR, this._modulator].forEach((osc) => {
+      if (!osc) return;
+      try { osc.stop(stopTime); } catch { /* ok */ }
+    });
+
+    setTimeout(() => this.dispose(), (release + 0.3) * 1000);
+  }
+
+  /* ── Parametre güncelle ───────────────────────────────────────────────── */
+  setCarrierFreq(freq) {
+    if (!isFinite(freq) || freq <= 0) return;
+    this.params.carrierFreq = freq;
+    const now = this._ctx.currentTime;
+    if (this._carrier)  this._carrier.frequency.setTargetAtTime(freq, now, 0.1);
+    if (this._carrierR) this._carrierR.frequency.setTargetAtTime(freq + this.params.binauralBeat, now, 0.1);
+    if (this._modulator) {
+      const modFreq = freq * this.params.modulatorRatio;
+      this._modulator.frequency.setTargetAtTime(modFreq, now, 0.1);
+      if (this._modGain) {
+        this._modGain.gain.setTargetAtTime(modFreq * this.params.modulationIndex, now, 0.1);
+      }
+    }
+  }
+
+  setModulationIndex(index) {
+    if (!isFinite(index)) return;
+    this.params.modulationIndex = index;
+    const now     = this._ctx.currentTime;
+    const modFreq = this.params.carrierFreq * this.params.modulatorRatio;
+    if (this._modGain) {
+      this._modGain.gain.setTargetAtTime(modFreq * index, now, 0.1);
+    }
+  }
+
+  setVolume(vol) {
+    vol = Math.max(0, Math.min(1, vol));
+    this.params.volume = vol;
+    if (this._outputGain && this._active) {
+      const now = this._ctx.currentTime;
+      this._outputGain.gain.setTargetAtTime(vol * this.params.adsr.sustain, now, 0.2);
+    }
+  }
+
+  /* ── Reverb iskeleti ──────────────────────────────────────────────────── */
+  /**
+   * Basit convolver-based reverb zinciri.
+   * @param {number} roomSize  — 0–1
+   * @param {number} wetMix    — 0–1
+   */
+  addReverb(roomSize = 0.3, wetMix = 0.25) {
+    const ctx = this._ctx;
+    const impulse = this._makeImpulse(roomSize);
+
+    const convolver = ctx.createConvolver();
+    convolver.buffer = impulse;
+
+    const wetGain = ctx.createGain();
+    wetGain.gain.value = wetMix;
+
+    const dryGain = ctx.createGain();
+    dryGain.gain.value = 1 - wetMix;
+
+    /* Zincir: outputGain → dry → destination */
+    /*                      → convolver → wet → destination */
+    this._outputGain.disconnect();
+    this._outputGain.connect(dryGain);
+    this._outputGain.connect(convolver);
+    dryGain.connect(this._destination);
+    convolver.connect(wetGain);
+    wetGain.connect(this._destination);
+  }
+
+  /* ── Saturation iskeleti ─────────────────────────────────────────────── */
+  /**
+   * Yumuşak harmonik zenginleştirme (waveshaper).
+   * @param {number} amount — 0–1 (sıcaklık miktarı)
+   */
+  addSaturation(amount = 0.2) {
+    const ctx    = this._ctx;
+    const shaper = ctx.createWaveShaper();
+    shaper.curve    = this._makeSaturationCurve(amount);
+    shaper.oversample = '4x';
+
+    this._outputGain.disconnect();
+    this._outputGain.connect(shaper);
+    shaper.connect(this._destination);
+  }
+
+  /* ── Temizlik ─────────────────────────────────────────────────────────── */
+  dispose() {
+    [this._carrier, this._carrierR, this._modulator, this._modGain,
+     this._outputGain, this._merger].forEach((node) => {
+      if (!node) return;
+      try { node.disconnect(); } catch { /* ok */ }
+    });
+    this._carrier = this._carrierR = this._modulator =
+    this._modGain = this._outputGain = this._merger = null;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+   * ÖZEL METODLAR
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  _startMono(now) {
+    const ctx = this._ctx;
+    const p   = this.params;
+
+    /* Modülatör */
+    this._modulator = ctx.createOscillator();
+    this._modulator.type            = 'sine';
+    this._modulator.frequency.value = p.carrierFreq * p.modulatorRatio;
+
+    this._modGain = ctx.createGain();
+    this._modGain.gain.value = p.carrierFreq * p.modulatorRatio * p.modulationIndex;
+
+    this._modulator.connect(this._modGain);
+
+    /* Taşıyıcı */
+    this._carrier = ctx.createOscillator();
+    this._carrier.type            = 'sine';
+    this._carrier.frequency.value = p.carrierFreq;
+
+    this._modGain.connect(this._carrier.frequency);  // FM bağlantısı
+    this._carrier.connect(this._outputGain);
+
+    this._modulator.start(now);
+    this._carrier.start(now);
+  }
+
+  _startBinaural(now) {
+    const ctx = this._ctx;
+    const p   = this.params;
+
+    this._merger = ctx.createChannelMerger(2);
+    this._merger.connect(this._outputGain);
+
+    /* Sol kanal — taşıyıcı */
+    this._modulator = ctx.createOscillator();
+    this._modulator.type            = 'sine';
+    this._modulator.frequency.value = p.carrierFreq * p.modulatorRatio;
+
+    this._modGain = ctx.createGain();
+    this._modGain.gain.value = p.carrierFreq * p.modulatorRatio * p.modulationIndex;
+
+    this._modulator.connect(this._modGain);
+
+    this._carrier = ctx.createOscillator();
+    this._carrier.type            = 'sine';
+    this._carrier.frequency.value = p.carrierFreq;
+    this._modGain.connect(this._carrier.frequency);
+
+    const leftGain = ctx.createGain();
+    leftGain.gain.value = 0.7;
+    this._carrier.connect(leftGain);
+    leftGain.connect(this._merger, 0, 0);
+
+    /* Sağ kanal — binauralBeat Hz fark */
+    this._carrierR = ctx.createOscillator();
+    this._carrierR.type            = 'sine';
+    this._carrierR.frequency.value = p.carrierFreq + p.binauralBeat;
+
+    const rightGain = ctx.createGain();
+    rightGain.gain.value = 0.7;
+    this._carrierR.connect(rightGain);
+    rightGain.connect(this._merger, 0, 1);
+
+    this._modulator.start(now);
+    this._carrier.start(now);
+    this._carrierR.start(now);
+  }
+
+  _applyADSR(now) {
+    const { attack, decay, sustain, release } = this.params.adsr;
+    const peakVol = this.params.volume;
+    const susVol  = peakVol * sustain;
+    const g       = this._outputGain.gain;
+
+    g.setValueAtTime(0, now);
+    g.linearRampToValueAtTime(peakVol, now + attack);           // Attack
+    g.linearRampToValueAtTime(susVol, now + attack + decay);    // Decay → Sustain
+    /* Sustain seviyesi release başlayana kadar sabit kalır */
+  }
+
+  /* Impulse response (basit üstel çürüme) */
+  _makeImpulse(roomSize) {
+    const ctx    = this._ctx;
+    const sr     = ctx.sampleRate;
+    const length = Math.floor(sr * (0.5 + roomSize * 2.5));
+    const buf    = ctx.createBuffer(2, length, sr);
+
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        const decay = Math.pow(1 - i / length, 2 + roomSize * 3);
+        d[i] = (Math.random() * 2 - 1) * decay;
+      }
+    }
+    return buf;
+  }
+
+  /* Waveshaper eğrisi (yumuşak kırpma) */
+  _makeSaturationCurve(amount) {
+    const n      = 256;
+    const curve  = new Float32Array(n);
+    const k      = amount * 100;
+    for (let i = 0; i < n; i++) {
+      const x  = (i * 2) / n - 1;
+      curve[i] = x * (Math.PI + k) / (Math.PI + k * Math.abs(x));
+    }
+    return curve;
+  }
+}
+
+/* ── Export ───────────────────────────────────────────────────────────────── */
+
+/* Browser global */
+window.FMSynthesizer = FMSynthesizer;
+
+/* ═══════════════════════════════════════════════════════════════
+   AUDIO ENGINE
+   ═══════════════════════════════════════════════════════════════ */
 /**
  * AudioEngine.js — Sanctuary 12. Aşama (Safari/iOS Uyumluluğu)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -1294,18 +1826,6 @@ function createLegacyAdapter() {
 /* ═══════════════════════════════════════════════════════════════
    EXPORTS
 ═══════════════════════════════════════════════════════════════ */
-
-export default AudioEngine;
-export {
-  AudioEngine,
-  AudioLayer,
-  PreloadCache,
-  WebAudioAdapter,
-  WaveformRAFManager,
-  createLegacyAdapter,
-  AUDIO_CONFIG,
-};
-
 /**
  * ── İnsan Sesi / TTS Efekt Zinciri İskeleti ────────────────────────────────
  * FMSynthesizer.addReverb() ve FMSynthesizer.addSaturation() metodları
@@ -1321,21 +1841,7 @@ export {
  */
 
 /* ── Browser / Node çift uyumluluk ── */
-if (typeof module !== 'undefined') {
-  module.exports = AudioEngine;
-  module.exports.AudioEngine         = AudioEngine;
-  module.exports.AudioLayer          = AudioLayer;
-  module.exports.PreloadCache        = PreloadCache;
-  module.exports.WebAudioAdapter     = WebAudioAdapter;
-  module.exports.WaveformRAFManager  = WaveformRAFManager;
-  module.exports.createLegacyAdapter = createLegacyAdapter;
-  module.exports.AUDIO_CONFIG        = AUDIO_CONFIG;
-} else {
-  window.AudioEngine         = AudioEngine;
-  window.AudioLayer          = AudioLayer;
-  window.PreloadCache        = PreloadCache;
-  window.WebAudioAdapter     = WebAudioAdapter;
-  window.WaveformRAFManager  = WaveformRAFManager;
-  window.createLegacyAdapter = createLegacyAdapter;
-  window.AUDIO_CONFIG        = AUDIO_CONFIG;
-}
+
+/* Browser global */
+window.AudioEngine = AudioEngine;
+
