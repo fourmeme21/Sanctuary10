@@ -531,7 +531,7 @@ window.FMSynthesizer = FMSynthesizer;
    AUDIO ENGINE
    ═══════════════════════════════════════════════════════════════ */
 /**
- * AudioEngine.js — Sanctuary 12. Aşama (Safari/iOS Uyumluluğu)
+ * _AudioEngine.js — Sanctuary 12. Aşama (Safari/iOS Uyumluluğu)
  * ─────────────────────────────────────────────────────────────────────────────
  * Değişiklikler (Phase 6):
  *   1. Safari ses politikası: ilk kullanıcı etkileşiminde AudioContext.resume()
@@ -1664,7 +1664,7 @@ _AudioEngineModule._instance = null;
      - _listenRoomEvents()      RoomManager event'lerini dinler
 ═══════════════════════════════════════════════════════════════ */
 
-AudioEngine.prototype.syncRoomAudio = function syncRoomAudio(roomId, audioConfig) {
+_AudioEngineModule.prototype.syncRoomAudio = function syncRoomAudio(roomId, audioConfig) {
   if (!audioConfig) return;
   var engine = this;
 
@@ -1675,7 +1675,7 @@ AudioEngine.prototype.syncRoomAudio = function syncRoomAudio(roomId, audioConfig
     }
   } catch (e) { /* RoomManager yüklenmemiş olabilir */ }
 
-  // 2. Yerel AudioEngine'i yeni konfigürasyona çek (sessizce)
+  // 2. Yerel _AudioEngineModule'i yeni konfigürasyona çek (sessizce)
   var script = {
     scene: audioConfig.label || 'room_sync',
     tracks: [{
@@ -1710,7 +1710,7 @@ AudioEngine.prototype.syncRoomAudio = function syncRoomAudio(roomId, audioConfig
  * @param {string} roomId  — Bulunulan oda ID'si
  * @param {string} userId  — Yerel kullanıcı ID'si (varsayılan: 'user_local')
  */
-AudioEngine.prototype.startBreathBroadcast = function startBreathBroadcast(roomId, userId) {
+_AudioEngineModule.prototype.startBreathBroadcast = function startBreathBroadcast(roomId, userId) {
   userId = userId || 'user_local';
   try {
     if (typeof RoomManager !== 'undefined') {
@@ -1724,7 +1724,7 @@ AudioEngine.prototype.startBreathBroadcast = function startBreathBroadcast(roomI
 /**
  * Nefes döngüsü bittiğinde odaya bildir.
  */
-AudioEngine.prototype.stopBreathBroadcast = function stopBreathBroadcast(roomId, userId) {
+_AudioEngineModule.prototype.stopBreathBroadcast = function stopBreathBroadcast(roomId, userId) {
   userId = userId || 'user_local';
   try {
     if (typeof RoomManager !== 'undefined') {
@@ -1740,7 +1740,7 @@ AudioEngine.prototype.stopBreathBroadcast = function stopBreathBroadcast(roomId,
  * Başka bir host ses değiştirince bu engine otomatik güncellenir.
  * @param {string} roomId  — Takip edilecek oda
  */
-AudioEngine.prototype._listenRoomEvents = function _listenRoomEvents(roomId) {
+_AudioEngineModule.prototype._listenRoomEvents = function _listenRoomEvents(roomId) {
   var engine = this;
   if (!roomId) return;
 
@@ -1801,7 +1801,7 @@ AudioEngine.prototype._listenRoomEvents = function _listenRoomEvents(roomId) {
 ═══════════════════════════════════════════════════════════════ */
 
 function createLegacyAdapter() {
-  const engine = AudioEngine.getInstance();
+  const engine = _AudioEngineModule.getInstance();
 
   return {
     get isInitialized()    { return engine.isInitialized; },
@@ -1843,4 +1843,4 @@ function createLegacyAdapter() {
 /* ── Browser / Node çift uyumluluk ── */
 
 /* Browser global */
-/* window.AudioEngine kaldırıldı — AudioEngine.js kullanılıyor */
+/* window._AudioEngineModule — dış AudioEngine.js kullanılıyor */
