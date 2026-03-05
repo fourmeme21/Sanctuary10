@@ -1,3 +1,4 @@
+
 /**
  * RoomManager.js — Sanctuary 10. Aşama (Senkronize Odalar & Canlı Etkileşim)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -224,3 +225,4 @@
   } catch(e) {}
 
 })(window);
+
