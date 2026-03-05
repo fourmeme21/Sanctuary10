@@ -97,18 +97,28 @@ class FMSynthesizer {
   }
 
   /* ── Parametre güncelle ───────────────────────────────────────────────── */
-  setCarrierFreq(freq) {
+    setCarrierFreq(freq, useGlide = true) {
     if (!isFinite(freq) || freq <= 0) return;
-    this.params.carrierFreq = freq;
-    const now = this._ctx.currentTime;
-    if (this._carrier)  this._carrier.frequency.setTargetAtTime(freq, now, 0.1);
-    if (this._carrierR) this._carrierR.frequency.setTargetAtTime(freq + this.params.binauralBeat, now, 0.1);
+    /* Pentatonic scale'e snap */
+    var pentatonic = [261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25,783.99,880.00];
+    var snapped = freq;
+    var bestDiff = Infinity;
+    pentatonic.forEach(function(note) {
+      var n = note;
+      while (n < freq*0.7) n *= 2;
+      while (n > freq*1.4) n /= 2;
+      var diff = Math.abs(n-freq);
+      if (diff < bestDiff) { bestDiff=diff; snapped=n; }
+    });
+    this.params.carrierFreq = snapped;
+    var now = this._ctx.currentTime;
+    var glide = useGlide ? 0.6 : 0.05; /* 600ms yumuşak geçiş */
+    if (this._carrier)   this._carrier.frequency.exponentialRampToValueAtTime(Math.max(0.01,snapped), now+glide);
+    if (this._carrierR)  this._carrierR.frequency.exponentialRampToValueAtTime(Math.max(0.01,snapped+this.params.binauralBeat), now+glide);
     if (this._modulator) {
-      const modFreq = freq * this.params.modulatorRatio;
-      this._modulator.frequency.setTargetAtTime(modFreq, now, 0.1);
-      if (this._modGain) {
-        this._modGain.gain.setTargetAtTime(modFreq * this.params.modulationIndex, now, 0.1);
-      }
+      var modFreq = snapped * this.params.modulatorRatio;
+      this._modulator.frequency.exponentialRampToValueAtTime(Math.max(0.01,modFreq), now+glide);
+      if (this._modGain) this._modGain.gain.exponentialRampToValueAtTime(Math.max(0.01,modFreq*this.params.modulationIndex), now+glide);
     }
   }
 
