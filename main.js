@@ -1606,30 +1606,7 @@ window.analyzeJournalAndModulate = function(text) {
   };
 })();
 
-/* ── Ses bitişinde aktivite logla ── */
-(function() {
-  var _origToggle = window.togglePlay;
-  window.togglePlay = function() {
-    // Oturum bitişi — süreyi hesapla
-    if (window._sessionStart) {
-      var duration = Math.round((Date.now() - window._sessionStart) / 1000);
-      if (duration > 10 && window.SanctuaryStats) {
-        window.SanctuaryStats.logActivity('audio', duration, (function() {
-          try {
-            var sm = (typeof getStateManager === 'function') ? getStateManager() : null;
-            return (sm && sm.getSnapshot) ? sm.getSnapshot().mood : localStorage.getItem('lastMood');
-          } catch(e) { return localStorage.getItem('lastMood'); }
-        })());
-      }
-      window._sessionStart = null;
-    }
-    if (_origToggle) _origToggle();
-    // Ses başladığında süre takibini başlat
-    if (window._sessionStart === null) {
-      window._sessionStart = Date.now();
-    }
-  };
-})();
+/* [togglePlay wrapper kaldırıldı] */
 
 /* ── Sayfa yüklenince zihin haritasını render et ── */
 (function() {
