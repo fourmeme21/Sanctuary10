@@ -3508,6 +3508,13 @@ _gen-canvas {
 })();
 </script>
 </head>
+<script>
+window.onerror = function(msg, src, line) {
+  var d = document.getElementById('_dbg');
+  if (!d) { d = document.createElement('div'); d.id='_dbg'; d.style='position:fixed;bottom:0;left:0;right:0;background:red;color:white;font-size:12px;padding:8px;z-index:9999;max-height:120px;overflow:auto'; document.body.appendChild(d); }
+  d.innerHTML += '<b>' + (src||'').split('/').pop() + ':' + line + '</b> ' + msg + '<br>';
+};
+</script>
 <body>
 
 <!-- Ambient Corner Glows -->
