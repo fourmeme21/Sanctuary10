@@ -1,3 +1,18 @@
+
+  /* Ses tipi → stereo pan değeri (Adım 7) */
+  var _PAN_MAP = { ambient:0.65, binaural:0.0, tone:0.2, noise:0.5, fire:0.4 };
+
+  function _applyPan(type, engine, layerId) {
+    try {
+      var ctx = window.AudioContext || window.webkitAudioContext;
+      if (!ctx) return;
+      var panVal = _PAN_MAP[type] || 0.3;
+      if (engine && typeof engine.setPan === 'function') {
+        engine.setPan(layerId, (Math.random()>0.5?1:-1)*panVal);
+      }
+    } catch(e) {}
+  }
+
 /**
  * SceneInterpreter.js — MSD → AudioEngine + CSS Komut Çevirici
  * ─────────────────────────────────────────────────────────────────────────────
