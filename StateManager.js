@@ -1,4 +1,5 @@
-;/**
+
+/**
  * StateManager.js — Sanctuary 8. Aşama (Final)
  * Phase 8 Değişiklikleri:
  *   1. UMD wrapper — ES module export → window.SanctuaryState global
@@ -699,7 +700,7 @@ class StateManager {
 
 let _instance = null;
 
-/* localStorage StorageAdapter — persist/hydrate için */
+/* localStorage StorageAdapter — StateManager'ın persist/hydrate mekanizması için */
 var _localStorageAdapter = {
   get: function(key) {
     return Promise.resolve(localStorage.getItem(key));
@@ -717,6 +718,7 @@ var _localStorageAdapter = {
 function getStateManager(storageAdapter = null) {
   if (!_instance) {
     _instance = new StateManager(storageAdapter || _localStorageAdapter);
+    /* Kaydedilmiş state'i geri yükle */
     _instance.hydrate().catch(function(e) {
       console.warn('[StateManager] Hydrate hatası:', e);
     });
@@ -857,3 +859,4 @@ window.SanctuaryStats = (function() {
     clearLog: function() { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} },
   };
 })();
+
