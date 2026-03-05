@@ -361,3 +361,40 @@
       window.RoomManager.broadcastAudioState();
     }
   };
+
+/* ══ ADIM 9: Biyometrik Adaptasyon ══ */
+
+  window.applyBiometricEffect = function(params) {
+    if (!params) return;
+    try {
+      var ctx = window._ctx;
+      if (!ctx) return;
+      var now = ctx.currentTime;
+      var ramp = 2.0; /* 2 saniyelik yumuşak geçiş */
+
+      /* Master volume */
+      if (window._master && params.masterVolume !== undefined) {
+        window._master.gain.linearRampToValueAtTime(
+          Math.max(0.1, Math.min(1.0, params.masterVolume)), now + ramp
+        );
+      }
+
+      /* EQ — düşük frekans boost, yüksek frekans cut */
+      if (window._eqLow && params.eqLowBoost !== undefined) {
+        window._eqLow.gain.linearRampToValueAtTime(
+          Math.max(-6, Math.min(6, 2 + params.eqLowBoost)), now + ramp
+        );
+      }
+      if (window._eqHigh && params.eqHighCut !== undefined) {
+        window._eqHigh.gain.linearRampToValueAtTime(
+          Math.max(-6, Math.min(6, 1.5 + params.eqHighCut)), now + ramp
+        );
+      }
+
+      /* Granular yoğunluk */
+      if (window._granular && typeof window._granular.setDensity === 'function') {
+        window._granular.setDensity(Math.max(0.2, params.granularDensity || 0.8));
+      }
+
+    } catch(e) { console.warn('[applyBiometricEffect]', e); }
+  };

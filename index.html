@@ -3526,6 +3526,22 @@ _gen-canvas {
 .rp-btn{flex:1;padding:10px;border-radius:12px;border:1px solid rgba(201,169,110,.4);background:rgba(201,169,110,.15);color:#c9a96e;font-size:13px;cursor:pointer;}
 .rp-btn.sec{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6);}
 </style>
+<style>
+/* ══ Adım 9: Biyometrik Panel ══ */
+.bio-panel{position:fixed;top:16px;right:16px;background:rgba(8,12,28,0.92);border:1px solid rgba(201,169,110,0.25);border-radius:16px;padding:12px 16px;z-index:500;min-width:140px;backdrop-filter:blur(12px);}
+.bio-title{font-size:9px;color:rgba(201,169,110,0.6);letter-spacing:2px;margin-bottom:8px;}
+.bio-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.bio-label{font-size:11px;color:rgba(255,255,255,0.5);}
+.bio-val{font-size:12px;color:#c9a96e;font-weight:600;}
+.bio-bar-wrap{margin-top:6px;background:rgba(255,255,255,0.1);border-radius:4px;height:4px;overflow:hidden;}
+.bio-bar{height:4px;border-radius:4px;transition:width 1s ease,background 1s ease;width:30%;}
+.bio-stress-label{font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;text-align:right;}
+/* Slider kontrolleri */
+.bio-sliders{margin-top:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;}
+.bio-slider-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.bio-slider-row label{font-size:10px;color:rgba(255,255,255,0.4);width:32px;}
+.bio-slider-row input{flex:1;accent-color:#c9a96e;}
+</style>
 </head>
 <body>
 
@@ -4185,6 +4201,8 @@ if ('serviceWorker' in navigator) {
 <script src="helpers.js"></script>
 <script src="globals.js"></script>
 <script src="main.js"></script>
+<script src="AdaptiveEngine.js"></script>
+<script src="BiometricSimulator.js"></script>
 <script src="RoomManager.js"></script>
 <script src="analytics.js"></script>
 <script src="premium.js"></script>
@@ -4205,6 +4223,36 @@ if ('serviceWorker' in navigator) {
   <div class="rp-actions">
     <button class="rp-btn" onclick="window.RoomManager&&window.RoomManager.broadcastCommand('syncStart',{timestamp:Date.now()+2000});window.syncStart&&window.syncStart(Date.now()+2000)">▶ Birlikte Başlat</button>
     <button class="rp-btn sec" onclick="window.RoomManager&&window.RoomManager.broadcastCommand('syncStop',{});window._playing&&window.togglePlay&&window.togglePlay()">⏹ Durdur</button>
+  </div>
+</div>
+
+
+<!-- ══ ADIM 9: Biyometrik Panel ══ -->
+<div class="bio-panel" id="bio-panel">
+  <div class="bio-title">BİYOMETRİK</div>
+  <div class="bio-row">
+    <span class="bio-label">Kalp</span>
+    <span class="bio-val" id="bio-bpm">72 bpm</span>
+  </div>
+  <div class="bio-row">
+    <span class="bio-label">HRV</span>
+    <span class="bio-val" id="bio-hrv">45 ms</span>
+  </div>
+  <div class="bio-bar-wrap">
+    <div class="bio-bar" id="bio-stress-bar" style="width:30%"></div>
+  </div>
+  <div class="bio-stress-label" id="bio-stress">Sakin</div>
+  <div class="bio-sliders">
+    <div class="bio-slider-row">
+      <label>BPM</label>
+      <input type="range" min="45" max="110" value="72"
+        oninput="window.BiometricSimulator&&window.BiometricSimulator.setBPM(+this.value)">
+    </div>
+    <div class="bio-slider-row">
+      <label>HRV</label>
+      <input type="range" min="10" max="80" value="45"
+        oninput="window.BiometricSimulator&&window.BiometricSimulator.setHRV(+this.value)">
+    </div>
   </div>
 </div>
 
