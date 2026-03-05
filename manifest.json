@@ -16,5 +16,7 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["lifestyle", "health", "music"]
+  "categories": ["lifestyle", "health", "music"],
+  "prefer_related_applications": false,
+  "scope": "/"
 }
