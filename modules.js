@@ -1124,10 +1124,10 @@ class WaveformRAFManager {
      - Visibility API: arka planda AudioContext otomatik suspend olur
 ═══════════════════════════════════════════════════════════════ */
 
-class AudioEngine {
+class _AudioEngineModule {
   constructor() {
-    if (AudioEngine._instance) return AudioEngine._instance;
-    AudioEngine._instance = this;
+    if (_AudioEngineModule._instance) return _AudioEngineModule._instance;
+    _AudioEngineModule._instance = this;
 
     this._ctx             = null;
     this._masterGain      = null;
@@ -1154,8 +1154,8 @@ class AudioEngine {
   }
 
   static getInstance() {
-    if (!AudioEngine._instance) new AudioEngine();
-    return AudioEngine._instance;
+    if (!_AudioEngineModule._instance) new _AudioEngineModule();
+    return _AudioEngineModule._instance;
   }
 
   async initialize() {
@@ -1646,14 +1646,14 @@ class AudioEngine {
     this.isInitialized    = false;
     this._playing         = false;
     this._listeners.clear();
-    AudioEngine._instance = null;
+    _AudioEngineModule._instance = null;
 
     console.info('[AudioEngine] Dispose tamamlandı.');
     this._emit('disposed');
   }
 }
 
-AudioEngine._instance = null;
+_AudioEngineModule._instance = null;
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 8B — ROOM SYNC (Phase 10)
@@ -1843,4 +1843,4 @@ function createLegacyAdapter() {
 /* ── Browser / Node çift uyumluluk ── */
 
 /* Browser global */
-/* window.AudioEngine = AudioEngine; — AudioEngine.js ile çakışır */
+/* window.AudioEngine kaldırıldı — AudioEngine.js kullanılıyor */
