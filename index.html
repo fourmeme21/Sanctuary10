@@ -4133,13 +4133,13 @@ _gen-canvas {
 
 <!-- Service Worker — production ortamında sw.js eklenince aktif edilecek -->
 <script>
-// if ('serviceWorker' in navigator) {
-//   window.addEventListener('load', function() {
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
 //     navigator.serviceWorker.register('./sw.js')
 //       .then(function(reg) {  })
 //       .catch(function(err) {  });
-//   });
-// }
+  });
+}
 </script>
 
 
@@ -4151,6 +4151,283 @@ _gen-canvas {
 
 
 
+<script>
+
+/* ═══════════════════════════════════════════════════
+   SANCTUARY SES MOTORU (v3 — Bağımsız, Kararlı)
+   togglePlay, switchSound, setSleepTimer burada tanımlı
+   ═══════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+
+  var _ctx=null, _master=null, _comp=null;
+  var _oscs=[], _noise=null, _noiseGain=null;
+  var _playing=false, _startTime=0, _pauseOffset=0;
+  var _loopDur=8, _curGen=null, _curBase=0, _curBeat=0;
+
+  var MOOD_MAP = {
+    'Huzursuz' : {base:180, beat:6,  gen:'waves'},
+    'Yorgun'   : {base:200, beat:4,  gen:'rain'},
+    'Kaygılı'  : {base:160, beat:8,  gen:'wind'},
+    'Mutsuz'   : {base:220, beat:5,  gen:'waves'},
+    'Sakin'    : {base:200, beat:7,  gen:'binaural'},
+    'Minnettar': {base:528, beat:10, gen:'rain'},
+  };
+
+  /* ── AudioContext ── */
+  function getCtx() {
+    if (!_ctx) {
+      var C = window.AudioContext || window.webkitAudioContext;
+      _ctx = new C();
+    }
+    return _ctx;
+  }
+
+  /* ── Master Bus: Gain + Compressor/Limiter ── */
+  function ensureMaster(ctx) {
+    if (_master) return;
+    _comp = ctx.createDynamicsCompressor();
+    _comp.threshold.value = -6;
+    _comp.ratio.value     = 12;
+    _comp.attack.value    = 0.003;
+    _comp.release.value   = 0.25;
+    _master = ctx.createGain();
+    _master.gain.value = (window._prefVector ? window._prefVector.masterVolume : 0.8);
+    _master.connect(_comp);
+    _comp.connect(ctx.destination);
+  }
+
+  /* ── Ses buffer üretici ── */
+  function makeBuffer(ctx, type) {
+    var sr  = ctx.sampleRate || 44100;
+    var len = Math.round(sr * _loopDur);
+    var buf = ctx.createBuffer(2, len, sr);
+    for (var ch = 0; ch < 2; ch++) {
+      var d = buf.getChannelData(ch);
+      var p1=0, p2=0, p3=0;
+      for (var i = 0; i < len; i++) {
+        var v = 0;
+        if (type === 'waves') {
+          p1 += (2*Math.PI*0.08)/sr; p2 += (2*Math.PI*0.19)/sr; p3 += (2*Math.PI*0.04)/sr;
+          var sw = Math.sin(p3)*0.4+0.6;
+          v = Math.sin(p1)*0.18*sw + Math.sin(p2)*0.09*sw + (Math.random()*2-1)*0.04*sw;
+        } else if (type === 'rain') {
+          p1 += (2*Math.PI*0.6)/sr;
+          v  = (Math.random()*2-1)*0.15 + (Math.random()<0.003?(Math.random()*2-1)*0.6:0);
+          v *= (0.7 + Math.sin(p1)*0.3);
+        } else if (type === 'wind') {
+          p1 += (2*Math.PI*0.12)/sr; p2 += (2*Math.PI*0.05)/sr;
+          v  = (Math.random()*2-1)*0.22 * Math.max(0, 0.5+Math.sin(p2)*0.4+Math.sin(p1*0.3)*0.1);
+        } else if (type === 'fire') {
+          p1 += (2*Math.PI*2.5)/sr; p2 += (2*Math.PI*0.07)/sr;
+          v  = (Math.random()*2-1)*0.16*(0.6+Math.sin(p2)*0.4) + Math.sin(p1)*0.04
+             + (Math.random()<0.008?(Math.random()*2-1)*0.5:0);
+        } else if (type === 'storm') {
+          p1 += (2*Math.PI*0.25)/sr; p2 += (2*Math.PI*0.04)/sr;
+          v  = (Math.random()*2-1)*0.28*(0.6+Math.sin(p1)*0.4) + Math.sin(p2)*0.03;
+        } else {
+          v = (Math.random()*2-1)*0.08;
+        }
+        d[i] = isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
+      }
+    }
+    return buf;
+  }
+
+  /* ── Temizleyiciler ── */
+  function stopOscs() {
+    _oscs.forEach(function(o){ try{o.stop();o.disconnect();}catch(e){} });
+    _oscs = [];
+  }
+  var _granular = null;
+  function stopNoise() {
+    if (_noiseGain) { try{_noiseGain.disconnect();}catch(e){} _noiseGain = null; }
+    if (_noise)     { try{_noise.stop();_noise.disconnect();}catch(e){} _noise = null; }
+    if (_granular)  { try{_granular.stop();}catch(e){} _granular = null; }
+  }
+
+  /* ── Ses başlat ── */
+  function startSound(gen, base, beat, offset) {
+    var ctx = getCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    ensureMaster(ctx);
+    stopOscs();
+
+    /* Binaural oscilatorler */
+    if (beat > 0) {
+      var mg = ctx.createChannelMerger(2);
+      mg.connect(_master);
+      [[base,0],[base+beat,1]].forEach(function(p) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = isFinite(p[0]) ? p[0] : 200;
+        o.type = 'sine';
+        g.gain.value = 0.10;
+        o.connect(g); g.connect(mg, 0, p[1]);
+        o.start(); _oscs.push(o);
+      });
+    }
+
+    var now = ctx.currentTime;
+    var ambVol = window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60;
+    var xfDur  = window._prefVector ? window._prefVector.getCrossfadeDuration() : 1.5;
+
+    /* ── GranularEngine varsa kullan, yoksa basit buffer ── */
+    if (window.GranularEngine) {
+      var grainTypeMap = {waves:'waves', rain:'rain', wind:'wind', fire:'forest', storm:'wind', binaural:'forest'};
+      var grainType = grainTypeMap[gen] || 'wind';
+      _granular = new window.GranularEngine(ctx, _master, { volume: ambVol });
+      _granular.generateBuffer(grainType);
+      _granular.start();
+      _startTime = now;
+    } else {
+      /* Fallback: basit buffer */
+      var src  = ctx.createBufferSource();
+      var filt = ctx.createBiquadFilter();
+      var gain = ctx.createGain();
+      src.buffer    = makeBuffer(ctx, gen);
+      src.loop      = true;
+      src.loopStart = 0;
+      src.loopEnd   = _loopDur;
+      filt.type            = 'lowpass';
+      filt.frequency.value = {waves:900,rain:2500,wind:1800,fire:1200,storm:3000,binaural:400}[gen]||800;
+      filt.Q.value = 0.8;
+      src.connect(filt); filt.connect(gain); gain.connect(_master);
+      var off = isFinite(offset) ? (offset % _loopDur + _loopDur) % _loopDur : 0;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(ambVol, now + xfDur);
+      if (_noiseGain) {
+        var oldG = _noiseGain;
+        oldG.gain.setValueAtTime(oldG.gain.value, now);
+        oldG.gain.linearRampToValueAtTime(0, now + xfDur);
+        setTimeout(function(){ try{oldG.disconnect();}catch(e){} }, (xfDur+0.1)*1000);
+      }
+      src.start(0, off); _startTime=now; _noise=src; _noiseGain=gain;
+    }
+    _curGen  = gen;
+    _curBase = isFinite(base) ? base : 0;
+    _curBeat = isFinite(beat) ? beat : 0;
+
+    /* UI güncelle */
+    var badge = document.getElementById('freq-badge');
+    var lbl   = document.getElementById('freq-label');
+    if (badge) badge.classList.add('on');
+    if (lbl)   lbl.textContent = _curBase + ' Hz · ' + gen;
+    var wf = document.getElementById('waveform');
+    if (wf) {
+      if (!wf.children.length) {
+        for (var i=0; i<12; i++) {
+          var b = document.createElement('div');
+          b.className = 'wbar';
+          b.style.setProperty('--dur', (0.4+Math.random()*0.6)+'s');
+          b.style.setProperty('--del', (Math.random()*0.4)+'s');
+          wf.appendChild(b);
+        }
+      }
+      wf.querySelectorAll('.wbar').forEach(function(b){ b.classList.add('on'); });
+    }
+  }
+
+  /* ══════════════════════════════════════════════
+     GLOBAL API
+     ══════════════════════════════════════════════ */
+
+  window.togglePlay = function() {
+    var btn  = document.getElementById('play-btn');
+    var icon = document.getElementById('play-icon');
+    var lbl  = document.getElementById('play-lbl');
+    var wrap = document.querySelector('.breath-wrap');
+
+    _playing = !_playing;
+
+    if (icon) icon.textContent = _playing ? '⏸' : '▶';
+    if (btn)  { btn.setAttribute('aria-pressed', String(_playing)); btn.classList.toggle('on', _playing); }
+    if (lbl)  lbl.textContent  = _playing ? 'Duraklat' : 'Frekansı Başlat';
+    if (wrap) {
+      wrap.classList.remove('breath-idle','breath-inhale');
+      wrap.classList.add(_playing ? 'breath-inhale' : 'breath-idle');
+    }
+
+    if (_playing) {
+      try {
+        var gen='', base=0, beat=0;
+        try { gen=localStorage.getItem('lastGen')||''; base=parseInt(localStorage.getItem('lastBase')||'0')||0; beat=parseInt(localStorage.getItem('lastBeat')||'0')||0; } catch(e){}
+        if (!gen || !base) {
+          var mood='Sakin'; try{ mood=localStorage.getItem('lastMood')||'Sakin'; }catch(e){}
+          var cfg = MOOD_MAP[mood] || MOOD_MAP['Sakin'];
+          gen=cfg.gen; base=cfg.base; beat=cfg.beat;
+        }
+        startSound(gen, base, beat, _pauseOffset);
+        if (window._feedbackCollector) try{ window._feedbackCollector.startSession(mood||null); }catch(e){}
+      } catch(e) {
+        _playing = false;
+        if (icon) icon.textContent = '▶';
+        if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
+        if (lbl)  lbl.textContent = 'Frekansı Başlat';
+        console.warn('[togglePlay]', e);
+      }
+    } else {
+      if (_ctx && _startTime) _pauseOffset = (_ctx.currentTime - _startTime) % _loopDur;
+      stopOscs(); stopNoise();
+      if (_ctx) try{ _ctx.suspend(); }catch(e){}
+      document.querySelectorAll('.wbar').forEach(function(b){ b.classList.remove('on'); });
+      var badge = document.getElementById('freq-badge');
+      if (badge) badge.classList.remove('on');
+      if (window._feedbackCollector) try{ window._feedbackCollector.endSession(); }catch(e){}
+    }
+  };
+
+  window.switchSound = function(gen, base, beat, label) {
+    try{ localStorage.setItem('lastGen',gen); localStorage.setItem('lastBase',base); localStorage.setItem('lastBeat',beat); }catch(e){}
+    if (window._prefVector) try{ window._prefVector.recordSoundChoice(gen, base, beat); }catch(e){}
+    _pauseOffset = 0;
+    if (_playing) startSound(gen, base, beat, 0);
+    var lbl   = document.getElementById('freq-label');
+    var badge = document.getElementById('freq-badge');
+    if (lbl)   lbl.textContent = (base||'') + ' Hz · ' + (label||gen);
+    if (badge) { badge.classList.add('on'); badge.style.opacity='1'; }
+  };
+
+  window.setSleepTimer = function(minutes) {
+    if (window._sleepTimerRef) clearTimeout(window._sleepTimerRef);
+    document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
+    var activeBtn = Array.from(document.querySelectorAll('.stimer-btn'))
+      .find(function(b){ return b.textContent.trim() === minutes+'dk'; });
+    if (activeBtn) activeBtn.classList.add('active');
+    var st = document.getElementById('stimer-status');
+    if (st) { st.textContent='⏰ '+minutes+' dk sonra duracak'; st.className='active'; }
+    var fadeAt=(minutes-2)*60*1000, stopAt=minutes*60*1000;
+    if (fadeAt>0) setTimeout(function(){
+      if(_ctx&&_master){var now=_ctx.currentTime;_master.gain.setValueAtTime(_master.gain.value,now);_master.gain.linearRampToValueAtTime(0,now+120);}
+      if(st){st.textContent='🌙 Ses kısılıyor...';st.className='fading';}
+      if(activeBtn)activeBtn.classList.add('fading');
+    }, fadeAt);
+    window._sleepTimerRef = setTimeout(function(){
+      if(_playing) window.togglePlay();
+      if(st){st.textContent='✓ Tamamlandı';st.className='';}
+      document.querySelectorAll('.stimer-btn').forEach(function(b){b.classList.remove('active','fading');});
+      window._sleepTimerRef = null;
+    }, stopAt);
+  };
+
+  window.cancelSleepTimer = function() {
+    if(window._sleepTimerRef){clearTimeout(window._sleepTimerRef);window._sleepTimerRef=null;}
+    document.querySelectorAll('.stimer-btn').forEach(function(b){b.classList.remove('active','fading');});
+    var st=document.getElementById('stimer-status');
+    if(st){st.textContent='';st.className='';}
+    if(_ctx&&_master&&_playing){var now=_ctx.currentTime;_master.gain.cancelScheduledValues(now);_master.gain.setValueAtTime(_master.gain.value,now);_master.gain.linearRampToValueAtTime(0.8,now+1);}
+  };
+
+  window.getFrequency    = function(){ return _curBase; };
+  window.getMasterVolume = function(){ return _master ? _master.gain.value : 0.8; };
+  window.setMasterVolume = function(vol){
+    vol = Math.max(0,Math.min(1,vol));
+    if(_master&&_ctx){var now=_ctx.currentTime;_master.gain.setValueAtTime(_master.gain.value,now);_master.gain.linearRampToValueAtTime(vol,now+0.3);}
+  };
+
+})();
+/* ═══════════════════════════════════════════════════ */
+
+</script>
 <script>
 /**
  * StateManager.js — Sanctuary 8. Aşama (Final)
@@ -5027,207 +5304,158 @@ window.SanctuaryStats = (function() {
  */
 
 class GranularEngine {
-  /**
-   * @param {AudioContext} ctx
-   * @param {AudioNode}    destination  — bağlanacak hedef node
-   * @param {object}       params
-   * @param {number}       params.grainSize    — ms (50–200)
-   * @param {number}       params.grainRate    — grain/saniye (8–20)
-   * @param {number}       params.pitch        — playback hızı (0.5–2.0)
-   * @param {number}       params.scatter      — pozisyon rastgeleliği (0–1)
-   * @param {number}       params.volume       — çıkış seviyesi (0–1)
-   */
   constructor(ctx, destination, params = {}) {
     this._ctx         = ctx;
     this._destination = destination;
     this._buffer      = null;
     this._active      = false;
     this._grainTimer  = null;
-    this._grains      = [];          // aktif grain node'ları
+    this._grains      = [];
 
     this.params = {
-      grainSize : Math.max(50,  Math.min(200, params.grainSize || 120)),  // ms
-      grainRate : Math.max(8,   Math.min(20,  params.grainRate || 12)),   // /s
-      pitch     : Math.max(0.5, Math.min(2.0, params.pitch     || 1.0)),
-      scatter   : Math.max(0,   Math.min(1,   params.scatter   || 0.5)),
-      volume    : Math.max(0,   Math.min(1,   params.volume    || 0.6)),
+      grainSize : 160,   // ms — sabit büyük grain
+      grainRate : 20,    // /saniye — maksimum overlap
+      pitch     : 1.0,
+      scatter   : 0.15,  // çok düşük scatter — tutarlı doku
+      volume    : params.volume || 0.65,
     };
 
-    /* Master gain */
     this._masterGain = ctx.createGain();
     this._masterGain.gain.value = this.params.volume;
     this._masterGain.connect(destination);
   }
 
-  /* ── Buffer yükle (PCM veya generate) ────────────────────────────────── */
-  setBuffer(buffer) {
-    this._buffer = buffer;
-    return this;
-  }
+  setBuffer(buffer) { this._buffer = buffer; return this; }
 
-  /**
-   * Doğal ses tipi için dahili buffer üret.
-   * @param {'waves'|'wind'|'rain'|'forest'} type
-   */
-  generateBuffer(type = 'wind') {
+  /* Ses tipine göre uzun, tutarlı buffer üret */
+  generateBuffer(type) {
     const ctx = this._ctx;
     const sr  = ctx.sampleRate;
-    const dur = 4;                         // 4 saniyelik temel malzeme
+    const dur = 8;  // 8 saniyelik — yeterince uzun, grain tekrarı az
     const buf = ctx.createBuffer(2, sr * dur, sr);
 
     for (let ch = 0; ch < 2; ch++) {
-      const d     = buf.getChannelData(ch);
-      let   phase = 0;
-
+      const d = buf.getChannelData(ch);
+      let p1=0, p2=0, p3=0;
       for (let i = 0; i < d.length; i++) {
-        const t = i / sr;
         let v = 0;
-
-        switch (type) {
-          case 'waves':
-            phase += (2 * Math.PI * 0.08) / sr;
-            v = Math.sin(phase) * 0.3
-              + Math.sin(phase * 2.1 + 0.5) * 0.15
-              + (Math.random() * 2 - 1) * 0.05;
-            break;
-
-          case 'rain':
-            // Yağmur damlası: düzensiz darbe + gürültü
-            v = (Math.random() * 2 - 1) * 0.3
-              * (0.6 + Math.sin(t * 17.3) * 0.4);
-            break;
-
-          case 'forest':
-            phase += (2 * Math.PI * 0.05) / sr;
-            v = Math.sin(phase) * 0.1
-              + (Math.random() * 2 - 1) * 0.2
-              * Math.abs(Math.sin(t * 0.3));
-            break;
-
-          default: // wind
-            phase += (2 * Math.PI * 0.15) / sr;
-            v = (Math.random() * 2 - 1) * 0.25
-              * (0.5 + Math.abs(Math.sin(phase)));
+        if (type === 'waves') {
+          p1 += (2*Math.PI*0.07)/sr;
+          p2 += (2*Math.PI*0.15)/sr;
+          p3 += (2*Math.PI*0.035)/sr;
+          const swell = 0.55 + Math.sin(p3)*0.45;
+          v = Math.sin(p1)*0.20*swell + Math.sin(p2)*0.10*swell + (Math.random()*2-1)*0.03*swell;
+        } else if (type === 'rain') {
+          p1 += (2*Math.PI*0.4)/sr;
+          // Düzgün yağmur: sürekli pürüzlü gürültü + çok nadir iri damla
+          v = (Math.random()*2-1)*0.14 * (0.75 + Math.sin(p1)*0.25);
+          if (Math.random() < 0.0008) v += (Math.random()*2-1)*0.35;
+        } else if (type === 'wind') {
+          p1 += (2*Math.PI*0.09)/sr;
+          p2 += (2*Math.PI*0.04)/sr;
+          const env = 0.5 + Math.sin(p2)*0.35 + Math.sin(p1*0.4)*0.15;
+          v = (Math.random()*2-1)*0.18 * Math.max(0, env);
+        } else if (type === 'forest') {
+          p1 += (2*Math.PI*0.06)/sr;
+          p2 += (2*Math.PI*0.02)/sr;
+          v = (Math.random()*2-1)*0.12 * (0.6 + Math.abs(Math.sin(p2))*0.4)
+            + Math.sin(p1)*0.04;
+        } else {
+          // Genel: pembe gürültü benzeri
+          p1 += (2*Math.PI*0.05)/sr;
+          v = (Math.random()*2-1)*0.10 * (0.7 + Math.sin(p1)*0.3);
         }
-
         d[i] = isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
       }
     }
-
     this._buffer = buf;
     return this;
   }
 
-  /* ── Başlat ───────────────────────────────────────────────────────────── */
   start() {
     if (this._active) return;
-    if (!this._buffer) {
-      console.warn('[GranularEngine] Buffer yok — wind buffer üretiliyor.');
-      this.generateBuffer('wind');
-    }
+    if (!this._buffer) this.generateBuffer('wind');
     this._active = true;
-    this._scheduleGrain();
+    this._scheduleNext();
   }
 
-  /* ── Durdur ───────────────────────────────────────────────────────────── */
   stop() {
     this._active = false;
-    if (this._grainTimer) {
-      clearTimeout(this._grainTimer);
-      this._grainTimer = null;
-    }
-    /* Aktif grain'leri fade out ile kapat */
+    if (this._grainTimer) { clearTimeout(this._grainTimer); this._grainTimer = null; }
     const now = this._ctx.currentTime;
-    this._grains.forEach((g) => {
+    this._grains.forEach(g => {
       try {
         g.gain.gain.setValueAtTime(g.gain.gain.value, now);
-        g.gain.gain.linearRampToValueAtTime(0, now + 0.05);
-        g.source.stop(now + 0.06);
-      } catch { /* zaten durmuş */ }
+        g.gain.gain.linearRampToValueAtTime(0, now + 0.04);
+        g.source.stop(now + 0.05);
+      } catch(e) {}
     });
     this._grains = [];
   }
 
-  /* ── Parametre güncelle ───────────────────────────────────────────────── */
   setParam(key, value) {
-    if (!(key in this.params)) return;
-    this.params[key] = value;
     if (key === 'volume' && this._masterGain) {
       const now = this._ctx.currentTime;
       this._masterGain.gain.setValueAtTime(this._masterGain.gain.value, now);
       this._masterGain.gain.linearRampToValueAtTime(value, now + 0.2);
     }
+    this.params[key] = value;
   }
 
-  /* ── Temizlik ─────────────────────────────────────────────────────────── */
   dispose() {
     this.stop();
-    try { this._masterGain.disconnect(); } catch { /* ok */ }
+    try { this._masterGain.disconnect(); } catch(e) {}
   }
 
-  /* ────────────────────────────────────────────────────────────────────────
-   * ÖZEL METODLAR
-   * ──────────────────────────────────────────────────────────────────────── */
-
-  _scheduleGrain() {
+  _scheduleNext() {
     if (!this._active) return;
-
     this._spawnGrain();
-
-    /* Bir sonraki grain: düşük jitter, yüksek overlap = pürüzsüz ses */
+    // Düşük jitter (%5) — tutarlı overlap
     const interval = 1000 / this.params.grainRate;
-    const jitter   = interval * 0.08 * (Math.random() * 2 - 1); // %8 jitter
-    const nextMs   = Math.max(10, interval + jitter);
-
-    this._grainTimer = setTimeout(() => this._scheduleGrain(), nextMs);
+    const jitter   = interval * 0.05 * (Math.random() * 2 - 1);
+    this._grainTimer = setTimeout(() => this._scheduleNext(), Math.max(8, interval + jitter));
   }
 
   _spawnGrain() {
     if (!this._buffer || !this._ctx) return;
+    const ctx = this._ctx;
+    const buf = this._buffer;
+    const now = ctx.currentTime;
 
-    const ctx    = this._ctx;
-    const buf    = this._buffer;
-    const now    = ctx.currentTime;
+    // Grain süresi: sabit 160ms ± %10
+    const durSec = (this.params.grainSize * (0.95 + Math.random()*0.1)) / 1000;
 
-    /* Grain süresi: tutarlı, büyük = kesintisiz örtüşme */
-    const durMs  = this.params.grainSize * (0.9 + Math.random() * 0.2);
-    const durSec = Math.max(0.1, Math.min(0.25, durMs / 1000));
+    // Pozisyon: buffer ortasında, çok az scatter
+    const bufDur   = buf.duration;
+    const maxOff   = Math.max(0, bufDur - durSec);
+    const center   = maxOff * 0.5;
+    const scatter  = maxOff * this.params.scatter * 0.3;
+    const offset   = Math.max(0, Math.min(maxOff, center + (Math.random()*2-1)*scatter));
 
-    /* Başlangıç pozisyonu: buffer boyunca rastgele, scatter ile dağıtılmış */
-    const maxOffset  = Math.max(0, buf.duration - durSec);
-    const baseOffset = maxOffset * 0.5;
-    const scatterAmt = maxOffset * this.params.scatter * 0.5;
-    const offset     = Math.max(0, baseOffset + (Math.random() * 2 - 1) * scatterAmt);
-
-    /* Kaynak */
-    const src = ctx.createBufferSource();
+    const src  = ctx.createBufferSource();
+    const gNode = ctx.createGain();
     src.buffer             = buf;
-    src.playbackRate.value = this.params.pitch * (0.9 + Math.random() * 0.2); // hafif pitch varyasyonu
+    src.playbackRate.value = this.params.pitch;
 
-    /* Grain zarf: fade in → sustain → fade out (hann penceresi benzeri) */
-    const gainNode = ctx.createGain();
-    const fadeTime = Math.min(durSec * 0.4, 0.05);
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(0.8, now + fadeTime);
-    gainNode.gain.setValueAtTime(0.8, now + durSec - fadeTime);
-    gainNode.gain.linearRampToValueAtTime(0, now + durSec);
+    // Hann penceresi: smooth fade-in/out
+    const fade = Math.min(durSec * 0.35, 0.04);
+    gNode.gain.setValueAtTime(0, now);
+    gNode.gain.linearRampToValueAtTime(0.85, now + fade);
+    gNode.gain.setValueAtTime(0.85, now + durSec - fade);
+    gNode.gain.linearRampToValueAtTime(0, now + durSec);
 
-    src.connect(gainNode);
-    gainNode.connect(this._masterGain);
-
+    src.connect(gNode);
+    gNode.connect(this._masterGain);
     src.start(now, offset, durSec);
 
-    /* Grain kaydı — temizlik için */
-    const grainRef = { source: src, gain: gainNode };
-    this._grains.push(grainRef);
+    const ref = { source: src, gain: gNode };
+    this._grains.push(ref);
     src.onended = () => {
-      this._grains = this._grains.filter((g) => g !== grainRef);
-      try { gainNode.disconnect(); } catch { /* ok */ }
+      this._grains = this._grains.filter(g => g !== ref);
+      try { gNode.disconnect(); } catch(e) {}
     };
   }
 }
-
-/* ── Export ───────────────────────────────────────────────────────────────── */
 
 /* Browser global */
 window.GranularEngine = GranularEngine;
@@ -6865,7 +7093,7 @@ window.AudioEngine = AudioEngine;
 
 <script>
 /**
- * main.js — Sanctuary 5. Aşama (Performans & Bellek Optimizasyonu)
+ * main.js — Sanctuary 11. Aşama (Performans & Bellek Optimizasyonu)
  * ─────────────────────────────────────────────────────────────────────────────
  * 4. Aşama korundu. Ek değişiklikler (Phase 5):
  *   1. PageVisibilityManager — Sekme gizlenince Ripple/Waveform durur, CPU tasarrufu
@@ -7176,7 +7404,7 @@ var NetworkMonitor = (function () {
         '<span class="offline-dot"></span>',
         '<div class="offline-text">',
         '  <span class="offline-title">İnternet Bağlantısı Kesildi</span>',
-        '  <span class="offline-sub">Bağlantı yeniden kurulduğunda devam edecek…</span>',
+        '  <span class="offline-sub">Çevrimdışı Mod Aktif — Temel Sahneler Kullanılabilir</span>',
         '</div>',
         '<span class="offline-icon">📡</span>',
       ].join('');
@@ -7563,12 +7791,20 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
     }
   }
 
+  /* PHASE 11 — Haptic helper: mobilde kısa titreşim */
+  function _haptic(ms) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(ms || 20);
+    } catch (e) { /* iOS Safari desteklemez, sessizce geç */ }
+  }
+
   function runCycle() {
     if (stopped) return;
 
     setBreathClass('breath-inhale');
     setGuide('Nefes al…');
     syncVolume(volInhale, inhale);
+    _haptic(20); /* PHASE 11 — Nefes Al titreşimi */
 
     timers.push(setTimeout(function () {
       if (stopped) return;
@@ -7580,6 +7816,7 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
         setBreathClass('breath-exhale');
         setGuide('Nefes ver…');
         syncVolume(volExhale, exhale);
+        _haptic(20); /* PHASE 11 — Nefes Ver titreşimi */
 
         timers.push(setTimeout(function () {
           if (stopped) return;
@@ -7986,6 +8223,45 @@ document.addEventListener('DOMContentLoaded', function () {
         console.debug('[main] Ripple etkin (sekme görünür)');
       }
     );
+
+    /* PHASE 11 — Canvas animasyonlarını sekme görünürlüğüne bağla
+     * Sekme arka plana geçince waveform + particles durur → pil/ısı tasarrufu
+     * Ses kesintisiz devam eder */
+    PageVisibilityManager.register(
+      function onHide() {
+        /* Waveform RAF durdur */
+        try { stopWaveformLoop(); } catch (e) {}
+        /* Gen canvas dondur */
+        var canvas = document.getElementById('gen-canvas');
+        if (canvas) canvas.style.animationPlayState = 'paused';
+        /* Particle animasyonlarını dondur */
+        document.querySelectorAll('.detox-particle, .ai-star').forEach(function (el) {
+          el.style.animationPlayState = 'paused';
+        });
+        window._canvasPaused = true;
+        console.debug('[main] Canvas animasyonları durduruldu (arka plan)');
+      },
+      function onShow() {
+        /* Waveform tekrar başlat — AudioEngine aktifse */
+        try {
+          if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+            var eng = AudioEngine.getInstance();
+            if (eng.isPlaying && eng.startWaveformLoop) {
+              /* Waveform callback'i varsa yeniden başlat */
+              eng.startWaveformLoop(eng._lastWaveformCallback || function () {});
+            }
+          }
+        } catch (e) {}
+        /* Gen canvas ve particle animasyonlarını devam ettir */
+        var canvas = document.getElementById('gen-canvas');
+        if (canvas) canvas.style.animationPlayState = 'running';
+        document.querySelectorAll('.detox-particle, .ai-star').forEach(function (el) {
+          el.style.animationPlayState = 'running';
+        });
+        window._canvasPaused = false;
+        console.debug('[main] Canvas animasyonları devam ediyor');
+      }
+    );
   } catch (e) {
     console.warn('[init] PageVisibilityManager başlatılamadı:', e);
   }
@@ -8268,7 +8544,9 @@ window.SanctuarySessionBuffer = (function() {
   }
 
   window.onerror = function(msg, src, line) {
-    return false; // sessizce yakala
+    console.error('[Sanctuary]', msg, src + ':' + line);
+    _showErrorToast('Bir şeyler ters gitti. Lütfen sayfayı yenileyin.');
+    return false;
   };
 
   window.addEventListener('unhandledrejection', function(e) {
@@ -8394,9 +8672,12 @@ window.analyzeJournalAndModulate = function(text) {
     if (!mood) return;
     // Akıllı öneri göster
     setTimeout(function() { window.showSmartSuggestion(mood); }, 300);
-    // Aktivite kaydı başlat
+    // Aktivite kaydı başlat — _sessionMood yerine StateManager kullan
     window._sessionStart = Date.now();
-    window._sessionMood = mood;
+    try {
+      var sm = (typeof getStateManager === 'function') ? getStateManager() : null;
+      if (sm && typeof sm.setSelectedMood === 'function') sm.setSelectedMood(mood);
+    } catch(e) {}
     // Kişiselleştirilmiş mesaj güncelle
     setTimeout(window.updatePersonalizedGreeting, 100);
   };
@@ -8419,25 +8700,7 @@ window.analyzeJournalAndModulate = function(text) {
   };
 })();
 
-/* ── Ses bitişinde aktivite logla ── */
-(function() {
-  var _origToggle = window.togglePlay;
-  window.togglePlay = function() {
-    // Oturum bitişi — süreyi hesapla
-    if (window._sessionStart) {
-      var duration = Math.round((Date.now() - window._sessionStart) / 1000);
-      if (duration > 10 && window.SanctuaryStats) {
-        window.SanctuaryStats.logActivity('audio', duration, window._sessionMood || localStorage.getItem('lastMood'));
-      }
-      window._sessionStart = null;
-    }
-    if (_origToggle) _origToggle();
-    // Ses başladığında süre takibini başlat
-    if (window._sessionStart === null) {
-      window._sessionStart = Date.now();
-    }
-  };
-})();
+/* [togglePlay wrapper kaldırıldı] */
 
 /* ── Sayfa yüklenince zihin haritasını render et ── */
 (function() {
@@ -8460,258 +8723,392 @@ window.analyzeJournalAndModulate = function(text) {
   }
 })();
 
+/* ═══════════════════════════════════════════════════════════════
+   10. AŞAMA — Senkronize Odalar, Avatar Aura, Reaksiyonlar
+═══════════════════════════════════════════════════════════════ */
 
+/* ── Oda Render (RoomManager entegreli) ── */
+window.renderRooms = function(filter) {
+  var grid = document.getElementById('roomsGrid');
+  if (!grid) return;
+  var rm = window.RoomManager;
+  if (!rm) return;
 
-/* ── Sanctuary Ses Motoru — GranularEngine + FMSynthesizer ── */
-(function(){
-  var _ctx       = null;
-  var _master    = null;
-  var _compressor= null;
-  var _playing   = false;
-  var _granular  = null;   // aktif GranularEngine
-  var _fmLeft    = null;   // FM sol (binaural)
-  var _fmRight   = null;   // FM sağ (binaural)
-  var _merger    = null;
-  var _curGen    = null;
-  var _curBase   = 0;
-  var _curBeat   = 0;
+  var rooms = rm.getPublicRooms(filter || 'all');
+  grid.innerHTML = '';
 
-  var MOOD_MAP = {
-    'Huzursuz' : {base:180, beat:6,  gen:'waves'},
-    'Yorgun'   : {base:200, beat:4,  gen:'rain'},
-    'Kaygılı'  : {base:160, beat:8,  gen:'wind'},
-    'Mutsuz'   : {base:220, beat:5,  gen:'waves'},
-    'Sakin'    : {base:200, beat:7,  gen:'binaural'},
-    'Minnettar': {base:528, beat:10, gen:'rain'},
-  };
-
-  /* Generator → GranularEngine buffer tipi */
-  var GEN_TO_GRAIN = {
-    waves:'waves', rain:'rain', wind:'wind',
-    fire:'forest', storm:'wind', binaural:'wind',
-  };
-
-  function getCtx() {
-    if (!_ctx) {
-      var C = window.AudioContext || window.webkitAudioContext;
-      _ctx = new C();
-    }
-    return _ctx;
+  if (!rooms.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
+    return;
   }
 
-  function stopAll() {
-    if (_granular) { try { _granular.stop(); } catch(e){} _granular = null; }
-    if (_fmLeft)   { try { _fmLeft.stop();   } catch(e){} _fmLeft   = null; }
-    if (_fmRight)  { try { _fmRight.stop();  } catch(e){} _fmRight  = null; }
-    if (_merger)   { try { _merger.disconnect(); } catch(e){} _merger = null; }
-  }
+  var catLabels = {odak:'🎯 Odak', uyku:'😴 Uyku', meditasyon:'🧘 Meditasyon', doga:'🌿 Doğa', genel:'✨ Genel'};
 
-  function _ensureMasterBus(ctx) {
-    if (_master) return;
-    /* DynamicsCompressor — limiter olarak kullan, clipping önler */
-    var comp         = ctx.createDynamicsCompressor();
-    comp.threshold.value = -6;
-    comp.knee.value      = 8;
-    comp.ratio.value     = 12;
-    comp.attack.value    = 0.003;
-    comp.release.value   = 0.25;
-    _master = ctx.createGain();
-    var vol = window._prefVector ? window._prefVector.masterVolume : 0.8;
-    _master.gain.value = vol;
-    _master.connect(comp);
-    comp.connect(ctx.destination);
-    _compressor = comp;
-  }
+  rooms.forEach(function(room) {
+    var card = rm.buildRoomCard(room);
+    var pct = Math.round(card.capacityFill * 100);
+    var initials = card.hostName.split(' ').map(function(w){ return w[0]||''; }).join('').slice(0,2).toUpperCase();
 
-  function startSound(gen, base, beat) {
-    var ctx = getCtx();
-    if (ctx.state === 'suspended') ctx.resume();
-    _ensureMasterBus(ctx);
-    stopAll();
+    var el = document.createElement('div');
+    el.className = 'room-card';
+    el.setAttribute('data-room-id', card.id);
+    el.innerHTML =
+      '<div class="card-top">' +
+        '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
+        (card.isPrivate ? '<span class="badge-private">🔒 Özel</span>' : '') +
+      '</div>' +
+      '<div class="room-name">' + card.name + '</div>' +
+      '<div class="room-category">' + (catLabels[card.category]||card.category) + '</div>' +
+      '<div class="room-auras" id="auras-' + card.id + '">' + _buildAuras(room) + '</div>' +
+      '<div class="card-footer">' +
+        '<div class="host-info">' +
+          '<div class="host-avatar">' + initials + '</div>' +
+          '<span class="host-name">' + card.hostName + '</span>' +
+        '</div>' +
+        '<div class="capacity-bar-wrap">' +
+          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' kişi</div>' +
+          '<div class="capacity-bar"><div class="capacity-fill" style="width:' + pct + '%"></div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="room-reactions" id="reactions-' + card.id + '"></div>';
 
-    var now = ctx.currentTime;
-
-    /* ── 1. GranularEngine — kesintisiz ambiyans ── */
-    if (window.GranularEngine) {
-      var grainType = GEN_TO_GRAIN[gen] || 'wind';
-      /* Büyük grain + yüksek rate = kesintisiz, pürüzsüz ses */
-      _granular = new window.GranularEngine(ctx, _master, {
-        grainSize : 180,   // sabit büyük grain — kesinti yok
-        grainRate : 20,    // max overlap — boşluk yok
-        pitch     : 1.0,   // sabit pitch — titreşim yok
-        scatter   : 0.3,   // düşük scatter — tutarlı doku
-        volume    : window._prefVector ? window._prefVector.getLayerGains().ambient : (beat > 0 ? 0.55 : 0.80),
-      });
-      _granular.generateBuffer(grainType);
-      _granular.start();
-    }
-
-    /* ── 2. FMSynthesizer — sadece binaural ton, saf sinüs ── */
-    if (beat > 0 && window.FMSynthesizer) {
-      /* Modülasyon index 0 = saf sinüs, titreşim yok */
-      var binVol = window._prefVector ? window._prefVector.getLayerGains().binaural : 0.25;
-      _fmLeft = new window.FMSynthesizer(ctx, _master, {
-        carrierFreq    : base,
-        modulatorRatio : 1.0,
-        modulationIndex: 0.0,   // saf sinüs — mekanik ses yok
-        volume         : binVol,
-        binaural       : false,
-        adsr           : {attack:4, decay:2, sustain:0.7, release:4},
-      });
-      _fmLeft.start();
-
-      _fmRight = new window.FMSynthesizer(ctx, _master, {
-        carrierFreq    : base + beat,
-        modulatorRatio : 1.0,
-        modulationIndex: 0.0,   // saf sinüs
-        volume         : binVol,
-        binaural       : false,
-        adsr           : {attack:4, decay:2, sustain:0.7, release:4},
-      });
-      _fmRight.start();
-    }
-
-    _curGen = gen; _curBase = base; _curBeat = beat;
-
-    /* UI */
-    var badge = document.getElementById('freq-badge');
-    var lbl   = document.getElementById('freq-label');
-    if (badge) badge.classList.add('on');
-    if (lbl)   lbl.textContent = base + ' Hz · ' + gen;
-
-    var wf = document.getElementById('waveform');
-    if (wf) {
-      if (wf.children.length === 0) {
-        for (var i = 0; i < 12; i++) {
-          var b = document.createElement('div');
-          b.className = 'wbar';
-          b.style.setProperty('--dur', (0.4 + Math.random()*0.6) + 's');
-          b.style.setProperty('--del', (Math.random()*0.4) + 's');
-          wf.appendChild(b);
-        }
-      }
-      wf.querySelectorAll('.wbar').forEach(function(b){ b.classList.add('on'); });
-    }
-  }
-
-  window.togglePlay = function() {
-    var btn  = document.getElementById('play-btn');
-    var icon = document.getElementById('play-icon');
-    var lbl  = document.getElementById('play-lbl');
-    var wrap = document.querySelector('.breath-wrap');
-
-    _playing = !_playing;
-
-    if (icon) icon.textContent = _playing ? '⏸' : '▶';
-    if (btn)  { btn.setAttribute('aria-pressed', String(_playing)); btn.classList.toggle('on', _playing); }
-    if (lbl)  lbl.textContent = _playing ? 'Duraklat' : 'Frekansı Başlat';
-    if (wrap) {
-      wrap.classList.remove('breath-idle','breath-inhale');
-      wrap.classList.add(_playing ? 'breath-inhale' : 'breath-idle');
-    }
-
-    if (_playing) {
-      try {
-        var gen = null, base = 0, beat = 0;
-        try {
-          gen  = localStorage.getItem('lastGen');
-          base = parseInt(localStorage.getItem('lastBase') || '0') || 0;
-          beat = parseInt(localStorage.getItem('lastBeat') || '0') || 0;
-        } catch(e) {}
-
-        if (!gen || !base) {
-          var mood = 'Sakin';
-          try { mood = localStorage.getItem('lastMood') || 'Sakin'; } catch(e) {}
-          var cfg = MOOD_MAP[mood] || MOOD_MAP['Sakin'];
-          gen = cfg.gen; base = cfg.base; beat = cfg.beat;
-        }
-        startSound(gen, base, beat);
-      } catch(e) {
-        _playing = false;
-        if (icon) icon.textContent = '▶';
-        if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
-        if (lbl)  lbl.textContent = 'Frekansı Başlat';
-        console.warn('[togglePlay]', e);
-      }
-    } else {
-      stopAll();
-      if (_ctx) _ctx.suspend();
-      document.querySelectorAll('.wbar').forEach(function(b){ b.classList.remove('on'); });
-      var badge = document.getElementById('freq-badge');
-      if (badge) badge.classList.remove('on');
-    }
-  };
-
-  window.switchSound = function(gen, base, beat, label) {
-    try {
-      localStorage.setItem('lastGen',  gen);
-      localStorage.setItem('lastBase', base);
-      localStorage.setItem('lastBeat', beat);
-    } catch(e) {}
-    if (window._prefVector) window._prefVector.recordSoundChoice(gen, base, beat);
-    if (window._feedbackCollector) window._feedbackCollector.recordSoundChoice(gen, base, beat, null);
-    if (_playing) startSound(gen, base, beat);
-
-    var lbl = document.getElementById('freq-label');
-    if (lbl) lbl.textContent = (base || '') + ' Hz · ' + (label || gen);
-    var badge = document.getElementById('freq-badge');
-    if (badge) { badge.classList.add('on'); badge.style.opacity = '1'; }
-  };
-
-  window.getFrequency    = function() { return _curBase; };
-  window.getMasterVolume = function() { return _master ? _master.gain.value : 0.8; };
-  window.setMasterVolume = function(vol) {
-    if (!isFinite(vol)) return;
-    vol = Math.max(0, Math.min(1, vol));
-    if (_master && _ctx) {
-      var now = _ctx.currentTime;
-      _master.gain.setValueAtTime(_master.gain.value, now);
-      _master.gain.linearRampToValueAtTime(vol, now + 0.3);
-    }
-  };
-
-  window.setSleepTimer = function(minutes) {
-    if (window._sleepTimerRef) clearTimeout(window._sleepTimerRef);
-    document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
-    var activeBtn = Array.from(document.querySelectorAll('.stimer-btn')).find(function(b){
-      return b.textContent.trim() === minutes + 'dk';
+    el.addEventListener('click', function(e) {
+      if (e.target.classList.contains('reaction-btn')) return;
+      window.openRoomModal && window.openRoomModal(card.id);
     });
-    if (activeBtn) activeBtn.classList.add('active');
-    var st = document.getElementById('stimer-status');
-    if (st) { st.textContent = '⏰ ' + minutes + ' dk sonra duracak'; st.className = 'active'; }
-    var fadeAt = (minutes-2)*60*1000, stopAt = minutes*60*1000;
-    if (fadeAt > 0) {
-      setTimeout(function(){
-        if (_ctx && _master) {
-          var now = _ctx.currentTime;
-          _master.gain.setValueAtTime(_master.gain.value, now);
-          _master.gain.linearRampToValueAtTime(0, now + 120);
+
+    grid.appendChild(el);
+  });
+};
+
+function _buildAuras(room) {
+  var html = '';
+  var shown = room.participants.slice(0,5);
+  shown.forEach(function(uid, i) {
+    var breathing = window.RoomManager && window.RoomManager.isBreathing(uid);
+    html += '<div class="aura-dot' + (breathing ? ' breathing' : '') + '" title="' + uid + '"></div>';
+  });
+  if (room.participants.length > 5) {
+    html += '<div class="aura-dot aura-more">+' + (room.participants.length-5) + '</div>';
+  }
+  return html;
+}
+
+/* ── Oda Modal ── */
+window.openRoomModal = function(roomId) {
+  var rm = window.RoomManager;
+  if (!rm) return;
+  var room = rm.getRoomById(roomId);
+  if (!room) return;
+
+  var modal = document.getElementById('room-modal');
+  if (!modal) {
+    modal = _createRoomModal();
+    document.body.appendChild(modal);
+  }
+
+  var card = rm.buildRoomCard(room);
+  modal.querySelector('.rm-title').textContent = card.name;
+  modal.querySelector('.rm-host').textContent = '🎙 Host: ' + card.hostName;
+  modal.querySelector('.rm-count').textContent = card.current + '/' + card.capacity + ' katılımcı';
+  modal.setAttribute('data-room-id', roomId);
+
+  // Ses senkronizasyonu
+  var cfg = room.audioConfig || {};
+  var freqEl = modal.querySelector('.rm-freq');
+  if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz · ' + (cfg.gen||'') : '—';
+
+  modal.style.display = 'flex';
+  requestAnimationFrame(function(){ modal.classList.add('show'); });
+  document.body.style.overflow = 'hidden';
+
+  // Odaya katılınca sesi senkronize et
+  var joinBtn = modal.querySelector('.rm-join-btn');
+  if (joinBtn) {
+    joinBtn.onclick = function() {
+      var res = rm.joinRoom(roomId);
+      if (res.success && res.room.audioConfig && window.switchSound) {
+        var a = res.room.audioConfig;
+        window.switchSound(a.gen, a.base, a.beat, a.label||'');
+        try{localStorage.setItem('lastGen',a.gen);localStorage.setItem('lastBase',a.base);localStorage.setItem('lastBeat',a.beat);}catch(e){}
+      }
+      window.closeRoomModal && window.closeRoomModal();
+    };
+  }
+};
+
+function _createRoomModal() {
+  var m = document.createElement('div');
+  m.id = 'room-modal';
+  m.className = 'modal-overlay';
+  m.style.display = 'none';
+  m.innerHTML =
+    '<div class="modal-sheet room-modal-sheet">' +
+      '<div class="modal-handle-bar"></div>' +
+      '<div class="rm-header">' +
+        '<h3 class="rm-title"></h3>' +
+        '<button class="modal-close-btn" onclick="window.closeRoomModal()">✕</button>' +
+      '</div>' +
+      '<div class="rm-meta">' +
+        '<span class="rm-host"></span>' +
+        '<span class="rm-count"></span>' +
+      '</div>' +
+      '<div class="rm-freq-wrap">🎵 <span class="rm-freq"></span></div>' +
+      '<div class="rm-reaction-bar">' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'❤️\')">❤️</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'✨\')">✨</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'🙏\')">🙏</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'🌊\')">🌊</button>' +
+        '<button class="reaction-btn" onclick="window.sendReaction(\'🔥\')">🔥</button>' +
+      '</div>' +
+      '<button class="rm-join-btn cta-btn">✦ Odaya Katıl</button>' +
+    '</div>';
+  m.addEventListener('click', function(e){ if(e.target===m) window.closeRoomModal(); });
+  return m;
+}
+
+window.closeRoomModal = function() {
+  var m = document.getElementById('room-modal');
+  if (!m) return;
+  m.classList.remove('show');
+  setTimeout(function(){ m.style.display='none'; document.body.style.overflow=''; }, 350);
+};
+
+/* ── Floating Reaksiyon Sistemi ── */
+window.sendReaction = function(emoji) {
+  var container = document.getElementById('reaction-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'reaction-container';
+    container.style.cssText = 'position:fixed;bottom:120px;left:0;right:0;pointer-events:none;z-index:9999;';
+    document.body.appendChild(container);
+  }
+
+  for (var i = 0; i < 3; i++) {
+    (function(delay) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.className = 'floating-reaction';
+        el.textContent = emoji;
+        el.style.left = (20 + Math.random() * 60) + '%';
+        el.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+        container.appendChild(el);
+        setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
+      }, delay);
+    })(i * 200);
+  }
+};
+
+/* ── Filtre bar güncelle ── */
+(function() {
+  function _initRooms() {
+    window.renderRooms('all');
+    var bar = document.getElementById('roomFilterBar');
+    if (bar) {
+      bar.addEventListener('click', function(e) {
+        var chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        bar.querySelectorAll('.filter-chip').forEach(function(c){ c.classList.remove('active'); });
+        chip.classList.add('active');
+        window.renderRooms(chip.getAttribute('data-filter'));
+      });
+    }
+
+    // RoomManager event'lerini dinle
+    if (window.RoomManager) {
+      window.RoomManager.on('audio_sync', function(data) {
+        // Host ses değiştirdi — bildirim göster
+        var toast = document.getElementById('notif-toast');
+        if (toast) {
+          var t = toast.querySelector('.nt-title');
+          var b = toast.querySelector('.nt-body');
+          if (t) t.textContent = '🎵 Host sesi güncelledi';
+          if (b) b.textContent = (data.audioConfig.base||'') + ' Hz · ' + (data.audioConfig.gen||'');
+          toast.classList.add('show');
+          setTimeout(function(){ toast.classList.remove('show'); }, 3000);
         }
-        if (st) { st.textContent = '🌙 Ses kısılıyor...'; st.className = 'fading'; }
-        if (activeBtn) activeBtn.classList.add('fading');
-      }, fadeAt);
-    }
-    window._sleepTimerRef = setTimeout(function(){
-      if (_playing) window.togglePlay();
-      if (st) { st.textContent = '✓ Tamamlandı'; st.className = ''; }
-      document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
-      window._sleepTimerRef = null;
-    }, stopAt);
-  };
+      });
 
-  window.cancelSleepTimer = function() {
-    if (window._sleepTimerRef) { clearTimeout(window._sleepTimerRef); window._sleepTimerRef = null; }
-    document.querySelectorAll('.stimer-btn').forEach(function(b){ b.classList.remove('active','fading'); });
-    var st = document.getElementById('stimer-status');
-    if (st) { st.textContent = ''; st.className = ''; }
-    if (_ctx && _master && _playing) {
-      var now = _ctx.currentTime;
-      _master.gain.cancelScheduledValues(now);
-      _master.gain.setValueAtTime(_master.gain.value, now);
-      _master.gain.linearRampToValueAtTime(0.8, now + 1);
+      window.RoomManager.on('host_changed', function(data) {
+        window.renderRooms && window.renderRooms('all');
+      });
     }
-  };
+  }
 
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initRooms);
+  } else {
+    setTimeout(_initRooms, 300);
+  }
+})();
+
+/* ── Nefes-Aura Senkronizasyonu (Phase 10) ── */
+
+/**
+ * startBreathCycle'ı RoomManager ile entegre et.
+ * Kullanıcı nefes yaptığında küresi titreşir; odadaki herkes görür.
+ * Orijinal startBreathCycle fonksiyonunu wrap eder.
+ */
+(function() {
+  var _origStartBreath = window.startBreathCycle || (typeof startBreathCycle === 'function' ? startBreathCycle : null);
+
+  window.startBreathCycleRoom = function(engine, breathWrap, guideEl, options, roomId) {
+    roomId = roomId || null;
+    var userId = 'user_local';
+
+    // Aura küresi referansı — odadaki kendi noktamız
+    var selfAura = null;
+    if (roomId) {
+      selfAura = document.querySelector('#auras-' + roomId + ' .aura-dot[title="' + userId + '"]');
+    }
+
+    /* Orijinal döngüyü başlat */
+    var stopFn = typeof startBreathCycle === 'function'
+      ? startBreathCycle(engine, breathWrap, guideEl, options)
+      : null;
+
+    /* RoomManager'a bildir */
+    if (roomId && typeof RoomManager !== 'undefined') {
+      RoomManager.setBreathing(roomId, userId, true);
+    }
+
+    /* AudioEngine köprüsü */
+    try {
+      if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+        AudioEngine.getInstance().startBreathBroadcast(roomId, userId);
+      }
+    } catch (e) {}
+
+    /* Aura küresi animasyonu */
+    if (selfAura) selfAura.classList.add('breathing');
+
+    /* Aura UI periyodik güncelleme (500ms) */
+    var _auraTimer = null;
+    if (roomId) {
+      _auraTimer = setInterval(function() {
+        var wrap = document.getElementById('auras-' + roomId);
+        if (!wrap || typeof RoomManager === 'undefined') return;
+        var room = RoomManager.getRoomById(roomId);
+        if (!room) return;
+        wrap.innerHTML = _buildAuras(room);
+      }, 500);
+    }
+
+    /* Stop wrapper */
+    return function stopBreathRoom() {
+      if (typeof stopFn === 'function') stopFn();
+      if (_auraTimer) clearInterval(_auraTimer);
+
+      if (roomId && typeof RoomManager !== 'undefined') {
+        RoomManager.setBreathing(roomId, userId, false);
+      }
+
+      try {
+        if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+          AudioEngine.getInstance().stopBreathBroadcast(roomId, userId);
+        }
+      } catch (e) {}
+
+      if (selfAura) selfAura.classList.remove('breathing');
+    };
+  };
+})();
+
+/* ── Odaya katılınca Room Audio dinleyicisini başlat ── */
+(function() {
+  var _origJoin = window.handleJoinRoom;
+  window.handleJoinRoom = function(roomId, password) {
+    if (_origJoin) _origJoin(roomId, password);
+
+    /* AudioEngine'i room event'lerine abone et */
+    setTimeout(function() {
+      try {
+        if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+          var engine = AudioEngine.getInstance();
+          engine._listenRoomEvents && engine._listenRoomEvents(roomId);
+        }
+      } catch (e) {}
+    }, 300);
+  };
+})();
+
+/* ── Oda Modal Join butonuna nefes entegrasyonu ── */
+(function() {
+  /* Room modal render edilince join butonuna hook ekle */
+  var _origOpen = window.openRoomModal;
+  window.openRoomModal = function(roomId) {
+    if (_origOpen) _origOpen(roomId);
+
+    setTimeout(function() {
+      var joinBtn = document.querySelector('#room-modal .rm-join-btn');
+      if (!joinBtn || joinBtn._phase10breath) return;
+      joinBtn._phase10breath = true;
+
+      joinBtn.addEventListener('click', function() {
+        /* AudioEngine room sync dinleyicisini başlat */
+        try {
+          if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
+            var eng = AudioEngine.getInstance();
+            if (eng._listenRoomEvents) eng._listenRoomEvents(roomId);
+          }
+        } catch(e) {}
+      });
+    }, 100);
+  };
+})();
+
+/* ── Host Ses Değiştirme Fonksiyonu (Host için) ── */
+window.hostSyncAudio = function(roomId, audioConfig) {
+  if (!roomId || !audioConfig) return;
+  try {
+    if (typeof RoomManager !== 'undefined') {
+      RoomManager.syncRoomAudio(roomId, audioConfig);
+      window.SanctuaryToast && window.SanctuaryToast.success(
+        audioConfig.base + ' Hz · ' + audioConfig.gen,
+        '🎵 Oda sesi güncellendi'
+      );
+    }
+  } catch(e) {
+    console.warn('[hostSyncAudio] Hata:', e);
+  }
+};
+
+console.info('[Sanctuary] 10. Aşama — Nefes-Aura Senkronizasyonu & Room Audio Köprüsü hazır ✓');
+(function() {
+  var _origSubmit = document.getElementById('btnSubmitRoom');
+  function _hookSubmit() {
+    var btn = document.getElementById('btnSubmitRoom');
+    if (!btn || btn._phase10) return;
+    btn._phase10 = true;
+    btn.addEventListener('click', function() {
+      var name = (document.getElementById('roomName')||{}).value;
+      if (!name || !name.trim()) { var ni=document.getElementById('roomName'); if(ni)ni.focus(); return; }
+      var category = (document.getElementById('roomCategory')||{}).value || 'genel';
+      var isPriv = !!(document.querySelector('.type-btn.selected') && document.querySelector('.type-btn.selected').getAttribute('data-type')==='private');
+      var cap = parseInt((document.getElementById('capValue')||{}).textContent||'10') || 10;
+      var pwd = isPriv ? ((document.getElementById('roomPassword')||{}).value||'') : null;
+
+      var res = window.RoomManager && window.RoomManager.createRoom({
+        type: isPriv ? 'private' : 'public',
+        name: name.trim(),
+        hostId: 'user_local',
+        capacity: cap,
+        password: pwd,
+        category: category,
+        audioConfig: {gen:'binaural', base:432, beat:7},
+      });
+
+      window.renderRooms && window.renderRooms('all');
+      var modal = document.getElementById('createRoomModal');
+      if (modal) modal.style.display = 'none';
+      var ni = document.getElementById('roomName'); if(ni) ni.value='';
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _hookSubmit);
+  } else {
+    setTimeout(_hookSubmit, 500);
+  }
 })();
 </script>
 <script>
@@ -9576,22 +9973,22 @@ window.sendReaction = function(emoji) {
       }
     };
 
-    /* Play/pause oturum takibi */
-    var _origToggle = window.togglePlay;
-    window.togglePlay = function() {
-      var wasPlaying = document.getElementById('play-btn') &&
-        document.getElementById('play-btn').classList.contains('on');
-      if (_origToggle) _origToggle();
-      if (!wasPlaying) {
-        /* Başladı */
-        var mood = null;
-        try { mood = localStorage.getItem('lastMood'); } catch(e){}
-        if (window._feedbackCollector) window._feedbackCollector.startSession(mood);
-      } else {
-        /* Durdu */
-        if (window._feedbackCollector) window._feedbackCollector.endSession();
-      }
-    };
+    /* Play/pause oturum takibi — togglePlay'i patch et */
+    var _playBtn = document.getElementById('play-btn');
+    if (_playBtn) {
+      _playBtn.addEventListener('click', function() {
+        var isOn = _playBtn.classList.contains('on');
+        if (!isOn) {
+          /* Durdu → az önce durakladı */
+          if (window._feedbackCollector) window._feedbackCollector.endSession();
+        } else {
+          /* Başladı */
+          var mood = null;
+          try { mood = localStorage.getItem('lastMood'); } catch(e){}
+          if (window._feedbackCollector) window._feedbackCollector.startSession(mood);
+        }
+      }, true); /* capture=true: togglePlay'den sonra çalışır */
+    }
 
     console.info('[Sanctuary] Adaptif sistem hazır. Vektör:', 
       window._prefVector ? window._prefVector.toJSON() : 'yok');
