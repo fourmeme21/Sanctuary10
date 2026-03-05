@@ -38,8 +38,8 @@
   }
 
   function _updatePanel(data, params) {
-    var barEl    = document.getElementById('bio-stress-bar');
-    var stressEl = document.getElementById('bio-stress-label');
+    var barEl    = document.getElementById('bio-fill');
+    var stressEl = document.getElementById('bio-status');
     if (barEl) {
       barEl.style.width = (data.stress * 100) + '%';
       var h = Math.round((1 - data.stress) * 120);
