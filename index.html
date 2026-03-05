@@ -1,4 +1,4 @@
-><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
 <script>
@@ -3531,14 +3531,14 @@ _gen-canvas {
 
 <style>
 /* ══ Adım 9: Biyometrik Çubuk ══ */
-#bio-bar-wrap{width:120px;height:8px;background:rgba(255,255,255,0.15);border-radius:8px;margin:12px auto 0;cursor:pointer;position:relative;}
-#bio-stress-bar{height:8px;border-radius:8px;width:30%;transition:width 1.5s ease,background 1.5s ease;}
+#bio-bar-wrap{width:100px;height:6px;background:rgba(255,255,255,0.12);border-radius:6px;cursor:pointer;position:relative;margin-top:2px;}
+#bio-stress-bar{height:6px;border-radius:6px;width:30%;transition:width 1.5s ease,background 1.5s ease;background:hsl(90,70%,50%);}
 #bio-detail{position:absolute;bottom:calc(100% + 14px);left:50%;transform:translateX(-50%) scale(0.95);background:rgba(6,10,24,0.97);border:1px solid rgba(201,169,110,0.2);border-radius:16px;padding:14px 18px;min-width:190px;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;backdrop-filter:blur(16px);z-index:600;}
 #bio-detail.open{opacity:1;pointer-events:all;transform:translateX(-50%) scale(1);}
 .bio-dt{font-size:9px;color:rgba(201,169,110,0.6);letter-spacing:2px;margin-bottom:10px;text-align:center;}
-.bio-row{display:flex;justify-content:space-between;margin-bottom:6px;}
-.bio-row span:first-child{font-size:11px;color:rgba(255,255,255,0.45);}
-.bio-row span:last-child{font-size:12px;color:#c9a96e;font-weight:600;}
+.bio-row2{display:flex;justify-content:space-between;margin-bottom:6px;}
+.bio-row2 span:first-child{font-size:11px;color:rgba(255,255,255,0.45);}
+.bio-row2 span:last-child{font-size:12px;color:#c9a96e;font-weight:600;}
 .bio-sr{display:flex;align-items:center;gap:8px;margin-top:6px;}
 .bio-sr label{font-size:10px;color:rgba(255,255,255,0.35);width:36px;}
 .bio-sr input{flex:1;accent-color:#c9a96e;}
@@ -3677,11 +3677,18 @@ _gen-canvas {
         <span class="play-icon" id="play-icon" aria-hidden="true">▶</span>
       </button>
       <span class="play-lbl" id="play-lbl">Frekansı Başlat</span>
-
 <!-- ══ ADIM 9: Biyometrik Çubuk ══ -->
-<div id="bio-bar-wrap" onclick="window._bioDet=!window._bioDet;document.getElementById('bio-detail').classList.toggle('open')">
-  <div id="bio-stress-bar" style="width:30%;background:hsl(90,70%,50%)"></div>
+<div id="bio-bar-wrap" onclick="var d=document.getElementById('bio-detail');d.classList.toggle('open')">
+  <div id="bio-stress-bar"></div>
   <div id="bio-detail">
+    <div class="bio-dt">BİYOMETRİK</div>
+    <div class="bio-row2"><span>Kalp Atışı</span><span id="bio-bpm">72 bpm</span></div>
+    <div class="bio-row2"><span>HRV</span><span id="bio-hrv">45 ms</span></div>
+    <div class="bio-row2"><span>Durum</span><span id="bio-stress-label">Sakin</span></div>
+    <div class="bio-sr"><label>BPM</label><input type="range" min="45" max="110" value="72" oninput="window.BiometricSimulator&&window.BiometricSimulator.setBPM(+this.value)"></div>
+    <div class="bio-sr"><label>HRV</label><input type="range" min="10" max="80" value="45" oninput="window.BiometricSimulator&&window.BiometricSimulator.setHRV(+this.value)"></div>
+  </div>
+</div><div id="bio-detail">
     <div class="bio-dt">BİYOMETRİK</div>
     <div class="bio-row"><span>Kalp Atışı</span><span id="bio-bpm">72 bpm</span></div>
     <div class="bio-row"><span>HRV</span><span id="bio-hrv">45 ms</span></div>
