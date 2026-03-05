@@ -1,4 +1,4 @@
-
+═
 
 /* ═══════════════════════════════════════════════════
    SANCTUARY SES MOTORU (v3 — Bağımsız, Kararlı)
@@ -31,17 +31,65 @@
   }
 
   /* ── Master Bus: Gain + Compressor/Limiter ── */
+  var _eqLow=null, _eqMid=null, _eqHigh=null;
+
   function ensureMaster(ctx) {
     if (_master) return;
+
+    /* DynamicsCompressor — ses patlamalarını önle */
     _comp = ctx.createDynamicsCompressor();
     _comp.threshold.value = -6;
-    _comp.ratio.value     = 12;
+    _comp.ratio.value     = 10;
+    _comp.knee.value      = 8;
     _comp.attack.value    = 0.003;
     _comp.release.value   = 0.25;
+
+    /* 3-band EQ — frekans ayrıştırma */
+    _eqLow  = ctx.createBiquadFilter();
+    _eqLow.type = 'lowshelf';
+    _eqLow.frequency.value = 200;
+    _eqLow.gain.value = 2;      // Binaural/düşük frekans +2dB
+
+    _eqMid  = ctx.createBiquadFilter();
+    _eqMid.type = 'peaking';
+    _eqMid.frequency.value = 1000;
+    _eqMid.Q.value = 0.8;
+    _eqMid.gain.value = -1;     // Doğa sesleri orta -1dB (çakışma önle)
+
+    _eqHigh = ctx.createBiquadFilter();
+    _eqHigh.type = 'highshelf';
+    _eqHigh.frequency.value = 6000;
+    _eqHigh.gain.value = 1.5;   // Parıltı +1.5dB
+
     _master = ctx.createGain();
     _master.gain.value = (window._prefVector ? window._prefVector.masterVolume : 0.8);
-    _master.connect(_comp);
+
+    /* Zincir: master → eqLow → eqMid → eqHigh → comp → destination */
+    _master.connect(_eqLow);
+    _eqLow.connect(_eqMid);
+    _eqMid.connect(_eqHigh);
+    _eqHigh.connect(_comp);
     _comp.connect(ctx.destination);
+  }
+
+  /* Solfeggio + Pentatonic dizisi */
+  var SCALES = {
+    solfeggio:  [174, 285, 396, 417, 528, 639, 741, 852, 963],
+    pentatonic: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00],
+  };
+
+  function snapToScale(freq, scaleName) {
+    if (!isFinite(freq) || freq <= 0) return freq;
+    var scale = SCALES[scaleName] || SCALES.solfeggio;
+    var best = scale[0], bestDiff = Infinity;
+    scale.forEach(function(note) {
+      var n = note;
+      while (n < freq * 0.7) n *= 2;
+      while (n > freq * 1.4) n /= 2;
+      var diff = Math.abs(n - freq);
+      if (diff < bestDiff) { bestDiff = diff; best = n; }
+    });
+    return best;
   }
 
   /* ── Ses buffer üretici ── */
@@ -122,7 +170,11 @@
     if (window.GranularEngine) {
       var grainTypeMap = {waves:'waves', rain:'rain', wind:'wind', fire:'forest', storm:'wind', binaural:'forest'};
       var grainType = grainTypeMap[gen] || 'wind';
-      _granular = new window.GranularEngine(ctx, _master, { volume: ambVol });
+      var _panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      var _panVal = {waves:0.6, rain:0.4, wind:0.7, fire:0.5, storm:0.8, binaural:0.0}[gen] || 0.3;
+      if (_panner) { _panner.pan.value=(Math.random()>0.5?1:-1)*_panVal; _panner.connect(_master); }
+      var _granDest = _panner || _master;
+      _granular = new window.GranularEngine(ctx, _granDest, { volume: ambVol });
       _granular.generateBuffer(grainType);
       _granular.start();
       _startTime = now;
@@ -273,4 +325,4 @@
 
 })();
 /* ═══════════════════════════════════════════════════ */
-
+════════════════════════════
