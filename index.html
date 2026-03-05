@@ -3527,20 +3527,30 @@ _gen-canvas {
 .rp-btn.sec{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6);}
 </style>
 <style>
-/* ══ Adım 9: Biyometrik Panel ══ */
-.bio-panel{position:fixed;top:16px;right:16px;background:rgba(8,12,28,0.92);border:1px solid rgba(201,169,110,0.25);border-radius:16px;padding:12px 16px;z-index:500;min-width:140px;backdrop-filter:blur(12px);}
-.bio-title{font-size:9px;color:rgba(201,169,110,0.6);letter-spacing:2px;margin-bottom:8px;}
-.bio-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
-.bio-label{font-size:11px;color:rgba(255,255,255,0.5);}
-.bio-val{font-size:12px;color:#c9a96e;font-weight:600;}
-.bio-bar-wrap{margin-top:6px;background:rgba(255,255,255,0.1);border-radius:4px;height:4px;overflow:hidden;}
-.bio-bar{height:4px;border-radius:4px;transition:width 1s ease,background 1s ease;width:30%;}
-.bio-stress-label{font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;text-align:right;}
-/* Slider kontrolleri */
-.bio-sliders{margin-top:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;}
-.bio-slider-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
-.bio-slider-row label{font-size:10px;color:rgba(255,255,255,0.4);width:32px;}
-.bio-slider-row input{flex:1;accent-color:#c9a96e;}
+
+<style>
+/* ══ Adım 9: Biyometrik — İnce Çubuk + Detay Paneli ══ */
+#bio-bar-wrap{position:relative;width:64px;height:3px;background:rgba(255,255,255,0.12);border-radius:3px;margin:6px auto 0;cursor:pointer;}
+#bio-stress-bar{height:3px;border-radius:3px;width:30%;transition:width 1.5s ease,background 1.5s ease;}
+#bio-stress-label{font-size:9px;color:rgba(255,255,255,0.35);text-align:center;letter-spacing:1px;margin-top:2px;}
+
+/* Detay paneli */
+#bio-detail{
+  position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%) scale(0.95);
+  background:rgba(6,10,24,0.96);border:1px solid rgba(201,169,110,0.2);
+  border-radius:16px;padding:14px 18px;min-width:180px;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.25s ease,transform 0.25s ease;
+  backdrop-filter:blur(16px);z-index:600;
+}
+#bio-detail.open{opacity:1;pointer-events:all;transform:translateX(-50%) scale(1);}
+.bio-detail-title{font-size:9px;color:rgba(201,169,110,0.6);letter-spacing:2px;margin-bottom:10px;text-align:center;}
+.bio-detail-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.bio-detail-label{font-size:11px;color:rgba(255,255,255,0.45);}
+.bio-detail-val{font-size:12px;color:#c9a96e;font-weight:600;}
+.bio-slider-row{display:flex;align-items:center;gap:8px;margin-top:4px;}
+.bio-slider-row label{font-size:10px;color:rgba(255,255,255,0.35);width:36px;}
+.bio-slider-row input[type=range]{flex:1;accent-color:#c9a96e;height:3px;}
 </style>
 </head>
 <body>
@@ -4227,10 +4237,7 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<!-- ══ ADIM 9: Biyometrik Panel ══ -->
-<div class="bio-panel" id="bio-panel">
-  <div class="bio-title">BİYOMETRİK</div>
-  <div class="bio-row">
+<div class="bio-row">
     <span class="bio-label">Kalp</span>
     <span class="bio-val" id="bio-bpm">72 bpm</span>
   </div>
