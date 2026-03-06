@@ -859,4 +859,3 @@ window.SanctuaryStats = (function() {
     clearLog: function() { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} },
   };
 })();
-
