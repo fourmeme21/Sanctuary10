@@ -398,3 +398,20 @@
 
     } catch(e) { console.warn('[applyBiometricEffect]', e); }
   };
+
+/* ══ ADIM 9: applyBiometricEffect ══ */
+window.applyBiometricEffect = function(p) {
+  if (!p || !window._ctx) return;
+  var now  = window._ctx.currentTime;
+  var ramp = 2.0;
+  try {
+    if (window._master && p.masterVolume !== undefined)
+      window._master.gain.linearRampToValueAtTime(Math.max(0.1, Math.min(1, p.masterVolume)), now + ramp);
+    if (window._eqLow && p.eqLowBoost !== undefined)
+      window._eqLow.gain.linearRampToValueAtTime(Math.max(-6, Math.min(6, 2 + p.eqLowBoost)), now + ramp);
+    if (window._eqHigh && p.eqHighCut !== undefined)
+      window._eqHigh.gain.linearRampToValueAtTime(Math.max(-6, Math.min(6, 1.5 + p.eqHighCut)), now + ramp);
+    if (window._granular && typeof window._granular.setDensity === 'function')
+      window._granular.setDensity(Math.max(0.2, p.granularDensity || 0.8));
+  } catch(e) { console.warn('[applyBiometricEffect]', e); }
+};

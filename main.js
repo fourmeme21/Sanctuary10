@@ -2097,3 +2097,11 @@ console.info('[Sanctuary] 10. Aşama — Nefes-Aura Senkronizasyonu & Room Audio
     }
   });
 })();
+
+/* ══ ADIM 9: BiometricSimulator başlat ══ */
+window.addEventListener('load', function() {
+  if (window.BiometricSimulator) {
+    window.BiometricSimulator.start(3000);
+    console.info('[Adım9] BiometricSimulator aktif');
+  }
+});
