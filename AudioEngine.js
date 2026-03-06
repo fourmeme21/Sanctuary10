@@ -415,3 +415,7 @@ window.applyBiometricEffect = function(p) {
       window._granular.setDensity(Math.max(0.2, p.granularDensity || 0.8));
   } catch(e) { console.warn('[applyBiometricEffect]', e); }
 };
+/* ── Yedek referans: main.js'deki wrapper'lar için güvenlik kilidi ── */
+window._audioToggle = window.togglePlay;
+window._audioSwitchSound = window.switchSound;
+window._audioSleepTimer = window.setSleepTimer;

@@ -2109,9 +2109,10 @@ window.addEventListener('load', function() {
 /* ══ ADIM 12: VisualizerEngine başlat ══ */
 (function() {
   var _visStarted = false;
-  var _origToggle = window.togglePlay;
+  /* _audioToggle: AudioEngine.js sonunda tanımlanan güvenli yedek referans */
   window.togglePlay = function() {
-    if (_origToggle) _origToggle.apply(this, arguments);
+    var fn = window._audioToggle || null;
+    if (fn) fn.apply(this, arguments);
     setTimeout(function() {
       if (!_visStarted && window.VisualizerEngine) {
         window.VisualizerEngine.init('vis-canvas', window._analyser || null);
