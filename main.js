@@ -2105,3 +2105,28 @@ window.addEventListener('load', function() {
     console.info('[Adım9] BiometricSimulator aktif');
   }
 });
+
+/* ══ ADIM 12: VisualizerEngine başlat ══ */
+(function() {
+  var _visStarted = false;
+  var _origToggle = window.togglePlay;
+  window.togglePlay = function() {
+    if (_origToggle) _origToggle.apply(this, arguments);
+    setTimeout(function() {
+      if (!_visStarted && window.VisualizerEngine) {
+        window.VisualizerEngine.init('vis-canvas', window._analyser || null);
+        _visStarted = true;
+      }
+      if (window._playing && window.VisualizerEngine) window.VisualizerEngine.start();
+      else if (window.VisualizerEngine) window.VisualizerEngine.stop();
+    }, 100);
+  };
+  /* Mood değişince renk güncelle */
+  var _origMood = window.selectMood;
+  if (_origMood) {
+    window.selectMood = function(mood) {
+      _origMood.apply(this, arguments);
+      if (window.VisualizerEngine) window.VisualizerEngine.setMood(mood);
+    };
+  }
+})();
