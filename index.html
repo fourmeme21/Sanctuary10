@@ -3507,6 +3507,21 @@ _gen-canvas {
   }
 })();
 </script>
+<style>
+#bio-strip{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;cursor:pointer;padding:6px 14px;border-radius:20px;background:rgba(255,255,255,0.05);border:1px solid rgba(201,169,110,0.15);transition:background 0.2s;}
+#bio-strip:hover{background:rgba(255,255,255,0.09);}
+#bio-dot{width:8px;height:8px;border-radius:50%;background:#4ecdc4;flex-shrink:0;box-shadow:0 0 6px #4ecdc4;}
+#bio-text{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:1px;}
+#bio-val{font-size:11px;color:#c9a96e;font-weight:600;letter-spacing:1px;}
+#bio-panel{display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(6,10,24,0.97);border:1px solid rgba(201,169,110,0.2);border-radius:16px;padding:16px 20px;min-width:200px;z-index:700;backdrop-filter:blur(16px);}
+#bio-panel.on{display:block;}
+.bprow{display:flex;justify-content:space-between;gap:24px;margin-bottom:7px;}
+.bprow span:first-child{font-size:11px;color:rgba(255,255,255,0.45);}
+.bprow span:last-child{font-size:12px;color:#c9a96e;font-weight:600;}
+.bpsl{display:flex;align-items:center;gap:8px;margin-top:5px;}
+.bpsl label{font-size:10px;color:rgba(255,255,255,0.4);width:32px;}
+.bpsl input{flex:1;accent-color:#c9a96e;}
+</style>
 </head>
 <body>
 
@@ -3641,6 +3656,18 @@ _gen-canvas {
         <span class="play-icon" id="play-icon" aria-hidden="true">▶</span>
       </button>
       <span class="play-lbl" id="play-lbl">Frekansı Başlat</span>
+<div id="bio-strip" onclick="document.getElementById('bio-panel').classList.toggle('on')">
+  <div id="bio-dot"></div>
+  <span id="bio-text">KARDİYAK</span>
+  <span id="bio-val">72 bpm</span>
+</div>
+<div id="bio-panel">
+  <div class="bprow"><span>Kalp Atışı</span><span id="bio-bpm">72 bpm</span></div>
+  <div class="bprow"><span>HRV</span><span id="bio-hrv">45 ms</span></div>
+  <div class="bprow"><span>Durum</span><span id="bio-status">Sakin</span></div>
+  <div class="bpsl"><label>BPM</label><input type="range" min="45" max="110" value="72" oninput="window.BiometricSimulator&&window.BiometricSimulator.setBPM(+this.value)"></div>
+  <div class="bpsl"><label>HRV</label><input type="range" min="10" max="80" value="45" oninput="window.BiometricSimulator&&window.BiometricSimulator.setHRV(+this.value)"></div>
+</div>
     </div>
 
     <div class="pills-row a5">
@@ -6849,5 +6876,32 @@ window.sendReaction = function(emoji) {
 <script src="AudioEngine.js"></script>
 <script src="StateManager.js"></script>
 <script src="main.js"></script>
+<script>
+/* Adım 9 UI güncelle */
+window._bioUpdateUI = function(data) {
+  var dot  = document.getElementById('bio-dot');
+  var val  = document.getElementById('bio-val');
+  var bpm  = document.getElementById('bio-bpm');
+  var hrv  = document.getElementById('bio-hrv');
+  var sts  = document.getElementById('bio-status');
+  if (val)  val.textContent  = data.bpm + ' bpm';
+  if (bpm)  bpm.textContent  = data.bpm + ' bpm';
+  if (hrv)  hrv.textContent  = data.hrv + ' ms';
+  if (sts)  sts.textContent  = data.stress < 0.3 ? 'Sakin' : data.stress < 0.6 ? 'Orta' : 'Stresli';
+  if (dot) {
+    var h = Math.round((1 - data.stress) * 120);
+    dot.style.background   = 'hsl(' + h + ',70%,50%)';
+    dot.style.boxShadow    = '0 0 6px hsl(' + h + ',70%,50%)';
+  }
+};
+/* Dışarı tıklayınca kapat */
+document.addEventListener('click', function(e) {
+  var strip = document.getElementById('bio-strip');
+  var panel = document.getElementById('bio-panel');
+  if (panel && strip && !strip.contains(e.target) && !panel.contains(e.target)) {
+    panel.classList.remove('on');
+  }
+});
+</script>
 </body>
 </html>
