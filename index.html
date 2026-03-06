@@ -3550,6 +3550,9 @@ _gen-canvas {
 .k-srow input{flex:1;accent-color:#c9a96e;}
 .k-srow span{font-size:11px;color:#c9a96e;width:36px;text-align:right;}
 </style>
+<style>
+#connection-badge{display:none;position:fixed;top:12px;right:12px;background:rgba(6,10,24,0.92);border:1px solid rgba(201,169,110,0.3);border-radius:10px;padding:5px 12px;font-size:10px;color:#c9a96e;letter-spacing:1px;z-index:1000;}
+</style>
 </head>
 <body>
 
@@ -6901,7 +6904,10 @@ window.sendReaction = function(emoji) {
 </script>
 
 <!-- Sanctuary Scripts -->
-<!-- <script src="modules.js"></script> -->
+<!-- <script src="ErrorHandler.js"></script>
+<script src="OfflineManager.js"></script>
+<script src="SecurityWrapper.js"></script>
+<script src="modules.js"></script> -->
 <script src="AudioEngine.js"></script>
 <script src="StateManager.js"></script>
 <script src="PreferenceManager.js"></script>
@@ -7003,5 +7009,6 @@ window.closeKardiyak = function() {
   if (p) { p.style.display = 'none'; p.classList.remove('open'); }
 };
 </script>
+<div id="connection-badge"></div>
 </body>
 </html>
