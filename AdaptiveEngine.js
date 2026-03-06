@@ -22,6 +22,7 @@
     var bpmNorm   = (data.bpm - 45) / 65;
     var hrvNorm   = (data.hrv - 10) / 70;
     var stressVal = data.stress;
+    if (window._bioUpdateUI) window._bioUpdateUI(data);
     window.applyBiometricEffect({
       binauralBoost  : bpmNorm * 0.4,
       sparkleReduce  : bpmNorm * 0.5,
