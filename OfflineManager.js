@@ -16,10 +16,10 @@
   function _setOnline(val) {
     _isOnline = val;
     if (val) {
-      showToast('✦ Bağlantı yeniden kuruldu', 'ok');
+      showToast('✦ Connection restored', 'ok');
       _updateStatusBadge(true);
     } else {
-      showToast('◌ Çevrimdışı mod aktif', 'warn');
+      showToast('◌ Offline mode active', 'warn');
       _updateStatusBadge(false);
     }
   }
@@ -60,7 +60,7 @@
 
   /* Başlangıçta durum kontrolü */
   if (!_isOnline) {
-    setTimeout(function(){ showToast('◌ Çevrimdışı mod aktif', 'warn'); }, 1000);
+    /* Açılış toast kaldırıldı — kullanıcıyı gereksiz yere rahatsız etmesin */
   }
 
   console.info('[OfflineManager] Adım 11 hazır. Online:', _isOnline);
