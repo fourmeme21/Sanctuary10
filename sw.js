@@ -12,7 +12,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 /* ─── Versiyon ── */
-const CACHE_VERSION  = 'v5';
+const CACHE_VERSION  = 'v6';
 const CACHE_NAME     = `sanctuary-${CACHE_VERSION}`;
 const AUDIO_CACHE    = `sanctuary-audio-${CACHE_VERSION}`;
 const FONT_CACHE     = `sanctuary-fonts-${CACHE_VERSION}`;

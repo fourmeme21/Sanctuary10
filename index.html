@@ -6339,7 +6339,7 @@ window.showAnalytics = function(){
       var rooms = _load();
       var room = rooms[roomId];
       if (!room) return {success:false, error:'Oda bulunamadı.'};
-      if (!room.isActive) return {success:false, error:'Oda aktif değil.'};
+      if (!room.isActive) return {success:false, error:'Room is not active.'};
       if (room.participants.length >= room.capacity) return {success:false, error:'Oda dolu.'};
       if (room.type==='private' && room.password) {
         if (hashPassword(password) !== room.password) return {success:false, error:'Şifre yanlış.'};
@@ -6467,7 +6467,7 @@ window.renderRooms = function(filter) {
     el.innerHTML =
       '<div class="card-top">' +
         '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
-        (card.isPrivate ? '<span class="badge-private">🔒 Özel</span>' : '') +
+        (card.isPrivate ? '<span class="badge-private">🔒 Private</span>' : '') +
       '</div>' +
       '<div class="room-name">' + card.name + '</div>' +
       '<div class="room-category">' + (catLabels[card.category]||card.category) + '</div>' +
