@@ -3,7 +3,7 @@
 */
 
 const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 exports.handler = async function(event) {
   /* Sadece POST kabul et */
