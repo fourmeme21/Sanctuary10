@@ -6073,7 +6073,41 @@ window.selectPlan = function(el){
   document.querySelectorAll('.pw-plan').forEach(function(p){p.classList.remove('sel');});
   el.classList.add('sel');
 };
-window.triggerPWAInstall = function(){ alert('PWA kurulumu başlatılıyor...'); };
+/* ── PWA Install — gerçek beforeinstallprompt ── */
+var _deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  /* Banner'ı göster */
+  var banner = document.getElementById('pwa-banner');
+  if (banner) {
+    banner.style.display = '';
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ banner.classList.add('show'); });
+    });
+  }
+});
+
+window.addEventListener('appinstalled', function() {
+  _deferredInstallPrompt = null;
+  window.dismissPWABanner && window.dismissPWABanner();
+});
+
+window.triggerPWAInstall = function() {
+  if (_deferredInstallPrompt) {
+    _deferredInstallPrompt.prompt();
+    _deferredInstallPrompt.userChoice.then(function(result) {
+      if (result.outcome === 'accepted') {
+        _deferredInstallPrompt = null;
+        window.dismissPWABanner && window.dismissPWABanner();
+      }
+    });
+  } else {
+    /* Tarayıcı desteklemiyorsa yönlendir */
+    alert('To install: tap the browser menu → "Add to Home Screen"');
+  }
+};
 window.updateTrialState = function(){
   var on=document.getElementById('pw-trial-toggle');
   var note=document.getElementById('pw-cta-note');
