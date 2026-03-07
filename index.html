@@ -3582,6 +3582,20 @@ _gen-canvas {
 </div>
 
 <!-- SCREEN — MOOD -->
+
+<!-- Language Selector -->
+<div id="lang-selector">
+  <button id="lang-btn" onclick="toggleLangDropdown()">
+    <span id="lang-flag">🇬🇧</span>
+    <span id="lang-label">EN</span>
+    <span style="font-size:10px;opacity:0.6">▾</span>
+  </button>
+  <div id="lang-dropdown">
+    <div class="lang-option active" data-lang="en" onclick="setLang('en')">🇬🇧 English</div>
+    <div class="lang-option" data-lang="ar" onclick="setLang('ar')">🇸🇦 العربية</div>
+  </div>
+</div>
+
 <div class="screen on" id="screen-mood">
   <div class="inner">
     <div class="brand a1">
@@ -3590,9 +3604,9 @@ _gen-canvas {
     </div>
 
     <div class="mood-question a2">
-      <p class="eyebrow">Today's Tone</p>
-      <h1 class="display">How are you<br><em>feeling right now?</em></h1>
-      <p>A space that truly listens. What emotions are present for you today?</p>
+      <p class="eyebrow" data-i18n="Today's Tone">Today's Tone</p>
+      <h1 class="display"><span data-i18n="How are you">How are you</span><br><em data-i18n="feeling right now?">feeling right now?</em></h1>
+      <p data-i18n="A space that truly listens. What emotions are present for you today?">A space that truly listens. What emotions are present for you today?</p>
     </div>
 
     <section class="live-rooms-section" id="liveRoomsSection">
@@ -3632,23 +3646,23 @@ _gen-canvas {
     </div>
 
     <div class="mood-grid a3" id="mood-grid" role="group" aria-label="Select mood">
-      <div class="mood-chip" data-mood="Anxious" onclick="window.pickMood(this)" role="button" aria-label="Anxious" tabindex="0"><span class="ic" aria-hidden="true">🌊</span><span class="lbl">Anxious</span></div>
-      <div class="mood-chip" data-mood="Tired" onclick="window.pickMood(this)" role="button" aria-label="Tired"   tabindex="0"><span class="ic" aria-hidden="true">🌙</span><span class="lbl">Tired</span></div>
-      <div class="mood-chip" data-mood="Stressed" onclick="window.pickMood(this)" role="button" aria-label="Stressed"  tabindex="0"><span class="ic" aria-hidden="true">🌪</span><span class="lbl">Stressed</span></div>
-      <div class="mood-chip" data-mood="Sad" onclick="window.pickMood(this)" role="button" aria-label="Sad"   tabindex="0"><span class="ic" aria-hidden="true">🌧</span><span class="lbl">Sad</span></div>
-      <div class="mood-chip" data-mood="Calm" onclick="window.pickMood(this)" role="button" aria-label="Calm"    tabindex="0"><span class="ic" aria-hidden="true">🕯</span><span class="lbl">Calm</span></div>
-      <div class="mood-chip" data-mood="Grateful" onclick="window.pickMood(this)" role="button" aria-label="Grateful" tabindex="0"><span class="ic" aria-hidden="true">✨</span><span class="lbl">Grateful</span></div>
+      <div class="mood-chip" data-mood="Anxious" onclick="window.pickMood(this)" role="button" aria-label="Anxious" tabindex="0"><span class="ic" aria-hidden="true">🌊</span><span class="lbl" data-i18n="Anxious">Anxious</span></div>
+      <div class="mood-chip" data-mood="Tired" onclick="window.pickMood(this)" role="button" aria-label="Tired"   tabindex="0"><span class="ic" aria-hidden="true">🌙</span><span class="lbl" data-i18n="Tired">Tired</span></div>
+      <div class="mood-chip" data-mood="Stressed" onclick="window.pickMood(this)" role="button" aria-label="Stressed"  tabindex="0"><span class="ic" aria-hidden="true">🌪</span><span class="lbl" data-i18n="Stressed">Stressed</span></div>
+      <div class="mood-chip" data-mood="Sad" onclick="window.pickMood(this)" role="button" aria-label="Sad"   tabindex="0"><span class="ic" aria-hidden="true">🌧</span><span class="lbl" data-i18n="Sad">Sad</span></div>
+      <div class="mood-chip" data-mood="Calm" onclick="window.pickMood(this)" role="button" aria-label="Calm"    tabindex="0"><span class="ic" aria-hidden="true">🕯</span><span class="lbl" data-i18n="Calm">Calm</span></div>
+      <div class="mood-chip" data-mood="Grateful" onclick="window.pickMood(this)" role="button" aria-label="Grateful" tabindex="0"><span class="ic" aria-hidden="true">✨</span><span class="lbl" data-i18n="Grateful">Grateful</span></div>
     </div>
 
     <div class="textarea-wrap a4">
-      <span class="textarea-label" id="textarea-label">Tell us more</span>
+      <span class="textarea-label" id="textarea-label" data-i18n="Tell us more">Tell us more</span>
       <textarea class="mood-textarea" id="mood-textarea" rows="3"
         aria-labelledby="textarea-label"
-        placeholder="What's on your mind today? You don't have to write anything..."></textarea>
+        placeholder="What's on your mind today? You don't have to write anything..." data-i18n-placeholder="What's on your mind today? You don't have to write anything..."></textarea>
     </div>
 
     <button class="cta-btn a5" onclick="goSanctuary()" aria-label="Go to Sanctuary">
-      Enter Sanctuary
+      <span data-i18n="Enter Sanctuary">Enter Sanctuary</span>
     </button>
   </div>
 </div>
@@ -3723,7 +3737,7 @@ _gen-canvas {
     </div>
 
     <div class="div-line a6"></div>
-    <h1 class="display sanc-title a6">Welcome,<br><em>this is your space</em></h1>
+    <h1 class="display sanc-title a6"><span data-i18n="Welcome,">Welcome,</span><br><em data-i18n="this is your space">this is your space</em></h1>
     <p class="sanc-sub a6" id="s-message">What you feel is completely valid. All you need to do right now is take one breath.</p>
 
     <div class="s-cards a7">
@@ -3736,12 +3750,12 @@ _gen-canvas {
       <button class="tab-item active" id="tab-btn-audio"
               onclick="window.switchTab('tab-audio')"
               role="tab" aria-selected="true" aria-controls="tab-audio">
-        🎵 Sound
+        🎵 <span data-i18n="Sound">Sound</span>
       </button>
       <button class="tab-item" id="tab-btn-journal"
               onclick="window.switchTab('tab-journal')"
               role="tab" aria-selected="false" aria-controls="tab-journal">
-        ✍️ Journal
+        ✍️ <span data-i18n="Journal">Journal</span>
       </button>
       <button class="tab-item" id="tab-btn-premium"
               onclick="window.switchTab('tab-premium')"
@@ -3777,14 +3791,14 @@ _gen-canvas {
             <div class="ai-textarea-wrap">
               <span class="ai-textarea-label">What's on your mind</span>
               <textarea class="ai-textarea" id="ai-input" rows="3"
-                placeholder="How are you feeling today? Let Oracle design a frequency just for you..."></textarea>
+                placeholder="How are you feeling today? Let Oracle design a frequency just for you..." data-i18n-placeholder="How are you feeling today? Let Oracle design a frequency just for you..."></textarea>
               <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Voice input">🎙</button>
             </div>
             <button class="ai-generate-btn" id="ai-generate-btn" onclick="generateAIFreq()">
               ✦ Awaken Oracle
             </button>
             <div class="ai-result" id="ai-result">
-              <span class="ai-result-label">Oracle Message</span>
+              <span class="ai-result-label" data-i18n="Oracle Message">Oracle Message</span>
               <div class="ai-result-text" id="ai-result-text"></div>
               <div class="ai-result-freq" id="ai-result-freq"></div>
             </div>
@@ -3793,7 +3807,7 @@ _gen-canvas {
       </div>
 
       <div class="analytics-link" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Show analytics">
-        📊 View Your Sessions
+        📊 <span data-i18n="View Your Sessions">View Your Sessions</span>
       </div>
     </div>
 
@@ -3825,7 +3839,7 @@ _gen-canvas {
 
         <div class="journal-header">
           <span class="journal-date" id="journal-date"></span>
-          <span class="journal-title">Your Journal</span>
+          <span class="journal-title" data-i18n="Your Journal">Your Journal</span>
         </div>
         <div class="textarea-wrap">
           <span class="textarea-label" id="journal-label">How are you feeling today?</span>
@@ -3881,7 +3895,7 @@ _gen-canvas {
           </div>
         </div>
         <button class="premium-tab-cta" onclick="window.openPaywall()">
-          ✨ Go Premium — 7 Days Free
+          ✨ <span data-i18n="Go Premium — 7 Days Free">Go Premium — 7 Days Free</span>
         </button>
         <p class="premium-tab-note">After trial, $59.99/year. Cancel anytime.</p>
         <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
@@ -3893,7 +3907,7 @@ _gen-canvas {
     </div>
 
     <button class="back-btn a7" onclick="goBack()" aria-label="Go back">
-      ← Back
+      ← <span data-i18n="Back">Back</span>
     </button>
   </div>
 </div>
@@ -7045,6 +7059,147 @@ if (typeof window.switchTab !== 'function') {
     if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
   };
 }
+</script>
+<script>
+/* ── Language System ── */
+var TRANSLATIONS = {
+  en: {
+    "Today's Tone": "Today's Tone",
+    "How are you": "How are you",
+    "feeling right now?": "feeling right now?",
+    "A space that truly listens. What emotions are present for you today?": "A space that truly listens. What emotions are present for you today?",
+    "Tell us more": "Tell us more",
+    "What's on your mind today? You don't have to write anything...": "What's on your mind today? You don't have to write anything...",
+    "Enter Sanctuary": "Enter Sanctuary",
+    "Live Rooms": "Live Rooms",
+    "Create Room": "Create Room",
+    "Anxious": "Anxious",
+    "Tired": "Tired",
+    "Stressed": "Stressed",
+    "Sad": "Sad",
+    "Calm": "Calm",
+    "Grateful": "Grateful",
+    "Sound": "Sound",
+    "Journal": "Journal",
+    "Premium": "Premium",
+    "Start Frequency": "Start Frequency",
+    "Stop Frequency": "Stop Frequency",
+    "Sleep Timer": "Sleep Timer",
+    "Your Journal": "Your Journal",
+    "How are you feeling today?": "How are you feeling today?",
+    "Write your thoughts, feelings, and gratitude here. This space is yours alone...": "Write your thoughts, feelings, and gratitude here. This space is yours alone...",
+    "View Your Sessions": "View Your Sessions",
+    "Go Premium — 7 Days Free": "Go Premium — 7 Days Free",
+    "After trial, $59.99/year. Cancel anytime.": "After trial, $59.99/year. Cancel anytime.",
+    "Back": "Back",
+    "Oracle Message": "Oracle Message",
+    "How are you feeling today? Let Oracle design a frequency just for you...": "How are you feeling today? Let Oracle design a frequency just for you...",
+    "Awaken Oracle": "Awaken Oracle",
+    "Welcome,": "Welcome,",
+    "this is your space": "this is your space"
+  },
+  ar: {
+    "Today's Tone": "نبضة اليوم",
+    "How are you": "كيف تشعر",
+    "feeling right now?": "في هذه اللحظة؟",
+    "A space that truly listens. What emotions are present for you today?": "مساحة تستمع إليك حقاً. ما المشاعر التي تعيشها اليوم؟",
+    "Tell us more": "أخبرنا أكثر",
+    "What's on your mind today? You don't have to write anything...": "ما الذي يشغل تفكيرك اليوم؟ لست مضطراً للكتابة...",
+    "Enter Sanctuary": "ادخل الملاذ",
+    "Live Rooms": "الغرف المباشرة",
+    "Create Room": "إنشاء غرفة",
+    "Anxious": "قلق",
+    "Tired": "متعب",
+    "Stressed": "مجهد",
+    "Sad": "حزين",
+    "Calm": "هادئ",
+    "Grateful": "ممتنّ",
+    "Sound": "الصوت",
+    "Journal": "المذكرة",
+    "Premium": "بريميوم",
+    "Start Frequency": "ابدأ التردد",
+    "Stop Frequency": "أوقف التردد",
+    "Sleep Timer": "مؤقت النوم",
+    "Your Journal": "مذكرتك",
+    "How are you feeling today?": "كيف تشعر اليوم؟",
+    "Write your thoughts, feelings, and gratitude here. This space is yours alone...": "اكتب أفكارك ومشاعرك وامتنانك هنا. هذه المساحة لك وحدك...",
+    "View Your Sessions": "عرض جلساتك",
+    "Go Premium — 7 Days Free": "اشترك الآن — 7 أيام مجاناً",
+    "After trial, $59.99/year. Cancel anytime.": "بعد التجربة، 59.99$/سنة. إلغاء في أي وقت.",
+    "Back": "رجوع",
+    "Oracle Message": "رسالة الأوراكل",
+    "How are you feeling today? Let Oracle design a frequency just for you...": "كيف تشعر اليوم؟ دع الأوراكل يصمم تردداً خاصاً بك...",
+    "Awaken Oracle": "أيقظ الأوراكل",
+    "Welcome,": "أهلاً،",
+    "this is your space": "هذا مكانك"
+  }
+};
+
+var _currentLang = 'en';
+
+function toggleLangDropdown() {
+  var d = document.getElementById('lang-dropdown');
+  if (d) d.classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+  var sel = document.getElementById('lang-selector');
+  if (sel && !sel.contains(e.target)) {
+    var d = document.getElementById('lang-dropdown');
+    if (d) d.classList.remove('open');
+  }
+});
+
+function setLang(lang) {
+  _currentLang = lang;
+  try { localStorage.setItem('sanctuary_lang', lang); } catch(e) {}
+
+  var flag = lang === 'ar' ? '🇸🇦' : '🇬🇧';
+  var label = lang === 'ar' ? 'AR' : 'EN';
+  document.getElementById('lang-flag').textContent = flag;
+  document.getElementById('lang-label').textContent = label;
+
+  /* RTL */
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+
+  /* Active state */
+  document.querySelectorAll('.lang-option').forEach(function(o) {
+    o.classList.toggle('active', o.getAttribute('data-lang') === lang);
+  });
+
+  /* Çevir */
+  applyTranslations(lang);
+
+  /* Dropdown kapat */
+  var d = document.getElementById('lang-dropdown');
+  if (d) d.classList.remove('open');
+}
+
+function applyTranslations(lang) {
+  var t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+
+  /* data-i18n attribute'u olan elementleri çevir */
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    if (t[key]) el.textContent = t[key];
+  });
+
+  /* Placeholder'ları çevir */
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n-placeholder');
+    if (t[key]) el.placeholder = t[key];
+  });
+}
+
+/* Sayfa açılışında kayıtlı dili uygula */
+(function() {
+  var saved;
+  try { saved = localStorage.getItem('sanctuary_lang'); } catch(e) {}
+  if (saved && saved !== 'en') {
+    window.addEventListener('load', function() { setLang(saved); });
+  }
+})();
 </script>
 </body>
 </html>
