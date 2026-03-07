@@ -466,7 +466,7 @@ _hp-banner {
   color: var(--text-dim);
   /* GPU slide — translateY only */
   transform: translate3d(0, -100%, 0);
-  transition: transform var(--dur-slow) var(--ease-standard);
+  transition: transform 0.6s var(--ease-standard);
   will-change: transform;
 }
 _hp-banner.show {
@@ -3575,9 +3575,9 @@ _gen-canvas {
   <span class="nt-body"></span>
 </div>
 
-<div id="hp-banner" role="status" aria-live="polite">
+<div id="hp-banner" role="status" aria-live="polite" style="display:none !important">
   <span class="hp-icon" aria-hidden="true">🎧</span>
-  <span>En iyi deneyim için kulaklık kullanın — binaural ses sol/sağ kanalda çalışır</span>
+  <span>For the best experience, use headphones — binaural audio works on left/right channels</span>
   <span class="hp-close" onclick="dismissBanner()" role="button" aria-label="Bildirimi kapat" tabindex="0">✕</span>
 </div>
 
@@ -3884,6 +3884,11 @@ _gen-canvas {
           ✨ Premium'a Geç — 7 Gün Ücretsiz
         </button>
         <p class="premium-tab-note">Deneme bittikten sonra $59.99/yıl. İstediğin zaman iptal et.</p>
+        <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+          <a href="privacy.html" style="color:rgba(201,169,110,0.85);text-decoration:none;font-size:13px;font-weight:500;margin:0 12px;font-family:'DM Sans',sans-serif;letter-spacing:0.06em;">Privacy Policy</a>
+          <span style="color:rgba(255,255,255,0.3);font-size:13px;">·</span>
+          <a href="terms.html" style="color:rgba(201,169,110,0.85);text-decoration:none;font-size:13px;font-weight:500;margin:0 12px;font-family:'DM Sans',sans-serif;letter-spacing:0.06em;">Terms of Service</a>
+        </div>
       </div>
     </div>
 
@@ -4029,7 +4034,7 @@ _gen-canvas {
 </div>
 
 <div id="pwa-banner">
-  <div class="pb-text">📱 Sanctuary'yi ana ekrana ekle — Uçak modunda bile çalışır</div>
+  <div class="pb-text">📱 Add Sanctuary to your home screen — works offline too</div>
   <button class="pb-install" id="pwa-install-btn" onclick="triggerPWAInstall()">Ekle</button>
   <span class="pb-close" onclick="dismissPWABanner()">✕</span>
 </div>
@@ -6054,8 +6059,10 @@ window.copyHealthData = function(){
   alert('Kopyalandı');
 };
 window.dismissBanner = function(){
-  var b=document.getElementById('hp-banner');if(b)b.style.display='none';
+  var b=document.getElementById('hp-banner');
+  if(b){ b.classList.remove('show'); setTimeout(function(){ b.style.display='none'; }, 600); }
 };
+
 window.dismissPWABanner = function(){
   var b=document.getElementById('pwa-banner');if(b)b.style.display='none';
 };
@@ -6126,31 +6133,45 @@ window.saveJournalEntry = function(){
   if(st){st.textContent='✓ Kaydedildi';setTimeout(function(){st.textContent='';},2000);}
 };
 
-window.generateAIFreq = function(){
-  var input=document.getElementById('ai-input');
-  if(!input||!input.value.trim()){
-    if(input){input.style.borderColor='rgba(255,100,100,0.5)';setTimeout(function(){input.style.borderColor='';},1500);}
+window.generateAIFreq = async function(){
+  var input = document.getElementById('ai-input');
+  if(!input || !input.value.trim()){
+    if(input){ input.style.borderColor='rgba(255,100,100,0.5)'; setTimeout(function(){ input.style.borderColor=''; }, 1500); }
     return;
   }
-  var btn=document.getElementById('ai-generate-btn');
-  if(btn){btn.disabled=true;btn.textContent='✦ Düşünüyor...';}
-  setTimeout(function(){
-    var lower=input.value.toLowerCase();
-    var freq=432,beat=7,msg='Sana özel bir titreşim tasarlandı.';
-    if(lower.includes('uyku')||lower.includes('yorgun')){freq=174;beat=4;msg='Derin uyku için delta dalgaları aktif.';}
-    else if(lower.includes('kaygı')||lower.includes('stres')){freq=396;beat=6;msg='Kaygıyı serbest bırakan frekans.';}
-    else if(lower.includes('odak')||lower.includes('çalış')){freq=40;beat=10;msg='Gamma dalgaları aktif. Odak derinleşiyor.';}
-    else if(lower.includes('mutlu')||lower.includes('neşe')){freq=528;beat=10;msg='DNA tamiri frekansı.';}
-    else if(lower.includes('huzur')||lower.includes('sakin')){freq=432;beat=7;msg='Evrenin doğal titreşimi.';}
-    var re=document.getElementById('ai-result');
-    var te=document.getElementById('ai-result-text');
-    var fe=document.getElementById('ai-result-freq');
-    if(te)te.textContent=msg;
-    if(fe)fe.innerHTML='<span class="ai-freq-chip">'+freq+' Hz</span><span class="ai-freq-chip">Binaural '+beat+' Hz</span>';
-    if(re)re.classList.add('show');
-    if(btn){btn.disabled=false;btn.textContent="✦ Oracle'ı Uyandır";}
-    try{localStorage.setItem('lastGen','binaural');localStorage.setItem('lastBase',freq);localStorage.setItem('lastBeat',beat);}catch(e){}
-  },1200);
+  var btn = document.getElementById('ai-generate-btn');
+  var re  = document.getElementById('ai-result');
+  var te  = document.getElementById('ai-result-text');
+  var fe  = document.getElementById('ai-result-freq');
+  if(btn){ btn.disabled=true; btn.textContent='✦ Thinking...'; }
+
+  try {
+    var response = await fetch('/.netlify/functions/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: 'You are a sound therapy AI. Based on the user\'s mood, suggest a healing frequency. User says: "' + input.value + '". Respond with a short 1-sentence message in English and recommend a base Hz (174/285/396/417/432/528/639/741/852) and a binaural beat Hz (4-40). Format: {"message":"...","freq":432,"beat":7}'
+      })
+    });
+
+    var data = await response.json();
+    var text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    var clean = text.replace(/```json|```/gi, '').trim();
+    var msd = JSON.parse(clean);
+
+    if(te) te.textContent = msd.message || 'Your frequency has been designed.';
+    if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + (msd.freq||432) + ' Hz</span><span class="ai-freq-chip">Binaural ' + (msd.beat||7) + ' Hz</span>';
+    if(re) re.classList.add('show');
+    try{ localStorage.setItem('lastGen','binaural'); localStorage.setItem('lastBase', msd.freq||432); localStorage.setItem('lastBeat', msd.beat||7); }catch(e){}
+
+  } catch(err) {
+    /* Fallback */
+    if(te) te.textContent = 'Your personal frequency has been designed.';
+    if(fe) fe.innerHTML = '<span class="ai-freq-chip">432 Hz</span><span class="ai-freq-chip">Binaural 7 Hz</span>';
+    if(re) re.classList.add('show');
+  }
+
+  if(btn){ btn.disabled=false; btn.textContent="✦ Oracle'ı Uyandır"; }
 };
 
 window.showAnalytics = function(){
@@ -7016,5 +7037,20 @@ window.closeKardiyak = function() {
 };
 </script>
 <div id="connection-badge"></div>
+
+<script>
+/* switchTab güvenlik kilidi — main.js yüklenmeden önce çağrılırsa çalışır */
+if (typeof window.switchTab !== 'function') {
+  window.switchTab = function(tabId) {
+    document.querySelectorAll('.tab-panel').forEach(function(el){ el.classList.remove('active'); });
+    document.querySelectorAll('.tab-item').forEach(function(el){ el.classList.remove('active'); el.setAttribute('aria-selected','false'); });
+    var target = document.getElementById(tabId);
+    if (target) target.classList.add('active');
+    var btnId = 'tab-btn-' + tabId.replace('tab-','');
+    var btn = document.getElementById(btnId);
+    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
+  };
+}
+</script>
 </body>
 </html>
