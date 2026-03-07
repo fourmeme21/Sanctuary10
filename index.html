@@ -3738,10 +3738,10 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 
     <div class="sleep-timer-row a5" role="group" aria-label="Sleep timer">
       <span class="sleep-timer-label" aria-hidden="true">🌙 Sleep Timer</span>
-      <button class="stimer-btn" onclick="window.setSleepTimer(10)"  aria-label="10 minutes">10min</button>
-      <button class="stimer-btn" onclick="window.setSleepTimer(20)"  aria-label="20 minutes">20min</button>
-      <button class="stimer-btn" onclick="window.setSleepTimer(30)"  aria-label="30 minutes">30min</button>
-      <button class="stimer-btn" onclick="window.setSleepTimer(45)"  aria-label="45 minutes">45min</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(10)"  aria-label="10 dakika">10dk</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(20)"  aria-label="20 dakika">20dk</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(30)"  aria-label="30 dakika">30dk</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(45)"  aria-label="45 dakika">45dk</button>
       <button class="stimer-btn" id="stimer-cancel-btn" onclick="window.cancelSleepTimer()"
         aria-label="Cancel timer">✕ Cancel</button>
       <div id="stimer-status" aria-live="polite"></div>
@@ -3777,7 +3777,7 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 
     <div class="tab-panel active" id="tab-audio" role="tabpanel" aria-labelledby="tab-btn-audio">
       <div class="sounds-section">
-        <div class="sounds-section-title">Premium Frekanslar</div>
+        <div class="sounds-section-title">Premium Frequencies</div>
         <div class="s-sounds-skeleton" id="premium-sounds-skeleton" aria-hidden="true">
           <div class="sk-card"></div>
           <div class="sk-card"></div>
@@ -6092,13 +6092,13 @@ window.dismissPWABanner = function(){
   var b=document.getElementById('pwa-banner');if(b)b.style.display='none';
 };
 window.exportHealth = function(){ alert('Health data exported.'); };
-window.handlePurchase = function(){ alert('Premium satın alındı!'); window.closePaywall && window.closePaywall(); };
-window.restorePurchase = function(){ alert('Satın alım geri yükleniyor...'); };
+window.handlePurchase = function(){ alert('Premium purchase successful!'); window.closePaywall && window.closePaywall(); };
+window.restorePurchase = function(){ alert('Restoring purchase...'); };
 window.selectPlan = function(el){
   document.querySelectorAll('.pw-plan').forEach(function(p){p.classList.remove('sel');});
   el.classList.add('sel');
 };
-window.triggerPWAInstall = function(){ alert('PWA kurulumu başlatılıyor...'); };
+window.triggerPWAInstall = function(){ alert('Starting PWA install...'); };
 window.updateTrialState = function(){
   var on=document.getElementById('pw-trial-toggle');
   var note=document.getElementById('pw-cta-note');
@@ -6115,15 +6115,15 @@ window.pickMood = function(el) {
   var me=document.getElementById('s-emoji'), mm=document.getElementById('s-mood');
   if(me) me.textContent=emoji;
   if(mm) mm.textContent=mood;
-  var msgs={'Huzursuz':'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.',
-    'Yorgun':'Listennmek bir lüks değil, ihtiyaçtır. Kendine izin ver.',
-    'Kaygılı':'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.',
-    'Mutsuz':'Her duygu geçer. Bu da geçecek. Burada seninleyim.',
-    'Sakin':'Sakinlik senin doğal halin. Onu koruyalım.',
-    'Minnettar':'Minnettarlık kalbi açar, dünyayı aydınlatır.'};
+  var msgs={'Anxious':'Restlessness is a temporary guest. Breathe — you are here.',
+    'Tired':'Rest is not a luxury, it is a need. Give yourself permission.',
+    'Stressed':'Anxiety is your mind trying to protect you. You are safe now.',
+    'Sad':'Every feeling passes. This too shall pass. I am here with you.',
+    'Calm':'Calm is your natural state. Let us protect it.',
+    'Grateful':'Gratitude opens the heart and lights the world.'};
   var msgEl=document.getElementById('s-message');
   if(msgEl) msgEl.textContent=msgs[mood]||'';
-  var bgMap={'Huzursuz':'teal','Yorgun':'violet','Kaygılı':'sky','Mutsuz':'rose','Sakin':'teal','Minnettar':'gold'};
+  var bgMap={'Anxious':'teal','Tired':'violet','Stressed':'sky','Sad':'rose','Calm':'teal','Grateful':'gold'};
   if(typeof window.setBgMood==='function') window.setBgMood(bgMap[mood]||'teal');
   /* StateManager'a kaydet — global _activeMood yerine merkezi state */
   try {
@@ -6170,27 +6170,55 @@ window.generateAIFreq = async function(){
   var fe  = document.getElementById('ai-result-freq');
   if(btn){ btn.disabled=true; btn.textContent='✦ Thinking...'; }
 
+  /* Seçili mood'u al */
+  var moodEl = document.querySelector('.mood-chip.selected, .mood-chip[aria-pressed="true"]');
+  var mood = moodEl ? (moodEl.getAttribute('data-mood') || '') : '';
+
   try {
     var response = await fetch('/.netlify/functions/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: input.value })
+      body: JSON.stringify({ mood: mood, input: input.value })
     });
 
     var msd = await response.json();
+    console.log('[generateAIFreq] MSD alındı:', JSON.stringify(msd));
 
-    if(te) te.textContent = msd.message || 'Your frequency has been designed.';
-    if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + (msd.freq||432) + ' Hz</span><span class="ai-freq-chip">Binaural ' + (msd.beat||7) + ' Hz</span>';
+    /* MSD doğrulama */
+    var freq = msd.frequencySuggestion || msd.freq || 432;
+    var beat = (msd.layers && msd.layers.find(function(l){ return l.type==='binaural'; })) ? 7 : (msd.beat || 7);
+    var sceneName = msd.sceneName || '';
+    var bp = msd.breathPattern || {inhale:4,hold:4,exhale:8};
+
+    /* UI güncelle */
+    if(te) te.textContent = sceneName || 'Your frequency has been designed.';
+    if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + freq + ' Hz</span>'
+      + '<span class="ai-freq-chip">Binaural ' + beat + ' Hz</span>'
+      + (sceneName ? '<span class="ai-freq-chip" style="color:var(--gold)">' + sceneName + '</span>' : '');
     if(re) re.classList.add('show');
-    try{ localStorage.setItem('lastGen','binaural'); localStorage.setItem('lastBase', msd.freq||432); localStorage.setItem('lastBeat', msd.beat||7); }catch(e){}
+
+    /* Nefes rehberini güncelle */
+    var bg = document.getElementById('breath-guide');
+    if(bg && bp) bg.textContent = bp.inhale + '-' + bp.hold + '-' + bp.exhale;
+
+    /* AudioEngine'e uygula */
+    try{
+      localStorage.setItem('lastGen','binaural');
+      localStorage.setItem('lastBase', freq);
+      localStorage.setItem('lastBeat', beat);
+      if(window.engine && window.engine.switchSound){
+        window.engine.switchSound({gen:'binaural', base:freq, beat:beat});
+      }
+    }catch(e){}
 
   } catch(err) {
+    console.error('[generateAIFreq] Hata:', err.message);
     if(te) te.textContent = 'Your personal frequency has been designed.';
     if(fe) fe.innerHTML = '<span class="ai-freq-chip">432 Hz</span><span class="ai-freq-chip">Binaural 7 Hz</span>';
     if(re) re.classList.add('show');
   }
 
-  if(btn){ btn.disabled=false; btn.textContent="✦ Awaken Oracle"; }
+  if(btn){ btn.disabled=false; btn.textContent='✦ Awaken Oracle'; }
 };
 
 window.showAnalytics = function(){
@@ -6211,7 +6239,7 @@ window.showAnalytics = function(){
     if(!canvas)return;
     var ctx=canvas.getContext('2d'),W=canvas.offsetWidth||300,H=120;
     canvas.width=W;canvas.height=H;
-    var days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+    var days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     var vals=days.map(function(){return Math.floor(Math.random()*40);});
     vals[6]=minutes%40;
     var max=Math.max.apply(null,vals.concat([1]));
@@ -6307,7 +6335,7 @@ window.showAnalytics = function(){
   /* ── Katılımcı Host Adları ── */
   var HOST_NAMES = {
     'user_zeynep':'Zeynep A.','user_mert':'Mert K.','user_selin':'Selin T.',
-    'user_ayse':'Ayşe D.','user_can':'Can B.','user_nilufer':'Nilüfer Y.',
+    'user_ayse':'Ayse D.','user_can':'Can B.','user_nilufer':'Nilufer Y.',
   };
   function _hostName(id) { return HOST_NAMES[id] || (id ? id.replace('user_','').replace('_',' ') : 'Misafir'); }
 
@@ -6363,11 +6391,11 @@ window.showAnalytics = function(){
     joinRoom: function(roomId, password) {
       var rooms = _load();
       var room = rooms[roomId];
-      if (!room) return {success:false, error:'Oda bulunamadı.'};
+      if (!room) return {success:false, error:'Room not found.'};
       if (!room.isActive) return {success:false, error:'Room is not active.'};
       if (room.participants.length >= room.capacity) return {success:false, error:'Oda dolu.'};
       if (room.type==='private' && room.password) {
-        if (hashPassword(password) !== room.password) return {success:false, error:'Şifre yanlış.'};
+        if (hashPassword(password) !== room.password) return {success:false, error:'Wrong password.'};
       }
       var userId = 'user_local';
       if (!room.participants.includes(userId)) {
@@ -6382,7 +6410,7 @@ window.showAnalytics = function(){
     leaveRoom: function(roomId) {
       var rooms = _load();
       var room = rooms[roomId];
-      if (!room) return {success:false, error:'Oda bulunamadı.'};
+      if (!room) return {success:false, error:'Room not found.'};
       var userId = 'user_local';
       room.participants = room.participants.filter(function(id){ return id!==userId; });
       var result = {success:true, deleted:false, newHost:null};
@@ -6475,14 +6503,11 @@ window.renderRooms = function(filter) {
   grid.innerHTML = '';
 
   if (!rooms.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">No rooms in this category oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
     return;
   }
 
-  var _isAr = document.documentElement.getAttribute('lang')==='ar';
-    var catLabels = _isAr
-      ? {focus:'🎯 تركيز', sleep:'😴 نوم', meditation:'🧘 تأمل', doga:'🌿 طبيعة', genel:'✨ عام', odak:'🎯 تركيز', uyku:'😴 نوم', meditasyon:'🧘 تأمل'}
-      : {focus:'🎯 Focus', sleep:'😴 Sleep', meditation:'🧘 Meditation', doga:'🌿 Nature', genel:'✨ General', odak:'🎯 Focus', uyku:'😴 Sleep', meditasyon:'🧘 Meditation'};
+  var catLabels = {focus:'🎯 Focus', sleep:'😴 Sleep', meditation:'🧘 Meditation', doga:'🌿 Nature', genel:'✨ General', odak:'🎯 Focus', uyku:'😴 Sleep', meditasyon:'🧘 Meditation'};
 
   rooms.forEach(function(room) {
     var card = rm.buildRoomCard(room);
@@ -6494,8 +6519,8 @@ window.renderRooms = function(filter) {
     el.setAttribute('data-room-id', card.id);
     el.innerHTML =
       '<div class="card-top">' +
-        '<span class="badge-live"><span class="dot"></span>' + (document.documentElement.getAttribute('lang')==='ar' ? 'مباشر' : 'LIVE') + '</span>' +
-        (card.isPrivate ? '<span class="badge-private">🔒 ' + (document.documentElement.getAttribute('lang')==='ar' ? 'خاص' : 'Private') + '</span>' : '') +
+        '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
+        (card.isPrivate ? '<span class="badge-private">🔒 Private</span>' : '') +
       '</div>' +
       '<div class="room-name">' + card.name + '</div>' +
       '<div class="room-category">' + (catLabels[card.category]||card.category) + '</div>' +
@@ -6506,7 +6531,7 @@ window.renderRooms = function(filter) {
           '<span class="host-name">' + card.hostName + '</span>' +
         '</div>' +
         '<div class="capacity-bar-wrap">' +
-          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' ' + (document.documentElement.getAttribute('lang')==='ar' ? 'شخص' : 'people') + '</div>' +
+          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' people</div>' +
           '<div class="capacity-bar"><div class="capacity-fill" style="width:' + pct + '%"></div></div>' +
         '</div>' +
       '</div>' +
@@ -6550,7 +6575,7 @@ window.openRoomModal = function(roomId) {
   var card = rm.buildRoomCard(room);
   modal.querySelector('.rm-title').textContent = card.name;
   modal.querySelector('.rm-host').textContent = '🎙 Host: ' + card.hostName;
-  modal.querySelector('.rm-count').textContent = card.current + '/' + card.capacity + ' katılımcı';
+  modal.querySelector('.rm-count').textContent = card.current + '/' + card.capacity + ' participants';
   modal.setAttribute('data-room-id', roomId);
 
   // Ses senkronizasyonu
@@ -6601,7 +6626,7 @@ function _createRoomModal() {
         '<button class="reaction-btn" onclick="window.sendReaction(\'🌊\')">🌊</button>' +
         '<button class="reaction-btn" onclick="window.sendReaction(\'🔥\')">🔥</button>' +
       '</div>' +
-      '<button class="rm-join-btn cta-btn">✦ Odaya Katıl</button>' +
+      '<button class="rm-join-btn cta-btn">✦ Join Room</button>' +
     '</div>';
   m.addEventListener('click', function(e){ if(e.target===m) window.closeRoomModal(); });
   return m;
@@ -7184,9 +7209,6 @@ function setLang(lang) {
 
   /* Çevir */
   applyTranslations(lang);
-
-  /* Odaları yeniden render et */
-  if (window.renderRooms) window.renderRooms('all');
 
   /* Dropdown kapat */
   var d = document.getElementById('lang-dropdown');
