@@ -103,7 +103,7 @@ Rules:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: systemPrompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1200 },
       }),
     });
 
