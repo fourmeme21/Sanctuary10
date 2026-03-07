@@ -6150,22 +6150,30 @@ window.generateAIFreq = async function(){
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt: 'You are a sound therapy AI. Based on the user\'s mood, suggest a healing frequency. User says: "' + input.value + '". Respond with a short 1-sentence message in English and recommend a base Hz (174/285/396/417/432/528/639/741/852) and a binaural beat Hz (4-40). Format: {"message":"...","freq":432,"beat":7}'
+        prompt: 'You are a sound therapy AI. The user says: "' + input.value + '". Reply ONLY with a raw JSON object, no markdown, no explanation. Example: {"message":"Release tension with this grounding frequency.","freq":396,"beat":6}. Choose freq from: 174,285,396,417,432,528,639,741,852. Choose beat from 4 to 40.'
       })
     });
 
     var data = await response.json();
     var text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    var clean = text.replace(/```json|```/gi, '').trim();
-    var msd = JSON.parse(clean);
+    var clean = text.replace(/```json|```|\n/gi, '').trim();
+    
+    /* JSON bul */
+    var jsonMatch = clean.match(/\{.*\}/s);
+    var msd = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
 
-    if(te) te.textContent = msd.message || 'Your frequency has been designed.';
-    if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + (msd.freq||432) + ' Hz</span><span class="ai-freq-chip">Binaural ' + (msd.beat||7) + ' Hz</span>';
+    if(msd && msd.message) {
+      if(te) te.textContent = msd.message;
+      if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + (msd.freq||432) + ' Hz</span><span class="ai-freq-chip">Binaural ' + (msd.beat||7) + ' Hz</span>';
+    } else {
+      /* Gemini yanıtını düz metin olarak göster */
+      if(te) te.textContent = clean.substring(0, 120) || 'Your frequency has been designed.';
+      if(fe) fe.innerHTML = '<span class="ai-freq-chip">432 Hz</span><span class="ai-freq-chip">Binaural 7 Hz</span>';
+    }
     if(re) re.classList.add('show');
-    try{ localStorage.setItem('lastGen','binaural'); localStorage.setItem('lastBase', msd.freq||432); localStorage.setItem('lastBeat', msd.beat||7); }catch(e){}
+    try{ localStorage.setItem('lastGen','binaural'); localStorage.setItem('lastBase', (msd&&msd.freq)||432); localStorage.setItem('lastBeat', (msd&&msd.beat)||7); }catch(e){}
 
   } catch(err) {
-    /* Fallback */
     if(te) te.textContent = 'Your personal frequency has been designed.';
     if(fe) fe.innerHTML = '<span class="ai-freq-chip">432 Hz</span><span class="ai-freq-chip">Binaural 7 Hz</span>';
     if(re) re.classList.add('show');
