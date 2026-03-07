@@ -149,13 +149,24 @@
     ensureMaster(ctx);
     stopOscs();
 
-    /* Binaural oscilatorler */
+    /* Binaural oscilatorler — Aşama 1: FrequencyManager üzerinden harmonik frekans */
     if (beat > 0) {
+      /* FrequencyManager varsa harmonik temel frekans al; yoksa eski davranış */
+      var _fm = (typeof window.getFrequencyManager === 'function')
+        ? window.getFrequencyManager(base)
+        : null;
+      if (_fm) _fm.setBaseFreq(isFinite(base) ? base : 200);
+
+      var _leftFreq  = _fm ? _fm.getNextFrequency() : (isFinite(base) ? base : 200);
+      var _rightFreq = _fm
+        ? Math.max(20, Math.min(20000, _leftFreq + beat))
+        : (isFinite(base + beat) ? base + beat : 207);
+
       var mg = ctx.createChannelMerger(2);
       mg.connect(_master);
-      [[base,0],[base+beat,1]].forEach(function(p) {
+      [[_leftFreq, 0], [_rightFreq, 1]].forEach(function(p) {
         var o = ctx.createOscillator(), g = ctx.createGain();
-        o.frequency.value = isFinite(p[0]) ? p[0] : 200;
+        o.frequency.value = p[0];
         o.type = 'sine';
         g.gain.value = 0.10;
         o.connect(g); g.connect(mg, 0, p[1]);
