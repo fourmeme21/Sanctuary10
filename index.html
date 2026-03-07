@@ -3738,10 +3738,10 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 
     <div class="sleep-timer-row a5" role="group" aria-label="Sleep timer">
       <span class="sleep-timer-label" aria-hidden="true">🌙 Sleep Timer</span>
-      <button class="stimer-btn" onclick="window.setSleepTimer(10)"  aria-label="10 dakika">10dk</button>
-      <button class="stimer-btn" onclick="window.setSleepTimer(20)"  aria-label="20 dakika">20dk</button>
-      <button class="stimer-btn" onclick="window.setSleepTimer(30)"  aria-label="30 dakika">30dk</button>
-      <button class="stimer-btn" onclick="window.setSleepTimer(45)"  aria-label="45 dakika">45dk</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(10)"  aria-label="10 minutes">10min</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(20)"  aria-label="20 minutes">20min</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(30)"  aria-label="30 minutes">30min</button>
+      <button class="stimer-btn" onclick="window.setSleepTimer(45)"  aria-label="45 minutes">45min</button>
       <button class="stimer-btn" id="stimer-cancel-btn" onclick="window.cancelSleepTimer()"
         aria-label="Cancel timer">✕ Cancel</button>
       <div id="stimer-status" aria-live="polite"></div>
@@ -6479,7 +6479,10 @@ window.renderRooms = function(filter) {
     return;
   }
 
-  var catLabels = {focus:'🎯 Focus', sleep:'😴 Sleep', meditation:'🧘 Meditation', doga:'🌿 Nature', genel:'✨ General', odak:'🎯 Focus', uyku:'😴 Sleep', meditasyon:'🧘 Meditation'};
+  var _isAr = document.documentElement.getAttribute('lang')==='ar';
+    var catLabels = _isAr
+      ? {focus:'🎯 تركيز', sleep:'😴 نوم', meditation:'🧘 تأمل', doga:'🌿 طبيعة', genel:'✨ عام', odak:'🎯 تركيز', uyku:'😴 نوم', meditasyon:'🧘 تأمل'}
+      : {focus:'🎯 Focus', sleep:'😴 Sleep', meditation:'🧘 Meditation', doga:'🌿 Nature', genel:'✨ General', odak:'🎯 Focus', uyku:'😴 Sleep', meditasyon:'🧘 Meditation'};
 
   rooms.forEach(function(room) {
     var card = rm.buildRoomCard(room);
@@ -6491,8 +6494,8 @@ window.renderRooms = function(filter) {
     el.setAttribute('data-room-id', card.id);
     el.innerHTML =
       '<div class="card-top">' +
-        '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
-        (card.isPrivate ? '<span class="badge-private">🔒 Private</span>' : '') +
+        '<span class="badge-live"><span class="dot"></span>' + (document.documentElement.getAttribute('lang')==='ar' ? 'مباشر' : 'LIVE') + '</span>' +
+        (card.isPrivate ? '<span class="badge-private">🔒 ' + (document.documentElement.getAttribute('lang')==='ar' ? 'خاص' : 'Private') + '</span>' : '') +
       '</div>' +
       '<div class="room-name">' + card.name + '</div>' +
       '<div class="room-category">' + (catLabels[card.category]||card.category) + '</div>' +
@@ -6503,7 +6506,7 @@ window.renderRooms = function(filter) {
           '<span class="host-name">' + card.hostName + '</span>' +
         '</div>' +
         '<div class="capacity-bar-wrap">' +
-          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' kişi</div>' +
+          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' ' + (document.documentElement.getAttribute('lang')==='ar' ? 'شخص' : 'people') + '</div>' +
           '<div class="capacity-bar"><div class="capacity-fill" style="width:' + pct + '%"></div></div>' +
         '</div>' +
       '</div>' +
@@ -7181,6 +7184,9 @@ function setLang(lang) {
 
   /* Çevir */
   applyTranslations(lang);
+
+  /* Odaları yeniden render et */
+  if (window.renderRooms) window.renderRooms('all');
 
   /* Dropdown kapat */
   var d = document.getElementById('lang-dropdown');
