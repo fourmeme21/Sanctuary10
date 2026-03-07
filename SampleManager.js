@@ -1,5 +1,10 @@
 /**
- * SampleManager.js — Sanctuary Organik Ses Katmanı v1
+ * SampleManager.js — Sanctuary Organik Ses Katmanı v1.3 (Aşama 3)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Aşama 3 değişiklikleri:
+ *   • Tüm fallback üreticiler Brownian Noise algoritmasına geçirildi
+ *   • Fade-in/out: linearRamp → exponentialRamp, 0 → 0.0001
+ *   • Fade-in: 2.5sn | Fade-out: 3.0sn | Crossfade: 2.5sn
  * ─────────────────────────────────────────────────────────────────────────────
  * GeminiAdapter'dan gelen sceneName değerine göre uygun ses örneklerini
  * eşleştirir, 3D HRTF uzayda konumlandırır ve seamless loop ile çalar.
@@ -70,15 +75,17 @@ const FALLBACK_GENERATORS = {
     const buf = ctx.createBuffer(2, len, sr);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
-      let p1 = 0, p2 = 0, p3 = 0;
+      let p1 = 0, p2 = 0, p3 = 0, lastOut = 0; /* Brownian state */
       for (let i = 0; i < len; i++) {
         p1 += (2 * Math.PI * 0.07) / sr;
         p2 += (2 * Math.PI * 0.15) / sr;
         p3 += (2 * Math.PI * 0.035) / sr;
+        const white = Math.random() * 2 - 1;
+        lastOut = (lastOut + 0.02 * white) / 1.02; /* Brownian dönüşümü */
         const swell = 0.55 + Math.sin(p3) * 0.45;
         const v = Math.sin(p1) * 0.18 * swell
                 + Math.sin(p2) * 0.09 * swell
-                + (Math.random() * 2 - 1) * 0.03 * swell;
+                + lastOut * 0.06 * swell; /* Brownian — derin dalga dokusu */
         d[i] = Math.max(-1, Math.min(1, isFinite(v) ? v : 0));
       }
     }
@@ -90,10 +97,13 @@ const FALLBACK_GENERATORS = {
     const buf = ctx.createBuffer(2, len, sr);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
-      let p1 = 0;
+      let p1 = 0, lastOut = 0; /* Brownian state */
       for (let i = 0; i < len; i++) {
         p1 += (2 * Math.PI * 0.4) / sr;
-        let v = (Math.random() * 2 - 1) * 0.12 * (0.75 + Math.sin(p1) * 0.25);
+        const white = Math.random() * 2 - 1;
+        lastOut = (lastOut + 0.02 * white) / 1.02; /* Brownian zemin */
+        /* Sürekli zemin Brownian; nadir damlalar beyaz (fiziksel doğruluk) */
+        let v = lastOut * 0.35 * (0.75 + Math.sin(p1) * 0.25);
         if (Math.random() < 0.0006) v += (Math.random() * 2 - 1) * 0.28;
         d[i] = Math.max(-1, Math.min(1, isFinite(v) ? v : 0));
       }
@@ -127,12 +137,14 @@ const FALLBACK_GENERATORS = {
     const buf = ctx.createBuffer(2, len, sr);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
-      let p1 = 0, p2 = 0;
+      let p1 = 0, p2 = 0, lastOut = 0; /* Brownian state */
       for (let i = 0; i < len; i++) {
         p1 += (2 * Math.PI * 0.09) / sr;
         p2 += (2 * Math.PI * 0.04) / sr;
+        const white = Math.random() * 2 - 1;
+        lastOut = (lastOut + 0.02 * white) / 1.02; /* Brownian rüzgar dokusu */
         const env = Math.max(0, 0.5 + Math.sin(p2) * 0.35 + Math.sin(p1 * 0.4) * 0.15);
-        const v = (Math.random() * 2 - 1) * 0.14 * env;
+        const v = lastOut * 0.55 * env; /* Beyaz gürültü yerine Brownian */
         d[i] = Math.max(-1, Math.min(1, isFinite(v) ? v : 0));
       }
     }
@@ -217,7 +229,7 @@ class SampleManager {
     console.info('[SampleManager] Başlatıldı. Aktif katmanlar:', sampleIds);
   }
 
-  stop(fadeDuration = 1.5) {
+  stop(fadeDuration = 3.0) {
     if (!this._isPlaying) return;
     this._isPlaying = false;
 
@@ -225,7 +237,8 @@ class SampleManager {
     this._activeLayers.forEach((layer, id) => {
       try {
         layer.gain.gain.setValueAtTime(layer.gain.gain.value, now);
-        layer.gain.gain.linearRampToValueAtTime(0, now + fadeDuration);
+        /* Aşama 3: linearRamp → exponentialRamp, 0 → 0.0001 */
+        layer.gain.gain.exponentialRampToValueAtTime(0.0001, now + fadeDuration);
         setTimeout(() => this._disposeLayer(id), (fadeDuration + 0.2) * 1000);
       } catch (e) { /* zaten durmuş */ }
     });
@@ -234,11 +247,12 @@ class SampleManager {
   }
 
   setVolume(vol) {
-    this._volume = Math.max(0, Math.min(1, vol));
+    this._volume = Math.max(0.0001, Math.min(1, vol)); /* 0.0001 min — exponential için */
     if (this._masterGain && this._ctx) {
       const now = this._ctx.currentTime;
       this._masterGain.gain.setValueAtTime(this._masterGain.gain.value, now);
-      this._masterGain.gain.linearRampToValueAtTime(this._volume, now + 0.3);
+      /* Aşama 3: linearRamp → exponentialRamp */
+      this._masterGain.gain.exponentialRampToValueAtTime(this._volume, now + 0.3);
     }
   }
 
@@ -338,8 +352,8 @@ class SampleManager {
     const now  = ctx.currentTime;
 
     if (fadeIn) {
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.8, now + 1.5);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.8, now + 2.5); /* Aşama 3: exponential, 2.5sn */
     } else {
       gain.gain.value = 0.8;
     }
@@ -371,14 +385,14 @@ class SampleManager {
     this._activeLayers.delete(sampleId);
   }
 
-  async _crossfadeTo(newSampleIds, duration = 1.5) {
+  async _crossfadeTo(newSampleIds, duration = 2.5) {
     const now = this._ctx.currentTime;
 
-    /* Mevcut katmanları fade-out */
+    /* Mevcut katmanları fade-out — Aşama 3: exponentialRamp */
     this._activeLayers.forEach((layer, id) => {
       if (!newSampleIds.includes(id)) {
         layer.gain.gain.setValueAtTime(layer.gain.gain.value, now);
-        layer.gain.gain.linearRampToValueAtTime(0, now + duration);
+        layer.gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
         setTimeout(() => this._disposeLayer(id), (duration + 0.2) * 1000);
       }
     });

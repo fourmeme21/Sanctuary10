@@ -1,9 +1,14 @@
-/* v3 — Aşama 3: Sinyal Zinciri & Ses Kalitesi Revizyonu */
+/* v3.1 — Aşama 3 TAM: Sinyal Temizliği, Brownian Noise, Harmonik Hiyerarşi */
 
 /* ═══════════════════════════════════════════════════════════════════
-   SANCTUARY SES MOTORU (v3 — Analog Sıcaklık, Düzeltilmiş Sinyal Yolu)
+   SANCTUARY SES MOTORU (v3.1 — Analog Sıcaklık, Tam Sinyal Zinciri)
    Sinyal Şeması:
-     Osilatörler/Gürültü → _mainFilter (LP 2kHz) → _master → EQ → Comp → destination
+     Osilatörler/Gürültü → _mainFilter (LP 1800Hz, Q 0.8) → _master → EQ → Comp → destination
+   Aşama 3 değişiklikleri:
+     • mainFilter: 1800Hz (2kHz üzeri dijital kir kesilir), Q: 0.8
+     • Brownian Noise: lastOut = (lastOut + 0.02*white) / 1.02
+     • Fade-in: 2.5sn exponentialRamp | Fade-out: 3.0sn exponentialRamp
+     • Harmonik hiyerarşi: Temel%100 / 2.%40 / 3.%20 / 4.%10
    togglePlay, switchSound, setSleepTimer burada tanımlı
    ═══════════════════════════════════════════════════════════════════ */
 (function(){
@@ -44,7 +49,7 @@
    *
    * Aşama 3 — Sinyal Zinciri DÜZELTİLDİ:
    *   Tüm kaynaklar → _mainFilter → _master → eqLow → eqMid → eqHigh → _comp → destination
-   *   _mainFilter: BiquadFilter lowpass @ 2000 Hz, Q 0.707
+   *   _mainFilter: BiquadFilter lowpass @ 1800 Hz, Q 0.8
    *   Hışırtı ve tiz kirlilikler _mainFilter tarafından traşlanır;
    *   _master öncesinde konumlandırılması tüm kaynakları etkiler.
    * ────────────────────────────────────────────────────────────── */
@@ -79,8 +84,8 @@
     /* Aşama 3 — Ana Lowpass Filtresi (kaynaklar buraya bağlanır) */
     _mainFilter = ctx.createBiquadFilter();
     _mainFilter.type            = 'lowpass';
-    _mainFilter.frequency.value = 2000;   /* Hz — hışırtı sınırı */
-    _mainFilter.Q.value         = 0.707;  /* Butterworth — yumuşak kesim */
+    _mainFilter.frequency.value = 1800;   /* Hz — 2kHz üzeri dijital hışırtıyı temizler */
+    _mainFilter.Q.value         = 0.8;    /* Hafif rezonans — analog kesim karakteri */
 
     /* Master gain */
     _master = ctx.createGain();
@@ -196,9 +201,10 @@
   /* ── Ses Başlat ──
    *
    * Aşama 3 değişiklikleri:
-   *   1. Binaural osilatörler: sine (temel) + triangle (harmonik, %30 vol)
+   *   1. Harmonik hiyerarşi: Temel %100, 2. %40, 3. %20, 4. %10
    *   2. Tüm kaynaklar _mainFilter'a bağlanır (_master'a doğrudan değil)
-   *   3. Fade-in: exponentialRampToValueAtTime(0.0001 → hedef, 2sn)
+   *   3. Fade-in: exponentialRampToValueAtTime(0.0001 → hedef, 2.5sn)
+   *   4. Fade-out: exponentialRampToValueAtTime(hedef → 0.0001, 3.0sn)
    * ─────────────────────────────────────────────────────────────── */
   function startSound(gen, base, beat, offset) {
     var ctx = getCtx();
@@ -218,10 +224,12 @@
     stopOscs();
 
     /* ═══ Binaural Osilatörler ═══
-     * Aşama 3 — Osilatör Zenginleştirme (Layering):
-     *   • Temel frekans: 'sine' dalgası
-     *   • Harmonik (3. kısmi): 'triangle' dalgası, temel sesin %30'u kadar kazanç
-     *   • Her iki osilatör de _mainFilter üzerinden _master'a gider
+     * Aşama 3 — Harmonik Hiyerarşi (Müzikal Ahenk):
+     *   • Temel: sine dalgası @ %100 (0.10 gain)
+     *   • 2. harmonik: sine @ ×2 frekans, %40 (0.04 gain)
+     *   • 3. harmonik: triangle @ ×3 frekans, %20 (0.02 gain)
+     *   • 4. harmonik: sine @ ×4 frekans, %10 (0.01 gain)
+     *   • Tüm harmonikler _mainFilter üzerinden _master'a gider
      * ────────────────────────────────────────────────────────────── */
     if (beat > 0) {
       var _fm = (typeof window.getFrequencyManager === 'function')
@@ -257,30 +265,46 @@
         /* Aşama 3 — Zarf (Envelope) için ayrı gain düğümü */
         var envGain = ctx.createGain();
         envGain.gain.setValueAtTime(0.0001, _oscStartNow);
-        envGain.gain.exponentialRampToValueAtTime(1.0, _oscStartNow + 2); /* 2sn fade-in */
+        envGain.gain.exponentialRampToValueAtTime(1.0, _oscStartNow + 2.5); /* 2.5sn fade-in */
         envGain.connect(mg, 0, p[1]);
 
-        /* ── Temel Osilatör: sine ── */
+        /* ── Temel Osilatör: sine (%100 seviye) ── */
         var o = ctx.createOscillator();
         var g = ctx.createGain();
         o.type = 'sine';
         o.frequency.value = p[0];
-        g.gain.value = 0.10;
-        _lfoDepth.connect(g.gain); /* LFO nefes modülasyonu */
+        g.gain.value = 0.10;              /* Temel: %100 referans seviyesi */
+        _lfoDepth.connect(g.gain);         /* LFO nefes modülasyonu */
         o.connect(g);
         g.connect(envGain);
         o.start(); _oscs.push(o);
 
-        /* ── Harmonik Osilatör: triangle (3. kısmi, %30 kazanç) ── */
-        var harmonicFreq = Math.min(20000, p[0] * 3);
-        var oH = ctx.createOscillator();
-        var gH = ctx.createGain();
-        oH.type = 'triangle';
-        oH.frequency.value = harmonicFreq;
-        gH.gain.value = 0.03; /* 0.10 × 0.30 = 0.03 (temel sesin %30'u) */
-        oH.connect(gH);
-        gH.connect(envGain);
-        oH.start(); _oscs.push(oH);
+        /* ── 2. Harmonik: sine @ ×2 (%40 seviye) ── */
+        var o2 = ctx.createOscillator();
+        var g2 = ctx.createGain();
+        o2.type = 'sine';
+        o2.frequency.value = Math.min(20000, p[0] * 2);
+        g2.gain.value = 0.04; /* 0.10 × 0.40 */
+        o2.connect(g2); g2.connect(envGain);
+        o2.start(); _oscs.push(o2);
+
+        /* ── 3. Harmonik: triangle @ ×3 (%20 seviye) ── */
+        var o3 = ctx.createOscillator();
+        var g3 = ctx.createGain();
+        o3.type = 'triangle';
+        o3.frequency.value = Math.min(20000, p[0] * 3);
+        g3.gain.value = 0.02; /* 0.10 × 0.20 */
+        o3.connect(g3); g3.connect(envGain);
+        o3.start(); _oscs.push(o3);
+
+        /* ── 4. Harmonik: sine @ ×4 (%10 seviye) ── */
+        var o4 = ctx.createOscillator();
+        var g4 = ctx.createGain();
+        o4.type = 'sine';
+        o4.frequency.value = Math.min(20000, p[0] * 4);
+        g4.gain.value = 0.01; /* 0.10 × 0.10 */
+        o4.connect(g4); g4.connect(envGain);
+        o4.start(); _oscs.push(o4);
       });
 
       _lfoOsc.start();
@@ -288,7 +312,7 @@
 
     var now    = ctx.currentTime;
     var ambVol = window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60;
-    var xfDur  = 2.0; /* Aşama 3: Sabit 2sn geçiş süresi */
+    var xfDur  = 2.5; /* Aşama 3: 2.5sn fade-in geçiş süresi */
 
     /* ═══ Ortam Sesi (Ambient Layer) ═══ */
     if (window.GranularEngine) {
@@ -403,13 +427,13 @@
         console.warn('[togglePlay]', e);
       }
     } else {
-      /* Aşama 3 — Yumuşak Durdurma: 2sn exponentialRamp fade-out */
+      /* Aşama 3 — Yumuşak Durdurma: 3sn exponentialRamp fade-out */
       if (_ctx && _startTime) _pauseOffset = (_ctx.currentTime - _startTime) % _loopDur;
       if (_ctx && _master) {
         var _stopNow = _ctx.currentTime;
         _master.gain.cancelScheduledValues(_stopNow);
         _master.gain.setValueAtTime(_master.gain.value, _stopNow);
-        _master.gain.exponentialRampToValueAtTime(0.0001, _stopNow + 2);
+        _master.gain.exponentialRampToValueAtTime(0.0001, _stopNow + 3.0);
         setTimeout(function() {
           stopOscs(); stopNoise();
           if (_sampleManager) { try { _sampleManager.stop(); } catch(e){} }
@@ -421,7 +445,7 @@
               _ctx.currentTime
             );
           }
-        }, 2100);
+        }, 3100);
       } else {
         stopOscs(); stopNoise();
         if (_sampleManager) { try { _sampleManager.stop(); } catch(e){} }
