@@ -1,22 +1,26 @@
-/* v2 */
+/* v3 — Aşama 3: Sinyal Zinciri & Ses Kalitesi Revizyonu */
 
-
-/* ═══════════════════════════════════════════════════
-   SANCTUARY SES MOTORU (v3 — Bağımsız, Kararlı)
+/* ═══════════════════════════════════════════════════════════════════
+   SANCTUARY SES MOTORU (v3 — Analog Sıcaklık, Düzeltilmiş Sinyal Yolu)
+   Sinyal Şeması:
+     Osilatörler/Gürültü → _mainFilter (LP 2kHz) → _master → EQ → Comp → destination
    togglePlay, switchSound, setSleepTimer burada tanımlı
-   ═══════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
 
-  var _ctx=null, _master=null, _comp=null;
-  var _oscs=[], _noise=null, _noiseGain=null;
+  /* ── Modül-Düzeyi Değişkenler ── */
+  var _ctx=null, _master=null, _comp=null, _mainFilter=null;
+  var _eqLow=null, _eqMid=null, _eqHigh=null;
+  var _oscs=[], _noise=null, _noiseGain=null, _granular=null;
   var _playing=false, _startTime=0, _pauseOffset=0;
   var _loopDur=8, _curGen=null, _curBase=0, _curBeat=0;
 
   /* Aşama 2 — LFO + SampleManager */
-  var _lfoOsc=null, _lfoGain=null;   // LFO modülasyon düğümleri
-  var _sampleManager=null;            // Organik katman yöneticisi
+  var _lfoOsc=null, _lfoGain=null;
+  var _sampleManager=null;
 
+  /* ── Ruh Hali Haritası ── */
   var MOOD_MAP = {
     'Huzursuz' : {base:180, beat:6,  gen:'waves'},
     'Yorgun'   : {base:200, beat:4,  gen:'rain'},
@@ -31,13 +35,19 @@
     if (!_ctx) {
       var C = window.AudioContext || window.webkitAudioContext;
       _ctx = new C();
+      window._ctx = _ctx; /* Dış erişim için yayınla (applyBiometricEffect, RoomManager) */
     }
     return _ctx;
   }
 
-  /* ── Master Bus: Gain + Compressor/Limiter ── */
-  var _eqLow=null, _eqMid=null, _eqHigh=null;
-
+  /* ── Master Bus: mainFilter → Gain → EQ → Compressor/Limiter ──
+   *
+   * Aşama 3 — Sinyal Zinciri DÜZELTİLDİ:
+   *   Tüm kaynaklar → _mainFilter → _master → eqLow → eqMid → eqHigh → _comp → destination
+   *   _mainFilter: BiquadFilter lowpass @ 2000 Hz, Q 0.707
+   *   Hışırtı ve tiz kirlilikler _mainFilter tarafından traşlanır;
+   *   _master öncesinde konumlandırılması tüm kaynakları etkiler.
+   * ────────────────────────────────────────────────────────────── */
   function ensureMaster(ctx) {
     if (_master) return;
 
@@ -49,35 +59,51 @@
     _comp.attack.value    = 0.003;
     _comp.release.value   = 0.25;
 
-    /* 3-band EQ — frekans ayrıştırma */
+    /* 3-band EQ */
     _eqLow  = ctx.createBiquadFilter();
     _eqLow.type = 'lowshelf';
     _eqLow.frequency.value = 200;
-    _eqLow.gain.value = 2;      // Binaural/düşük frekans +2dB
+    _eqLow.gain.value = 2;
 
     _eqMid  = ctx.createBiquadFilter();
     _eqMid.type = 'peaking';
     _eqMid.frequency.value = 1000;
     _eqMid.Q.value = 0.8;
-    _eqMid.gain.value = -1;     // Doğa sesleri orta -1dB (çakışma önle)
+    _eqMid.gain.value = -1;
 
     _eqHigh = ctx.createBiquadFilter();
     _eqHigh.type = 'highshelf';
     _eqHigh.frequency.value = 6000;
-    _eqHigh.gain.value = 1.5;   // Parıltı +1.5dB
+    _eqHigh.gain.value = 1.5;
 
+    /* Aşama 3 — Ana Lowpass Filtresi (kaynaklar buraya bağlanır) */
+    _mainFilter = ctx.createBiquadFilter();
+    _mainFilter.type            = 'lowpass';
+    _mainFilter.frequency.value = 2000;   /* Hz — hışırtı sınırı */
+    _mainFilter.Q.value         = 0.707;  /* Butterworth — yumuşak kesim */
+
+    /* Master gain */
     _master = ctx.createGain();
     _master.gain.value = (window._prefVector ? window._prefVector.masterVolume : 0.8);
 
-    /* Zincir: master → eqLow → eqMid → eqHigh → comp → destination */
+    /* ═══ Zincir bağlantısı ═══
+     * kaynaklar → _mainFilter → _master → eqLow → eqMid → eqHigh → _comp → destination */
+    _mainFilter.connect(_master);
     _master.connect(_eqLow);
     _eqLow.connect(_eqMid);
     _eqMid.connect(_eqHigh);
     _eqHigh.connect(_comp);
     _comp.connect(ctx.destination);
+
+    /* Dış erişim için yayınla */
+    window._master     = _master;
+    window._mainFilter = _mainFilter;
+    window._eqLow      = _eqLow;
+    window._eqMid      = _eqMid;
+    window._eqHigh     = _eqHigh;
   }
 
-  /* Solfeggio + Pentatonic dizisi */
+  /* ── Solfeggio + Pentatonic ── */
   var SCALES = {
     solfeggio:  [174, 285, 396, 417, 528, 639, 741, 852, 963],
     pentatonic: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00],
@@ -97,7 +123,14 @@
     return best;
   }
 
-  /* ── Ses buffer üretici ── */
+  /* ── Ses Buffer Üretici (Aşama 3: Brownian Noise) ──
+   *
+   * Beyaz gürültü (Math.random) TÜM sürekli gürültü katmanlarında
+   * Brownian Noise algoritmasıyla değiştirildi:
+   *   lastOut = (lastOut + 0.02 * white) / 1.02
+   * Bu formül yüksek frekansları doğal olarak baskılar; ses daha
+   * derin, organik ve analogdur.
+   * ─────────────────────────────────────────────────────────────── */
   function makeBuffer(ctx, type) {
     var sr  = ctx.sampleRate || 44100;
     var len = Math.round(sr * _loopDur);
@@ -105,28 +138,36 @@
     for (var ch = 0; ch < 2; ch++) {
       var d = buf.getChannelData(ch);
       var p1=0, p2=0, p3=0;
+      var lastOut = 0; /* Brownian state — her kanal için sıfırlanır */
       for (var i = 0; i < len; i++) {
         var v = 0;
+        var white = Math.random() * 2 - 1; /* Ham beyaz gürültü */
+        /* Brownian dönüşümü: yüksek frekansları entegre ederek bastırır */
+        lastOut = (lastOut + 0.02 * white) / 1.02;
+
         if (type === 'waves') {
           p1 += (2*Math.PI*0.08)/sr; p2 += (2*Math.PI*0.19)/sr; p3 += (2*Math.PI*0.04)/sr;
           var sw = Math.sin(p3)*0.4+0.6;
-          v = Math.sin(p1)*0.18*sw + Math.sin(p2)*0.09*sw + (Math.random()*2-1)*0.04*sw;
+          /* Brownian gürültü dalga yüzeyi üzerine bindiriliyor */
+          v = Math.sin(p1)*0.18*sw + Math.sin(p2)*0.09*sw + lastOut * 0.12 * sw;
         } else if (type === 'rain') {
           p1 += (2*Math.PI*0.6)/sr;
-          v  = (Math.random()*2-1)*0.15 + (Math.random()<0.003?(Math.random()*2-1)*0.6:0);
+          /* Sürekli zemin: Brownian; nadir ani damlalar: beyaz (fiziksel doğruluk) */
+          v  = lastOut * 0.45 + (Math.random()<0.003?(Math.random()*2-1)*0.6:0);
           v *= (0.7 + Math.sin(p1)*0.3);
         } else if (type === 'wind') {
           p1 += (2*Math.PI*0.12)/sr; p2 += (2*Math.PI*0.05)/sr;
-          v  = (Math.random()*2-1)*0.22 * Math.max(0, 0.5+Math.sin(p2)*0.4+Math.sin(p1*0.3)*0.1);
+          v  = lastOut * 0.7 * Math.max(0, 0.5+Math.sin(p2)*0.4+Math.sin(p1*0.3)*0.1);
         } else if (type === 'fire') {
           p1 += (2*Math.PI*2.5)/sr; p2 += (2*Math.PI*0.07)/sr;
-          v  = (Math.random()*2-1)*0.16*(0.6+Math.sin(p2)*0.4) + Math.sin(p1)*0.04
+          v  = lastOut * 0.5 * (0.6+Math.sin(p2)*0.4) + Math.sin(p1)*0.04
              + (Math.random()<0.008?(Math.random()*2-1)*0.5:0);
         } else if (type === 'storm') {
           p1 += (2*Math.PI*0.25)/sr; p2 += (2*Math.PI*0.04)/sr;
-          v  = (Math.random()*2-1)*0.28*(0.6+Math.sin(p1)*0.4) + Math.sin(p2)*0.03;
+          v  = lastOut * 0.85 * (0.6+Math.sin(p1)*0.4) + Math.sin(p2)*0.03;
         } else {
-          v = (Math.random()*2-1)*0.08;
+          /* binaural / varsayılan — minimal ambiyans */
+          v = lastOut * 0.25;
         }
         d[i] = isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
       }
@@ -135,7 +176,6 @@
   }
 
   /* ── Temizleyiciler ── */
-  /* Aşama 2 — LFO durdur */
   function stopLFO() {
     if (_lfoOsc)  { try { _lfoOsc.stop();        } catch(e){} _lfoOsc  = null; }
     if (_lfoGain) { try { _lfoGain.disconnect();  } catch(e){} _lfoGain = null; }
@@ -144,25 +184,46 @@
   function stopOscs() {
     _oscs.forEach(function(o){ try{o.stop();o.disconnect();}catch(e){} });
     _oscs = [];
-    stopLFO(); // Aşama 2: LFO'yu da durdur
+    stopLFO();
   }
-  var _granular = null;
+
   function stopNoise() {
     if (_noiseGain) { try{_noiseGain.disconnect();}catch(e){} _noiseGain = null; }
     if (_noise)     { try{_noise.stop();_noise.disconnect();}catch(e){} _noise = null; }
     if (_granular)  { try{_granular.stop();}catch(e){} _granular = null; }
   }
 
-  /* ── Ses başlat ── */
+  /* ── Ses Başlat ──
+   *
+   * Aşama 3 değişiklikleri:
+   *   1. Binaural osilatörler: sine (temel) + triangle (harmonik, %30 vol)
+   *   2. Tüm kaynaklar _mainFilter'a bağlanır (_master'a doğrudan değil)
+   *   3. Fade-in: exponentialRampToValueAtTime(0.0001 → hedef, 2sn)
+   * ─────────────────────────────────────────────────────────────── */
   function startSound(gen, base, beat, offset) {
     var ctx = getCtx();
     if (ctx.state === 'suspended') ctx.resume();
     ensureMaster(ctx);
+
+    /* Sahne geçişinde master gain'i sıfırla (önceki fade-out'u iptal et) */
+    if (_master) {
+      var _cancelNow = ctx.currentTime;
+      _master.gain.cancelScheduledValues(_cancelNow);
+      _master.gain.setValueAtTime(
+        window._prefVector ? window._prefVector.masterVolume : 0.8,
+        _cancelNow
+      );
+    }
+
     stopOscs();
 
-    /* Binaural oscilatorler — Aşama 1: FrequencyManager üzerinden harmonik frekans */
+    /* ═══ Binaural Osilatörler ═══
+     * Aşama 3 — Osilatör Zenginleştirme (Layering):
+     *   • Temel frekans: 'sine' dalgası
+     *   • Harmonik (3. kısmi): 'triangle' dalgası, temel sesin %30'u kadar kazanç
+     *   • Her iki osilatör de _mainFilter üzerinden _master'a gider
+     * ────────────────────────────────────────────────────────────── */
     if (beat > 0) {
-      /* FrequencyManager varsa harmonik temel frekans al; yoksa eski davranış */
       var _fm = (typeof window.getFrequencyManager === 'function')
         ? window.getFrequencyManager(base)
         : null;
@@ -173,55 +234,81 @@
         ? Math.max(20, Math.min(20000, _leftFreq + beat))
         : (isFinite(base + beat) ? base + beat : 207);
 
+      /* ChannelMerger → _mainFilter (düzeltilmiş bağlantı noktası) */
       var mg = ctx.createChannelMerger(2);
+      mg.connect(_mainFilter); /* Aşama 3: _master yerine _mainFilter */
 
-      /* Aşama 2 — LFO: 0.1Hz "nefes" modülasyonu
-       * Osilatörlerin gain değerini sinüs dalgasıyla 10sn'de bir dalgalandırır */
+      /* LFO — "nefes" modülasyonu */
       stopLFO();
       _lfoGain         = ctx.createGain();
-      _lfoGain.gain.value = 0;           // LFO AC sinyali — DC offset osilatör gaininden gelir
+      _lfoGain.gain.value = 0;
 
       _lfoOsc          = ctx.createOscillator();
       _lfoOsc.type     = 'sine';
-      _lfoOsc.frequency.value = 0.1;     // 0.1Hz = 10 saniyede bir tam dalga
+      _lfoOsc.frequency.value = 0.1;
 
-      /* LFO gain'i osilatörlerin gain değerini ±0.03 titretiyor (0.10 ± 0.03) */
       var _lfoDepth = ctx.createGain();
       _lfoDepth.gain.value = 0.03;
       _lfoOsc.connect(_lfoDepth);
 
-      mg.connect(_master);
+      var _oscStartNow = ctx.currentTime;
+
       [[_leftFreq, 0], [_rightFreq, 1]].forEach(function(p) {
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        o.frequency.value = p[0];
+        /* Aşama 3 — Zarf (Envelope) için ayrı gain düğümü */
+        var envGain = ctx.createGain();
+        envGain.gain.setValueAtTime(0.0001, _oscStartNow);
+        envGain.gain.exponentialRampToValueAtTime(1.0, _oscStartNow + 2); /* 2sn fade-in */
+        envGain.connect(mg, 0, p[1]);
+
+        /* ── Temel Osilatör: sine ── */
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
         o.type = 'sine';
+        o.frequency.value = p[0];
         g.gain.value = 0.10;
-        /* LFO → gain.gain: nefes dalgalanması */
-        _lfoDepth.connect(g.gain);
-        o.connect(g); g.connect(mg, 0, p[1]);
+        _lfoDepth.connect(g.gain); /* LFO nefes modülasyonu */
+        o.connect(g);
+        g.connect(envGain);
         o.start(); _oscs.push(o);
+
+        /* ── Harmonik Osilatör: triangle (3. kısmi, %30 kazanç) ── */
+        var harmonicFreq = Math.min(20000, p[0] * 3);
+        var oH = ctx.createOscillator();
+        var gH = ctx.createGain();
+        oH.type = 'triangle';
+        oH.frequency.value = harmonicFreq;
+        gH.gain.value = 0.03; /* 0.10 × 0.30 = 0.03 (temel sesin %30'u) */
+        oH.connect(gH);
+        gH.connect(envGain);
+        oH.start(); _oscs.push(oH);
       });
+
       _lfoOsc.start();
     }
 
-    var now = ctx.currentTime;
+    var now    = ctx.currentTime;
     var ambVol = window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60;
-    var xfDur  = window._prefVector ? window._prefVector.getCrossfadeDuration() : 1.5;
+    var xfDur  = 2.0; /* Aşama 3: Sabit 2sn geçiş süresi */
 
-    /* ── GranularEngine varsa kullan, yoksa basit buffer ── */
+    /* ═══ Ortam Sesi (Ambient Layer) ═══ */
     if (window.GranularEngine) {
       var grainTypeMap = {waves:'waves', rain:'rain', wind:'wind', fire:'forest', storm:'wind', binaural:'forest'};
       var grainType = grainTypeMap[gen] || 'wind';
       var _panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
       var _panVal = {waves:0.6, rain:0.4, wind:0.7, fire:0.5, storm:0.8, binaural:0.0}[gen] || 0.3;
-      if (_panner) { _panner.pan.value=(Math.random()>0.5?1:-1)*_panVal; _panner.connect(_master); }
-      var _granDest = _panner || _master;
+      /* Aşama 3: GranularEngine çıkışı _mainFilter'a gider */
+      if (_panner) {
+        _panner.pan.value = (Math.random()>0.5?1:-1)*_panVal;
+        _panner.connect(_mainFilter); /* Düzeltildi: _master → _mainFilter */
+      }
+      var _granDest = _panner || _mainFilter;
       _granular = new window.GranularEngine(ctx, _granDest, { volume: ambVol });
       _granular.generateBuffer(grainType);
       _granular.start();
       _startTime = now;
     } else {
-      /* Fallback: basit buffer */
+      /* ── Fallback: Brownian Buffer Kaynağı ──
+       * Aşama 3: gain → _mainFilter (düzeltildi), exponentialRamp fade-in */
       var src  = ctx.createBufferSource();
       var filt = ctx.createBiquadFilter();
       var gain = ctx.createGain();
@@ -232,18 +319,27 @@
       filt.type            = 'lowpass';
       filt.frequency.value = {waves:900,rain:2500,wind:1800,fire:1200,storm:3000,binaural:400}[gen]||800;
       filt.Q.value = 0.8;
-      src.connect(filt); filt.connect(gain); gain.connect(_master);
+
+      /* Aşama 3: _master yerine _mainFilter (sinyal zinciri düzeltmesi) */
+      src.connect(filt); filt.connect(gain); gain.connect(_mainFilter);
+
       var off = isFinite(offset) ? (offset % _loopDur + _loopDur) % _loopDur : 0;
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(ambVol, now + xfDur);
+
+      /* Aşama 3: exponentialRamp, 0.0001'den başla */
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(ambVol, now + xfDur);
+
+      /* Çapraz geçiş: eski gürültüyü kademeli kapat */
       if (_noiseGain) {
         var oldG = _noiseGain;
         oldG.gain.setValueAtTime(oldG.gain.value, now);
-        oldG.gain.linearRampToValueAtTime(0, now + xfDur);
+        oldG.gain.exponentialRampToValueAtTime(0.0001, now + xfDur);
         setTimeout(function(){ try{oldG.disconnect();}catch(e){} }, (xfDur+0.1)*1000);
       }
+
       src.start(0, off); _startTime=now; _noise=src; _noiseGain=gain;
     }
+
     _curGen  = gen;
     _curBase = isFinite(base) ? base : 0;
     _curBeat = isFinite(beat) ? beat : 0;
@@ -307,11 +403,30 @@
         console.warn('[togglePlay]', e);
       }
     } else {
+      /* Aşama 3 — Yumuşak Durdurma: 2sn exponentialRamp fade-out */
       if (_ctx && _startTime) _pauseOffset = (_ctx.currentTime - _startTime) % _loopDur;
-      stopOscs(); stopNoise();
-      /* Aşama 2 — Hibrit: SampleManager durdur */
-      if (_sampleManager) { try { _sampleManager.stop(); } catch(e){} }
-      if (_ctx) try{ _ctx.suspend(); }catch(e){}
+      if (_ctx && _master) {
+        var _stopNow = _ctx.currentTime;
+        _master.gain.cancelScheduledValues(_stopNow);
+        _master.gain.setValueAtTime(_master.gain.value, _stopNow);
+        _master.gain.exponentialRampToValueAtTime(0.0001, _stopNow + 2);
+        setTimeout(function() {
+          stopOscs(); stopNoise();
+          if (_sampleManager) { try { _sampleManager.stop(); } catch(e){} }
+          if (_ctx) try{ _ctx.suspend(); }catch(e){}
+          /* Sonraki play için master gain'i sıfırla */
+          if (_master && _ctx) {
+            _master.gain.setValueAtTime(
+              window._prefVector ? window._prefVector.masterVolume : 0.8,
+              _ctx.currentTime
+            );
+          }
+        }, 2100);
+      } else {
+        stopOscs(); stopNoise();
+        if (_sampleManager) { try { _sampleManager.stop(); } catch(e){} }
+        if (_ctx) try{ _ctx.suspend(); }catch(e){}
+      }
       document.querySelectorAll('.wbar').forEach(function(b){ b.classList.remove('on'); });
       var badge = document.getElementById('freq-badge');
       if (badge) badge.classList.remove('on');
@@ -419,43 +534,6 @@
   };
 
 /* ══ ADIM 9: Biyometrik Adaptasyon ══ */
-
-  window.applyBiometricEffect = function(params) {
-    if (!params) return;
-    try {
-      var ctx = window._ctx;
-      if (!ctx) return;
-      var now = ctx.currentTime;
-      var ramp = 2.0; /* 2 saniyelik yumuşak geçiş */
-
-      /* Master volume */
-      if (window._master && params.masterVolume !== undefined) {
-        window._master.gain.linearRampToValueAtTime(
-          Math.max(0.1, Math.min(1.0, params.masterVolume)), now + ramp
-        );
-      }
-
-      /* EQ — düşük frekans boost, yüksek frekans cut */
-      if (window._eqLow && params.eqLowBoost !== undefined) {
-        window._eqLow.gain.linearRampToValueAtTime(
-          Math.max(-6, Math.min(6, 2 + params.eqLowBoost)), now + ramp
-        );
-      }
-      if (window._eqHigh && params.eqHighCut !== undefined) {
-        window._eqHigh.gain.linearRampToValueAtTime(
-          Math.max(-6, Math.min(6, 1.5 + params.eqHighCut)), now + ramp
-        );
-      }
-
-      /* Granular yoğunluk */
-      if (window._granular && typeof window._granular.setDensity === 'function') {
-        window._granular.setDensity(Math.max(0.2, params.granularDensity || 0.8));
-      }
-
-    } catch(e) { console.warn('[applyBiometricEffect]', e); }
-  };
-
-/* ══ ADIM 9: applyBiometricEffect ══ */
 window.applyBiometricEffect = function(p) {
   if (!p || !window._ctx) return;
   var now  = window._ctx.currentTime;
@@ -469,9 +547,15 @@ window.applyBiometricEffect = function(p) {
       window._eqHigh.gain.linearRampToValueAtTime(Math.max(-6, Math.min(6, 1.5 + p.eqHighCut)), now + ramp);
     if (window._granular && typeof window._granular.setDensity === 'function')
       window._granular.setDensity(Math.max(0.2, p.granularDensity || 0.8));
+    /* Aşama 3: mainFilter frekansını da biyometrik parametreye göre ayarla */
+    if (window._mainFilter && p.filterFreq !== undefined)
+      window._mainFilter.frequency.linearRampToValueAtTime(
+        Math.max(500, Math.min(8000, p.filterFreq)), now + ramp
+      );
   } catch(e) { console.warn('[applyBiometricEffect]', e); }
 };
+
 /* ── Yedek referans: main.js'deki wrapper'lar için güvenlik kilidi ── */
-window._audioToggle = window.togglePlay;
+window._audioToggle      = window.togglePlay;
 window._audioSwitchSound = window.switchSound;
-window._audioSleepTimer = window.setSleepTimer;
+window._audioSleepTimer  = window.setSleepTimer;
