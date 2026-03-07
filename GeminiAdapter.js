@@ -11,8 +11,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+/* Netlify Function proxy — API key backend'de güvende */
+const GEMINI_API_URL = '/.netlify/functions/gemini';
 
 const GEMINI_TIMEOUT_MS = 10000; // 10 saniye
 
@@ -119,17 +119,11 @@ Kurallar:
 
     let response;
     try {
-      response = await fetch(`${GEMINI_API_URL}?key=${this._apiKey}`, {
+      response = await fetch(GEMINI_API_URL, {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal : controller.signal,
-        body   : JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature    : 0.7,
-            maxOutputTokens: 512,
-          },
-        }),
+        body   : JSON.stringify({ prompt: prompt }),
       });
     } finally {
       clearTimeout(timeoutId);
