@@ -13,6 +13,10 @@
   var _playing=false, _startTime=0, _pauseOffset=0;
   var _loopDur=8, _curGen=null, _curBase=0, _curBeat=0;
 
+  /* Aşama 2 — LFO + SampleManager */
+  var _lfoOsc=null, _lfoGain=null;   // LFO modülasyon düğümleri
+  var _sampleManager=null;            // Organik katman yöneticisi
+
   var MOOD_MAP = {
     'Huzursuz' : {base:180, beat:6,  gen:'waves'},
     'Yorgun'   : {base:200, beat:4,  gen:'rain'},
@@ -131,9 +135,16 @@
   }
 
   /* ── Temizleyiciler ── */
+  /* Aşama 2 — LFO durdur */
+  function stopLFO() {
+    if (_lfoOsc)  { try { _lfoOsc.stop();        } catch(e){} _lfoOsc  = null; }
+    if (_lfoGain) { try { _lfoGain.disconnect();  } catch(e){} _lfoGain = null; }
+  }
+
   function stopOscs() {
     _oscs.forEach(function(o){ try{o.stop();o.disconnect();}catch(e){} });
     _oscs = [];
+    stopLFO(); // Aşama 2: LFO'yu da durdur
   }
   var _granular = null;
   function stopNoise() {
@@ -163,15 +174,34 @@
         : (isFinite(base + beat) ? base + beat : 207);
 
       var mg = ctx.createChannelMerger(2);
+
+      /* Aşama 2 — LFO: 0.1Hz "nefes" modülasyonu
+       * Osilatörlerin gain değerini sinüs dalgasıyla 10sn'de bir dalgalandırır */
+      stopLFO();
+      _lfoGain         = ctx.createGain();
+      _lfoGain.gain.value = 0;           // LFO AC sinyali — DC offset osilatör gaininden gelir
+
+      _lfoOsc          = ctx.createOscillator();
+      _lfoOsc.type     = 'sine';
+      _lfoOsc.frequency.value = 0.1;     // 0.1Hz = 10 saniyede bir tam dalga
+
+      /* LFO gain'i osilatörlerin gain değerini ±0.03 titretiyor (0.10 ± 0.03) */
+      var _lfoDepth = ctx.createGain();
+      _lfoDepth.gain.value = 0.03;
+      _lfoOsc.connect(_lfoDepth);
+
       mg.connect(_master);
       [[_leftFreq, 0], [_rightFreq, 1]].forEach(function(p) {
         var o = ctx.createOscillator(), g = ctx.createGain();
         o.frequency.value = p[0];
         o.type = 'sine';
         g.gain.value = 0.10;
+        /* LFO → gain.gain: nefes dalgalanması */
+        _lfoDepth.connect(g.gain);
         o.connect(g); g.connect(mg, 0, p[1]);
         o.start(); _oscs.push(o);
       });
+      _lfoOsc.start();
     }
 
     var now = ctx.currentTime;
@@ -279,6 +309,8 @@
     } else {
       if (_ctx && _startTime) _pauseOffset = (_ctx.currentTime - _startTime) % _loopDur;
       stopOscs(); stopNoise();
+      /* Aşama 2 — Hibrit: SampleManager durdur */
+      if (_sampleManager) { try { _sampleManager.stop(); } catch(e){} }
       if (_ctx) try{ _ctx.suspend(); }catch(e){}
       document.querySelectorAll('.wbar').forEach(function(b){ b.classList.remove('on'); });
       var badge = document.getElementById('freq-badge');
@@ -287,11 +319,24 @@
     }
   };
 
-  window.switchSound = function(gen, base, beat, label) {
+  window.switchSound = function(gen, base, beat, label, msd) {
     try{ localStorage.setItem('lastGen',gen); localStorage.setItem('lastBase',base); localStorage.setItem('lastBeat',beat); }catch(e){}
     if (window._prefVector) try{ window._prefVector.recordSoundChoice(gen, base, beat); }catch(e){}
     _pauseOffset = 0;
     if (_playing) startSound(gen, base, beat, 0);
+
+    /* Aşama 2 — Hibrit: SampleManager organik katmanı güncelle */
+    if (msd && typeof window.SampleManager !== 'undefined') {
+      var ctx = getCtx();
+      ensureMaster(ctx);
+      if (!_sampleManager) {
+        _sampleManager = new window.SampleManager(ctx, _master, { basePath: 'audio/' });
+      }
+      _sampleManager.applyMSD(msd).then(function() {
+        if (_playing) _sampleManager.start();
+      }).catch(function(e){ console.warn('[SampleManager] applyMSD hata:', e); });
+    }
+
     var lbl   = document.getElementById('freq-label');
     var badge = document.getElementById('freq-badge');
     if (lbl)   lbl.textContent = (base||'') + ' Hz · ' + (label||gen);

@@ -6232,6 +6232,10 @@ window.generateAIFreq = async function(){
       if(window.engine && window.engine.switchSound){
         window.engine.switchSound({gen:'binaural', base:freq, beat:beat});
       }
+      /* Aşama 2 — SampleManager MSD köprüsü: global switchSound'a msd ilet */
+      if(typeof window.switchSound === 'function'){
+        window.switchSound('binaural', freq, beat, sceneName, msd);
+      }
     }catch(e){}
 
   } catch(err) {
@@ -7004,6 +7008,7 @@ window.sendReaction = function(emoji) {
 <script src="SecurityWrapper.js"></script>
 <script src="modules.js"></script> -->
 <script src="FrequencyManager.js"></script>
+<script src="SampleManager.js"></script>
 <script src="AudioEngine.js"></script>
 <script src="StateManager.js"></script>
 <script src="VisualizerEngine.js"></script>
