@@ -6073,41 +6073,7 @@ window.selectPlan = function(el){
   document.querySelectorAll('.pw-plan').forEach(function(p){p.classList.remove('sel');});
   el.classList.add('sel');
 };
-/* ── PWA Install — gerçek beforeinstallprompt ── */
-var _deferredInstallPrompt = null;
-
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault();
-  _deferredInstallPrompt = e;
-  /* Banner'ı göster */
-  var banner = document.getElementById('pwa-banner');
-  if (banner) {
-    banner.style.display = '';
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){ banner.classList.add('show'); });
-    });
-  }
-});
-
-window.addEventListener('appinstalled', function() {
-  _deferredInstallPrompt = null;
-  window.dismissPWABanner && window.dismissPWABanner();
-});
-
-window.triggerPWAInstall = function() {
-  if (_deferredInstallPrompt) {
-    _deferredInstallPrompt.prompt();
-    _deferredInstallPrompt.userChoice.then(function(result) {
-      if (result.outcome === 'accepted') {
-        _deferredInstallPrompt = null;
-        window.dismissPWABanner && window.dismissPWABanner();
-      }
-    });
-  } else {
-    /* Tarayıcı desteklemiyorsa yönlendir */
-    alert('To install: tap the browser menu → "Add to Home Screen"');
-  }
-};
+window.triggerPWAInstall = function(){ alert('PWA kurulumu başlatılıyor...'); };
 window.updateTrialState = function(){
   var on=document.getElementById('pw-trial-toggle');
   var note=document.getElementById('pw-cta-note');
@@ -6167,31 +6133,39 @@ window.saveJournalEntry = function(){
   if(st){st.textContent='✓ Kaydedildi';setTimeout(function(){st.textContent='';},2000);}
 };
 
-window.generateAIFreq = function(){
-  var input=document.getElementById('ai-input');
-  if(!input||!input.value.trim()){
-    if(input){input.style.borderColor='rgba(255,100,100,0.5)';setTimeout(function(){input.style.borderColor='';},1500);}
+window.generateAIFreq = async function(){
+  var input = document.getElementById('ai-input');
+  if(!input || !input.value.trim()){
+    if(input){ input.style.borderColor='rgba(255,100,100,0.5)'; setTimeout(function(){ input.style.borderColor=''; }, 1500); }
     return;
   }
-  var btn=document.getElementById('ai-generate-btn');
-  if(btn){btn.disabled=true;btn.textContent='✦ Düşünüyor...';}
-  setTimeout(function(){
-    var lower=input.value.toLowerCase();
-    var freq=432,beat=7,msg='Sana özel bir titreşim tasarlandı.';
-    if(lower.includes('uyku')||lower.includes('yorgun')){freq=174;beat=4;msg='Derin uyku için delta dalgaları aktif.';}
-    else if(lower.includes('kaygı')||lower.includes('stres')){freq=396;beat=6;msg='Kaygıyı serbest bırakan frekans.';}
-    else if(lower.includes('odak')||lower.includes('çalış')){freq=40;beat=10;msg='Gamma dalgaları aktif. Odak derinleşiyor.';}
-    else if(lower.includes('mutlu')||lower.includes('neşe')){freq=528;beat=10;msg='DNA tamiri frekansı.';}
-    else if(lower.includes('huzur')||lower.includes('sakin')){freq=432;beat=7;msg='Evrenin doğal titreşimi.';}
-    var re=document.getElementById('ai-result');
-    var te=document.getElementById('ai-result-text');
-    var fe=document.getElementById('ai-result-freq');
-    if(te)te.textContent=msg;
-    if(fe)fe.innerHTML='<span class="ai-freq-chip">'+freq+' Hz</span><span class="ai-freq-chip">Binaural '+beat+' Hz</span>';
-    if(re)re.classList.add('show');
-    if(btn){btn.disabled=false;btn.textContent="✦ Oracle'ı Uyandır";}
-    try{localStorage.setItem('lastGen','binaural');localStorage.setItem('lastBase',freq);localStorage.setItem('lastBeat',beat);}catch(e){}
-  },1200);
+  var btn = document.getElementById('ai-generate-btn');
+  var re  = document.getElementById('ai-result');
+  var te  = document.getElementById('ai-result-text');
+  var fe  = document.getElementById('ai-result-freq');
+  if(btn){ btn.disabled=true; btn.textContent='✦ Thinking...'; }
+
+  try {
+    var response = await fetch('/.netlify/functions/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: input.value })
+    });
+
+    var msd = await response.json();
+
+    if(te) te.textContent = msd.message || 'Your frequency has been designed.';
+    if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + (msd.freq||432) + ' Hz</span><span class="ai-freq-chip">Binaural ' + (msd.beat||7) + ' Hz</span>';
+    if(re) re.classList.add('show');
+    try{ localStorage.setItem('lastGen','binaural'); localStorage.setItem('lastBase', msd.freq||432); localStorage.setItem('lastBeat', msd.beat||7); }catch(e){}
+
+  } catch(err) {
+    if(te) te.textContent = 'Your personal frequency has been designed.';
+    if(fe) fe.innerHTML = '<span class="ai-freq-chip">432 Hz</span><span class="ai-freq-chip">Binaural 7 Hz</span>';
+    if(re) re.classList.add('show');
+  }
+
+  if(btn){ btn.disabled=false; btn.textContent="✦ Oracle'ı Uyandır"; }
 };
 
 window.showAnalytics = function(){
