@@ -466,7 +466,7 @@ _hp-banner {
   color: var(--text-dim);
   /* GPU slide — translateY only */
   transform: translate3d(0, -100%, 0);
-  transition: transform var(--dur-slow) var(--ease-standard);
+  transition: transform 0.6s var(--ease-standard);
   will-change: transform;
 }
 _hp-banner.show {
@@ -3577,7 +3577,7 @@ _gen-canvas {
 
 <div id="hp-banner" role="status" aria-live="polite">
   <span class="hp-icon" aria-hidden="true">🎧</span>
-  <span>En iyi deneyim için kulaklık kullanın — binaural ses sol/sağ kanalda çalışır</span>
+  <span>For the best experience, use headphones — binaural audio works on left/right channels</span>
   <span class="hp-close" onclick="dismissBanner()" role="button" aria-label="Bildirimi kapat" tabindex="0">✕</span>
 </div>
 
@@ -3884,6 +3884,11 @@ _gen-canvas {
           ✨ Premium'a Geç — 7 Gün Ücretsiz
         </button>
         <p class="premium-tab-note">Deneme bittikten sonra $59.99/yıl. İstediğin zaman iptal et.</p>
+        <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
+          <a href="privacy.html" style="color:rgba(201,169,110,0.5);text-decoration:none;font-size:11px;margin:0 10px;font-family:'DM Sans',sans-serif;letter-spacing:0.05em;">Privacy Policy</a>
+          <span style="color:rgba(255,255,255,0.15);font-size:11px;">·</span>
+          <a href="terms.html" style="color:rgba(201,169,110,0.5);text-decoration:none;font-size:11px;margin:0 10px;font-family:'DM Sans',sans-serif;letter-spacing:0.05em;">Terms of Service</a>
+        </div>
       </div>
     </div>
 
@@ -6054,8 +6059,28 @@ window.copyHealthData = function(){
   alert('Kopyalandı');
 };
 window.dismissBanner = function(){
-  var b=document.getElementById('hp-banner');if(b)b.style.display='none';
+  var b=document.getElementById('hp-banner');
+  if(b){ b.classList.remove('show'); setTimeout(function(){ b.style.display='none'; }, 600); }
 };
+/* Banner: açılışta göster, 8 saniye sonra otomatik kapat */
+(function(){
+  var shown = false;
+  function showHPBanner(){
+    if(shown) return; shown = true;
+    var b = document.getElementById('hp-banner');
+    if(!b) return;
+    b.style.display = '';
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ b.classList.add('show'); });
+    });
+    setTimeout(function(){ window.dismissBanner && window.dismissBanner(); }, 8000);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(showHPBanner, 800); });
+  } else {
+    setTimeout(showHPBanner, 800);
+  }
+})();
 window.dismissPWABanner = function(){
   var b=document.getElementById('pwa-banner');if(b)b.style.display='none';
 };
@@ -7016,11 +7041,5 @@ window.closeKardiyak = function() {
 };
 </script>
 <div id="connection-badge"></div>
-  <div id="app-footer" style="text-align:center;padding:16px 0 24px;font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(255,255,255,0.25);">
-  <a href="privacy.html" style="color:rgba(201,169,110,0.5);text-decoration:none;margin:0 12px;">Privacy Policy</a>
-  <span style="margin:0 4px;">·</span>
-  <a href="terms.html" style="color:rgba(201,169,110,0.5);text-decoration:none;margin:0 12px;">Terms of Service</a>
-  <div id="app-footer" style="text-align:center;padding:16px 0 60px;font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(255,255,255,0.25);position:relative;z-index:999;">
-</div>
 </body>
 </html>
