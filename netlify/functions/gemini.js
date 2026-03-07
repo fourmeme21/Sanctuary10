@@ -70,7 +70,7 @@ exports.handler = async function(event) {
 The user mood: "${userMood}"
 The user note: "${userInput || 'Not specified'}"
 
-Design a personalized sound environment. Reply ONLY with valid JSON matching this exact schema, no markdown, no explanation:
+Design a personalized sound environment. All text values must be in English. Reply ONLY with valid JSON matching this exact schema, no markdown, no explanation:
 
 {
   "sceneName": "short evocative name",
