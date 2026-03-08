@@ -1,16 +1,16 @@
 /**
- * SampleManager.js — Sanctuary Organik Ses Katmanı v2.0 (Aşama 9)
+ * SampleManager.js — Sanctuary Organik Ses Katmanı v3.0 (Aşama 12)
  * ─────────────────────────────────────────────────────────────────────────────
- * Aşama 9 YENİLİKLERİ:
- *   • Gerçek Enstrüman Bankası : Piano / Guitar / Flute prosedürel sentezi
- *     (Gerçek .mp3 dosyaları varsa önce onları dener, yoksa yüksek kaliteli
- *     prosedürel fallback çalar — her iki durumda da kulağa organik gelir)
- *   • Canlılık Katmanı (Life Layer) : Kuş cıvıltıları, ağustos böceği, gece
- *     ormanı seslerini her 15–30 sn'de bir rastgele 3D konumdan tetikler.
- *   • Müzikal Sahne Presetleri : Gemini'den gelen sahneye göre enstrüman
- *     kombinasyonu otomatik seçilir. Siren etkisi tamamen yok.
- *   • 3D Mekansal Gerçekçilik : PannerNode ile kuş seslerinin uzayda hareketi.
- *   • v1.3 mirası korundu : HRTF, exponentialRamp, crossfade, Brownian fallback
+ * Aşama 12 YENİLİKLERİ:
+ *   • applyGeminiData(data) — Gemini MSD verisini doğrudan alır:
+ *       active_elements[] → hangi katmanlar aktif (birds/wind/water/crickets)
+ *       intensity (0–1)   → Life Layer tetikleme sıklığı dinamik ayarı
+ *       spatial_hints[]   → [{element, x, y, z}] → PannerNode konumlandırma
+ *       emotion           → piyano/flüt attack ve breath noise etkisi
+ *   • Piyano attack daha yumuşak (8ms → 15ms), daha organik
+ *   • Flüt nefes gürültüsü daha belirgin (0.025 → 0.045)
+ *   • Life Layer yoğunluğu dinamik: intensity=1 → 8sn, intensity=0 → 45sn
+ *   • v2.0 mirası korundu: HRTF, crossfade, enstrüman bankası, 3D pan
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -222,8 +222,8 @@ const INSTRUMENT_GENERATORS = {
       for (let i = 0; i < len; i++) {
         const t = i / sr;
         let v = 0;
-        /* Attack zarfı: 0→1 ilk 8ms, sonra decay */
-        const attackEnv = Math.min(1, t / 0.008);
+        /* Attack zarfı: 0→1 ilk 15ms (v3.0: 8ms → 15ms, daha organik), sonra decay */
+        const attackEnv = Math.min(1, t / 0.015);
         for (const h of harmonics) {
           const freq = Math.min(20000, baseFreq * h.ratio * detune);
           const phase = (2 * Math.PI * freq * i) / sr;
@@ -311,9 +311,9 @@ const INSTRUMENT_GENERATORS = {
         const vibDepth = Math.min(1, Math.max(0, (t - 0.8) / 0.6)) * 0.012;
         const vibMod = 1 + Math.sin(vibPhase) * vibDepth;
 
-        /* Nefes gürültüsü — organik hava */
+        /* Nefes gürültüsü — v3.0: 0.025 → 0.045, daha belirgin organik hava */
         breathPhase += (2 * Math.PI * 0.3) / sr;
-        const breathNoise = (Math.random() * 2 - 1) * 0.025
+        const breathNoise = (Math.random() * 2 - 1) * 0.045
           * (0.7 + Math.sin(breathPhase) * 0.3);
 
         /* Ana ton: temel + 2. harmonik dominans (flüt karakteri) */
@@ -451,8 +451,11 @@ class SampleManager {
     this._isPlaying        = false;
 
     /* Canlılık katmanı zamanlayıcı handle */
-    this._lifeTimer        = null;
-    this._lifeEnabled      = true;
+    this._lifeTimer          = null;
+    this._lifeEnabled        = true;
+    this._lifeIntensity      = 0.5;   /* v3.0: 0–1, Gemini'den güncellenir */
+    this._geminiElements     = [];    /* v3.0: active_elements listesi */
+    this._geminiSpatialHints = [];    /* v3.0: spatial_hints listesi */
 
     /* Master gain */
     this._masterGain = ctx.createGain();
@@ -489,6 +492,107 @@ class SampleManager {
     if (msd && typeof msd.sceneName === 'string') {
       await this.applyScene(msd.sceneName);
     }
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     AŞAMA 12: applyGeminiData — Gemini verilerini doğrudan uygula
+     ══════════════════════════════════════════════════════════════ */
+
+  /**
+   * AudioEngine'in updateFromGemini() fonksiyonu tarafından çağrılır.
+   * Gemini'den gelen detaylı sahne verisini ses katmanlarına çevirir.
+   *
+   * @param {object} data
+   * @param {string[]} data.active_elements  — ["birds","wind","water","crickets",…]
+   * @param {number}   data.intensity        — 0–1, Life Layer yoğunluğu
+   * @param {Array}    data.spatial_hints    — [{element,x,y,z},…] 3D konum
+   * @param {string}   data.scene            — Hedef sahne adı
+   * @param {string}   data.emotion          — Duygu rengi
+   */
+  async applyGeminiData(data) {
+    if (!data) return;
+
+    console.info('[SampleManager v3.0] Gemini verisi uygulanıyor:', data);
+
+    /* ── Intensity → Life Layer hızı ── */
+    if (isFinite(data.intensity)) {
+      this._lifeIntensity = Math.max(0, Math.min(1, data.intensity));
+    }
+
+    /* ── Active Elements — hangi ses tiplerinin çalınacağını filtrele ── */
+    if (Array.isArray(data.active_elements) && data.active_elements.length > 0) {
+      this._geminiElements = data.active_elements.map(function(e) {
+        return String(e).toLowerCase();
+      });
+    } else {
+      this._geminiElements = []; /* Boşsa kısıtlama yok */
+    }
+
+    /* ── Spatial Hints → mevcut katmanları yeniden konumlandır ── */
+    if (Array.isArray(data.spatial_hints)) {
+      this._geminiSpatialHints = data.spatial_hints;
+      data.spatial_hints.forEach(hint => {
+        if (!hint || !hint.element) return;
+        /* active layer'da aynı isimle varsa konumunu güncelle */
+        const matchId = Object.keys(
+          Object.fromEntries ? Object.fromEntries(
+            [...this._activeLayers.keys()].map(k => [k, true])
+          ) : {}
+        ).find(k => k.indexOf(hint.element) !== -1);
+
+        /* Direct layer key arama */
+        this._activeLayers.forEach((layer, layerKey) => {
+          if (layerKey.toLowerCase().indexOf(hint.element.toLowerCase()) !== -1) {
+            try {
+              this.setPosition(layerKey,
+                isFinite(hint.x) ? hint.x : 0,
+                isFinite(hint.y) ? hint.y : 0,
+                isFinite(hint.z) ? hint.z : -1
+              );
+              console.info('[SampleManager v3.0] Spatial:', layerKey,
+                           '→', hint.x, hint.y, hint.z);
+            } catch(e) {}
+          }
+        });
+      });
+    }
+
+    /* ── Sahne değişimi ── */
+    if (data.scene) {
+      await this.applyScene(data.scene);
+    }
+
+    /* ── Emotion → Enstrüman karakteri ── */
+    if (data.emotion) {
+      this._applyEmotionToInstruments(data.emotion);
+    }
+
+    console.info('[SampleManager v3.0] Gemini uygulaması tamamlandı.',
+                 'Yoğunluk:', this._lifeIntensity,
+                 '| Aktif:', this._geminiElements.join(',') || 'tümü');
+  }
+
+  /**
+   * Duyguya göre enstrüman master gain'ini hafifçe ayarla.
+   * @private
+   */
+  _applyEmotionToInstruments(emotion) {
+    if (!this._instrMasterGain || !this._ctx) return;
+    const EMOTION_INSTR_GAIN = {
+      sad       : 0.65, melancholy: 0.65, hüzün: 0.65,
+      energetic : 0.95, joyful: 0.92,    neşeli: 0.92,
+      anxious   : 0.72, kaygı: 0.72,
+      calm      : 0.80, peaceful: 0.80,  huzur: 0.80,
+      grateful  : 0.85, happy: 0.88,
+    };
+    const em = emotion.toLowerCase();
+    let gainTarget = 0.85; /* varsayılan */
+    for (const key in EMOTION_INSTR_GAIN) {
+      if (em.indexOf(key) !== -1) { gainTarget = EMOTION_INSTR_GAIN[key]; break; }
+    }
+    const now = this._ctx.currentTime;
+    this._instrMasterGain.gain.setValueAtTime(this._instrMasterGain.gain.value, now);
+    this._instrMasterGain.gain.linearRampToValueAtTime(gainTarget, now + 2.0);
   }
 
   /* ══════════════════════════════════════════════════════════════
@@ -688,8 +792,12 @@ class SampleManager {
   _scheduleLifeEvent() {
     if (!this._isPlaying || !this._lifeEnabled) return;
 
-    /* 15–30 saniye arası rastgele bekleme */
-    const delay = 15000 + Math.random() * 15000;
+    /* v3.0: intensity'ye göre dinamik gecikme
+       intensity=1.0 → 8–15sn (yoğun orman), intensity=0 → 30–45sn (sessiz) */
+    const intensity = Math.max(0, Math.min(1, this._lifeIntensity));
+    const minDelay  = 8000  + (1 - intensity) * 22000;  /* 8s → 30s */
+    const maxExtra  = 7000  + (1 - intensity) * 15000;  /* +7s → +22s */
+    const delay     = minDelay + Math.random() * maxExtra;
 
     this._lifeTimer = setTimeout(() => {
       if (this._isPlaying && this._lifeEnabled) {
@@ -703,8 +811,27 @@ class SampleManager {
     const ctx = this._ctx;
     if (!ctx) return;
 
+    /* v3.0: Gemini active_elements filtresi
+       _geminiElements boşsa kısıtlama yok; doluysa sadece eşleşenleri çal */
+    let candidateEvents = LIFE_EVENTS;
+    if (this._geminiElements && this._geminiElements.length > 0) {
+      const elems = this._geminiElements;
+      const TYPE_MAP = { /* element adı → LIFE_EVENT.type eşleştirmesi */
+        birds: 'bird', bird: 'bird',
+        crickets: 'insect', insect: 'insect', cicada: 'insect', ağustos: 'insect',
+        frogs: 'frog', frog: 'frog', kurbağa: 'frog',
+        wind: 'ambient', water: 'ambient', rain: 'ambient', ambient: 'ambient',
+      };
+      const allowedTypes = new Set();
+      elems.forEach(e => { if (TYPE_MAP[e]) allowedTypes.add(TYPE_MAP[e]); });
+      if (allowedTypes.size > 0) {
+        const filtered = LIFE_EVENTS.filter(ev => allowedTypes.has(ev.type));
+        if (filtered.length > 0) candidateEvents = filtered;
+      }
+    }
+
     /* Rastgele bir olay seç */
-    const event = LIFE_EVENTS[Math.floor(Math.random() * LIFE_EVENTS.length)];
+    const event = candidateEvents[Math.floor(Math.random() * candidateEvents.length)];
 
     /* Rastgele 3D konum — "uzaktan geliyor" hissi */
     const angle = Math.random() * Math.PI * 2;
