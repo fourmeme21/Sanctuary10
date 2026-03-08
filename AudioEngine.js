@@ -1,5 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   SANCTUARY SES MOTORU — v9.0 (Hibrit Organik Motor)
+   SANCTUARY SES MOTORU — v11.0 (Tam Senkronizasyon Protokolü)
+   ─────────────────────────────────────────────────────────────────────────────
+   v11.0 — Aşama 11 CERRAHİ YAMALAR (v9.0 tabanı korundu):
+     • startSound içinde SM garantili bootstrap — ses üretiminden önce
+     • Arpeggiator → _arpNoteCallback hook — SanctuarySync köprüsü
+     • SampleManager.js v2.0 ve SanctuarySync.js ile tam senkronize
+   Tüm v9.0 özellikleri aynen korundu.
    ─────────────────────────────────────────────────────────────────────────────
    Sinyal Zinciri:
      Kaynaklar:
@@ -534,6 +540,11 @@
           osc.frequency.linearRampToValueAtTime(newFreq, now + glide);
         });
 
+        /* Aşama 11: SanctuarySync köprüsüne nota değişimini bildir */
+        if (typeof window._arpNoteCallback === 'function') {
+          try { window._arpNoteCallback(targetBase, ratio); } catch(e) {}
+        }
+
         scheduleNextArp();
       }, delay);
     }
@@ -581,6 +592,17 @@
     var ctx = getCtx();
     if (ctx.state === 'suspended') ctx.resume();
     ensureMaster(ctx);
+
+    /* Aşama 11: SM henüz bağlı değilse bootstrap et — MOTOR SESİ ÜRETMEDEN ÖNCE */
+    if (!_sampleManager && typeof window.SampleManager !== 'undefined' && _master) {
+      try {
+        _sampleManager = new window.SampleManager(ctx, _master, {
+          basePath: 'audio/',
+          volume  : 0.85,
+        });
+        console.info('[AudioEngine v11] SampleManager startSound içinde bootstrap edildi.');
+      } catch(e) { console.warn('[AudioEngine v11] SM bootstrap hatası:', e.message); }
+    }
 
     if (_master) {
       var _cancelNow = ctx.currentTime;
