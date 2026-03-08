@@ -1,11 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   SANCTUARY SES MOTORU — v11.0 (Tam Senkronizasyon Protokolü)
+   SANCTUARY SES MOTORU — v12.0 (Gemini Derin Sahne Analizi)
    ─────────────────────────────────────────────────────────────────────────────
-   v11.0 — Aşama 11 CERRAHİ YAMALAR (v9.0 tabanı korundu):
-     • startSound içinde SM garantili bootstrap — ses üretiminden önce
-     • Arpeggiator → _arpNoteCallback hook — SanctuarySync köprüsü
-     • SampleManager.js v2.0 ve SanctuarySync.js ile tam senkronize
-   Tüm v9.0 özellikleri aynen korundu.
+   v12.0 — Aşama 12 YENİLİKLERİ (v11.0 tabanı korundu):
+     • updateFromGemini(msd) — Gemini MSD'sini tam ayrıştırma:
+         environment_description → keyword matcher (su/gece/orman/…)
+         predominant_emotion → EQ + master gain dinamik ayarı
+         active_elements[] → SampleManager Life Layer yoğunluğu
+         intensity (0–1) → kuş/böcek sıklığı + osc sub-pad seviyesi
+         spatial_hints[] → PannerNode konumlandırma
+     • Akıllı EQ Miksajı: mood'a göre lowpass/highpass anlık güncelleme
+     • Osilatörler DAİMA %2 (0.02) — safety mute korundu + güçlendirildi
+     • SampleManager v3.0 ile tam entegrasyon
+   Tüm v11.0 / v9.0 özellikleri aynen korundu.
    ─────────────────────────────────────────────────────────────────────────────
    Sinyal Zinciri:
      Kaynaklar:
@@ -797,6 +803,193 @@
       }
       wf.querySelectorAll('.wbar').forEach(function(b){ b.classList.add('on'); });
     }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     AŞAMA 12: updateFromGemini(msd) — Gemini Derin Sahne Analizi
+     ────────────────────────────────────────────────────────────────────────
+     Gemini'den gelen MSD nesnesini tam ayrıştırır:
+       msd.sceneName              → sahne adı (v11'den gelen yol)
+       msd.environment_description→ serbest metin → keyword matcher
+       msd.predominant_emotion    → EQ + master gain dinamik ayarı
+       msd.active_elements[]      → ["birds","wind","water",...] → SM Life Layer
+       msd.intensity   (0–1)      → kuş/böcek sıklığı + sub-pad seviyesi
+       msd.spatial_hints[]        → [{element,x,y,z}] → PannerNode konumları
+       msd.frequencySuggestion    → baseFreq güncelleme (FrequencyManager)
+       msd.mood                   → EQ ton rengi
+     ════════════════════════════════════════════════════════════════════════ */
+
+  /* ── Keyword → Gen/Scene eşleştirici ── */
+  var KEYWORD_MAP = [
+    /* Su / Deniz / Göl */
+    { keys: ['su','deniz','okyanus','göl','nehir','şelale','yağmur','rain','water','ocean','lake','river','waterfall'],
+      gen: 'waves', scene: 'Calm Breath',
+      eqPreset: { lowHz:200, lowGain:3, midGain:-2, highHz:6000, highGain:0, filterHz:1600 } },
+    /* Gece / Yıldız / Ay */
+    { keys: ['gece','yıldız','ay','karanlık','night','star','moon','dark','midnight','cosmos','uzay','space'],
+      gen: 'space', scene: 'Deep Space',
+      eqPreset: { lowHz:200, lowGain:4, midGain:-3, highHz:6000, highGain:-2, filterHz:900 } },
+    /* Orman / Canlılık / Ağaç */
+    { keys: ['orman','ağaç','yaprak','çimen','doğa','forest','tree','jungle','nature','woods','canlı','yeşil','green'],
+      gen: 'forest', scene: 'Night Forest',
+      eqPreset: { lowHz:200, lowGain:1, midGain:0, highHz:6000, highGain:2, filterHz:2200 } },
+    /* Sabah / Güneş / Işık */
+    { keys: ['sabah','güneş','şafak','gündoğumu','morning','sunrise','dawn','light','ışık'],
+      gen: 'morning', scene: 'Morning Mist',
+      eqPreset: { lowHz:200, lowGain:0, midGain:1, highHz:6000, highGain:3, filterHz:2800 } },
+    /* Rüzgar / Açık Alan */
+    { keys: ['rüzgar','esen','esinti','wind','breeze','açık','meadow','ova'],
+      gen: 'wind', scene: 'Light Breath',
+      eqPreset: { lowHz:200, lowGain:1, midGain:-1, highHz:6000, highGain:1, filterHz:1800 } },
+    /* Ateş / Sıcak */
+    { keys: ['ateş','alev','sıcak','fire','flame','warm','hearth'],
+      gen: 'fire', scene: 'Energy Renewal',
+      eqPreset: { lowHz:200, lowGain:2, midGain:0, highHz:6000, highGain:1, filterHz:2000 } },
+    /* Zen / Meditasyon */
+    { keys: ['zen','meditasyon','huzur','sessizlik','meditation','peace','still','quiet','temple','tapınak'],
+      gen: 'zen', scene: 'Zen Garden',
+      eqPreset: { lowHz:200, lowGain:2, midGain:-2, highHz:6000, highGain:-1, filterHz:1200 } },
+    /* Yağmur */
+    { keys: ['yağmur','damla','bulut','rain','drizzle','cloud','storm','fırtına'],
+      gen: 'rain', scene: 'Deep Peace',
+      eqPreset: { lowHz:200, lowGain:2, midGain:-1, highHz:6000, highGain:0, filterHz:1400 } },
+  ];
+
+  /* ── Emotion → EQ haritası ── */
+  var EMOTION_EQ = {
+    /* Hüzünlü / Melankoli → boğuk, sarıcı */
+    sad       : { lowGain:4,  midGain:-3, highGain:-3, filterHz:900,  masterMult:0.75 },
+    melancholy: { lowGain:4,  midGain:-3, highGain:-3, filterHz:900,  masterMult:0.75 },
+    hüzün     : { lowGain:4,  midGain:-3, highGain:-3, filterHz:900,  masterMult:0.75 },
+    /* Enerjik / Neşeli → parlak, açık */
+    energetic : { lowGain:0,  midGain:1,  highGain:4,  filterHz:3500, masterMult:1.0  },
+    joyful    : { lowGain:0,  midGain:1,  highGain:3,  filterHz:3200, masterMult:0.95 },
+    neşeli    : { lowGain:0,  midGain:1,  highGain:3,  filterHz:3200, masterMult:0.95 },
+    /* Kaygılı → hafif boğuk, orta frekans */
+    anxious   : { lowGain:2,  midGain:-1, highGain:-1, filterHz:1400, masterMult:0.80 },
+    kaygı     : { lowGain:2,  midGain:-1, highGain:-1, filterHz:1400, masterMult:0.80 },
+    /* Sakin / Huzurlu → dengeli, sıcak */
+    calm      : { lowGain:2,  midGain:-1, highGain:1,  filterHz:1900, masterMult:0.85 },
+    peaceful  : { lowGain:2,  midGain:-1, highGain:1,  filterHz:1900, masterMult:0.85 },
+    huzur     : { lowGain:2,  midGain:-1, highGain:1,  filterHz:1900, masterMult:0.85 },
+    /* Minnettar / Mutlu */
+    grateful  : { lowGain:1,  midGain:0,  highGain:2,  filterHz:2400, masterMult:0.90 },
+    happy     : { lowGain:1,  midGain:0,  highGain:2,  filterHz:2400, masterMult:0.90 },
+  };
+
+  /**
+   * Gemini MSD'sini tüm ses katmanlarına anlık uygula.
+   * index.html içindeki generateAIFreq'ten çağrılır.
+   * @param {object} msd — Gemini API çıktısı
+   */
+  window.updateFromGemini = function(msd) {
+    if (!msd) return;
+    var ctx = _ctx;
+    if (!ctx) return;
+
+    console.group('[AudioEngine v12] updateFromGemini');
+    console.info('MSD alındı:', JSON.stringify(msd).slice(0, 200));
+
+    /* ── 1. environment_description → Keyword Matcher ── */
+    var envDesc = (msd.environment_description || msd.sceneName || '').toLowerCase();
+    var matchedEntry = null;
+    for (var ki = 0; ki < KEYWORD_MAP.length; ki++) {
+      var entry = KEYWORD_MAP[ki];
+      for (var kj = 0; kj < entry.keys.length; kj++) {
+        if (envDesc.indexOf(entry.keys[kj]) !== -1) {
+          matchedEntry = entry;
+          break;
+        }
+      }
+      if (matchedEntry) break;
+    }
+
+    /* ── 2. EQ Güncelleme ── */
+    var now = ctx.currentTime;
+    var ramp = 2.0;
+
+    /* Önce keyword EQ preset */
+    if (matchedEntry && matchedEntry.eqPreset) {
+      var ep = matchedEntry.eqPreset;
+      _applyEQPreset(ep, now, ramp);
+    }
+
+    /* Emotion EQ (keyword preset'in üzerine yazar — daha spesifik) */
+    var emotion = (msd.predominant_emotion || msd.mood || '').toLowerCase();
+    var emotionPreset = null;
+    for (var ek in EMOTION_EQ) {
+      if (emotion.indexOf(ek) !== -1) { emotionPreset = EMOTION_EQ[ek]; break; }
+    }
+    if (emotionPreset) {
+      _applyEQPreset(emotionPreset, now, ramp);
+      /* Master gain mood'a göre */
+      if (_master && emotionPreset.masterMult) {
+        var baseMasterVol = window._prefVector
+          ? window._prefVector.masterVolume : 0.8;
+        var targetVol = Math.max(0.1, Math.min(1, baseMasterVol * emotionPreset.masterMult));
+        _master.gain.setValueAtTime(_master.gain.value, now);
+        _master.gain.linearRampToValueAtTime(targetVol, now + ramp);
+      }
+    }
+
+    /* ── 3. FrequencyManager güncelle ── */
+    var newFreq = msd.frequencySuggestion || msd.freq;
+    if (isFinite(newFreq) && newFreq > 0) {
+      if (typeof window.getFrequencyManager === 'function') {
+        try { window.getFrequencyManager().setBaseFreq(newFreq); } catch(e){}
+      }
+    }
+
+    /* ── 4. SampleManager'a Gemini verilerini ilet ── */
+    if (_sampleManager && typeof _sampleManager.applyGeminiData === 'function') {
+      try {
+        _sampleManager.applyGeminiData({
+          active_elements : msd.active_elements || [],
+          intensity       : isFinite(msd.intensity) ? msd.intensity : 0.5,
+          spatial_hints   : msd.spatial_hints   || [],
+          scene           : matchedEntry ? matchedEntry.scene : (msd.sceneName || 'Calm Breath'),
+          emotion         : emotion,
+        });
+      } catch(e) { console.warn('[updateFromGemini] SM applyGeminiData hatası:', e.message); }
+    }
+
+    /* ── 5. Ses değişimi — matchedEntry'ye göre sahne güncelle ── */
+    if (matchedEntry && _playing) {
+      var beat = msd.beat || _curBeat || 7;
+      var freq = newFreq || _curBase || 200;
+      /* Mevcut gen zaten aynıysa tekrar başlatma — sadece EQ güncellendi */
+      if (matchedEntry.gen !== _curGen) {
+        startDirectNature(ctx, matchedEntry.gen,
+          (window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60) * 0.75);
+      }
+    }
+
+    console.info('[AudioEngine v12] Sahne →', matchedEntry ? matchedEntry.scene : 'değişmedi');
+    console.info('[AudioEngine v12] Emotion EQ →', emotion || 'varsayılan');
+    console.groupEnd();
+  };
+
+  /**
+   * EQ preset'ini AudioContext zamanlamasıyla uygula.
+   * @private
+   */
+  function _applyEQPreset(preset, now, ramp) {
+    if (!now) { var ctx2 = _ctx; if (!ctx2) return; now = ctx2.currentTime; }
+    ramp = ramp || 2.0;
+    try {
+      if (_eqLow && preset.lowGain !== undefined)
+        _eqLow.gain.linearRampToValueAtTime(
+          Math.max(-6, Math.min(8, preset.lowGain)), now + ramp);
+      if (_eqMid && preset.midGain !== undefined)
+        _eqMid.gain.linearRampToValueAtTime(
+          Math.max(-6, Math.min(6, preset.midGain)), now + ramp);
+      if (_eqHigh && preset.highGain !== undefined)
+        _eqHigh.gain.linearRampToValueAtTime(
+          Math.max(-6, Math.min(8, preset.highGain)), now + ramp);
+      if (_mainFilter && preset.filterHz !== undefined)
+        _mainFilter.frequency.linearRampToValueAtTime(
+          Math.max(400, Math.min(8000, preset.filterHz)), now + ramp);
+    } catch(e) { console.warn('[_applyEQPreset]', e.message); }
   }
 
   /* ══════════════════════════════════════════════
