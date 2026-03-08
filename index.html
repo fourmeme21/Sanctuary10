@@ -3566,8 +3566,6 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 </style>
 <style>
 #vis-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;border-radius:inherit;}
-#play-btn { z-index: 2; }
-#play-lbl  { position: relative; z-index: 2; }
 </style>
 </head>
 <body>
@@ -3713,7 +3711,7 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 
     <div class="play-wrap a5" style="position:relative;">
 <canvas id="vis-canvas"></canvas>
-      <button class="play-btn" id="play-btn"
+      <button class="play-btn" id="play-btn" onclick="window.togglePlay()"
         aria-label="Start frequency" aria-pressed="false">
         <span class="play-icon" id="play-icon" aria-hidden="true">▶</span>
       </button>
@@ -6062,53 +6060,6 @@ function createLegacyAdapter() {
 /* Browser global */
 window.AudioEngine = AudioEngine;
 
-/* ── window.togglePlay — inline AudioEngine'den doğrudan türet ──
-   main.js veya başka hiçbir dış dosyaya bağımlı değil.
-   AudioEngine_v12.js yüklenirse onu, yoksa bu inline versiyonu kullanır. */
-(function() {
-  var _engine = null;
-  function _getEngine() {
-    if (!_engine) _engine = AudioEngine.getInstance();
-    return _engine;
-  }
-
-  window.togglePlay = function() {
-    var eng = _getEngine();
-    /* AudioContext suspend → resume (tarayıcı politikası) */
-    var ctx = eng._ctx;
-    if (!ctx) {
-      /* Henüz init olmamış — initialize et sonra toggle */
-      eng.initialize().then(function() {
-        eng.togglePlay();
-      }).catch(function(e) { console.error('[togglePlay] init hatası:', e); });
-      return;
-    }
-    if (ctx.state === 'suspended') {
-      ctx.resume().then(function() { eng.togglePlay(); });
-    } else {
-      eng.togglePlay();
-    }
-  };
-
-  /* Play butonu — DOMContentLoaded sonrası bağla */
-  function _bindBtn() {
-    var btn = document.getElementById('play-btn');
-    if (!btn) return;
-    /* Clone: önceki listener'ları temizle */
-    var fresh = btn.cloneNode(true);
-    btn.parentNode.replaceChild(fresh, btn);
-    fresh.addEventListener('click', function() {
-      window.togglePlay();
-    });
-    console.info('[Sanctuary] Play butonu bağlandı (inline) ✓');
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _bindBtn);
-  } else {
-    _bindBtn();
-  }
-})();
 </script>
 
 
@@ -6249,10 +6200,6 @@ window.generateAIFreq = async function(){
 
     var msd = await response.json();
     console.log('[generateAIFreq] MSD alındı:', JSON.stringify(msd));
-
-    if (typeof window.updateFromGemini === 'function') {
-      try { window.updateFromGemini(msd); } catch(e) { console.warn('[generateAIFreq] updateFromGemini:', e.message); }
-    }
 
     /* Aşama 1 — GeminiAdapter MSD'sini FrequencyManager'a aktar */
     if (typeof window.getFrequencyManager === 'function') {
@@ -7322,6 +7269,41 @@ function applyTranslations(lang) {
     window.addEventListener('load', function() { setLang(saved); });
   }
 })();
+</script>
+
+<script>
+/* ── Sanctuary: window.togglePlay güvenlik köprüsü ──
+   main.js sonradan override edebilir, bu yüzden
+   window.load'da — tüm scriptler bittikten sonra — yeniden bağlıyoruz. */
+window.addEventListener('load', function() {
+  var btn = document.getElementById('play-btn');
+  if (!btn) return;
+
+  /* Tüm eski onclick ve listener'ları temizle */
+  var fresh = btn.cloneNode(true);
+  btn.parentNode.replaceChild(fresh, btn);
+
+  fresh.addEventListener('click', function() {
+    /* AudioContext resume — tarayıcı politikası */
+    var ctx = window._ctx;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    /* togglePlay zinciri: SanctuarySync → AudioEngine */
+    if (typeof window.togglePlay === 'function') {
+      window.togglePlay();
+    } else if (window._audioToggle) {
+      window._audioToggle();
+    } else if (window.AudioEngine) {
+      window.AudioEngine.getInstance().togglePlay();
+    } else {
+      console.error('[Sanctuary] Hiçbir togglePlay bulunamadı.');
+    }
+  });
+
+  console.info('[Sanctuary] Play butonu window.load\'da bağlandı ✓');
+});
 </script>
 </body>
 </html>
