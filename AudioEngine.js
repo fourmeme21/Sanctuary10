@@ -1,35 +1,37 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   SANCTUARY SES MOTORU — v8.0 (Organik Katman Operasyonu)
+   SANCTUARY SES MOTORU — v9.0 (Hibrit Organik Motor)
    ─────────────────────────────────────────────────────────────────────────────
    Sinyal Zinciri:
-     Kaynaklar (Singing Bowl FM v8 + Pink Noise Rüzgar + Stereo Auto-Pan)
-       → _mainFilter  (Filtre Zarfı: 350→1900 Hz @ 5sn | LFO kademeli açılım | Q:4.0)
-       → _masteringComp
-       → _satNode     (tanh Soft-Clip k=8, 4x — analog sıcaklık)
-       → _tremoloNode (±20% @ 0.08 Hz — fiziksel nabız)
-       → _master
-       → EQ (low/mid/high)
-       → _comp
-       → destination
+     Kaynaklar:
+       [A] Warm Sub-Pad (Osilatörler — %70 düşürülmüş gain, yumuşak FM)
+       [B] Pink Noise Doğa Katmanı (anlık, SampleManager bağımsız)
+       [C] SampleManager (Organik Ortam + Enstrüman Bankası)
+           → Piano / Guitar / Flute prosedürel sentezi
+           → Canlılık katmanı: Kuş, böcek, kurbağa (15–30sn rastgele)
+       Tüm kaynaklar → _mainFilter → _masteringComp → _satNode (k=8)
+         → _tremoloNode → _master → EQ → _comp → destination
 
-   v8.0 — Aşama 8 YENİLİKLERİ:
-     • FM Derinliği 3× Artırıldı   : fmDepth = freq × 0.030 (eskiden 0.010)
-                                       Metalik "ring" ve çınlama artık net duyuluyor.
-                                       Daha belirgin Singing Bowl karakteri.
-     • Hızlandırılmış Arpeggiator  : 4–6 sn (eskiden 8–12 sn)
-                                       Glide: 1.5–2.5 sn (eskiden 3–4.5 sn)
-                                       Beyin yeni olayı zamanında algılar → taze dikkat.
-     • Anlık Pink Noise Rüzgar     : SampleManager'ı BEKLEMEDEN, AudioEngine başlar
-                                       başlamaz doğrudan Pink Noise tabanlı organik rüzgar
-                                       çalar. Sessizlik anı tamamen ortadan kalkar.
-                                       _directWindGain / _directWindSrc değişkenleri.
-     • Stereo Auto-Pan (3D Hareket): Her ses kaynağı StereoPannerNode ile sürekli
-                                       ama çok yavaş sağdan sola gezinir.
-                                       Oranlar: Rüzgar 0.007 Hz, Dalga 0.005 Hz, Bowl 0.003 Hz
-                                       Kullanıcı sesin içinde "döndüğünü" hissetmeli.
-     • FM Micro-LFO Derinliği +    : ±%32 shimmer (eskiden ±%22) → daha canlı ensemble.
-     • Tüm v7.0 özellikleri korundu (Q:4.0, k=8, ±20% tremolo, ±4ct chaos, binaural,
-                                       Sahne Aktivasyonu, GEN_TO_SCENE, BOWL_ATTACK)
+   v9.0 — Aşama 9 YENİLİKLERİ:
+     • Siren Etkisi Tamamen Yok      : Osilatör gain'leri %70 düşürüldü.
+                                        FM derinliği yumuşatıldı: "metalik" → "sıcak".
+                                        Sinüs dominansı bitişti; osilatörler artık
+                                        sadece derin sub-pad arka planı sağlar.
+     • Organik Öncelik               : Kullanıcının duyduğu ana karakter:
+                                        Piano / Guitar / Flute (SampleManager v2.0)
+                                        + Pink Noise doğa katmanı.
+     • Müzikal Sahne Presetleri      : switchSound → SampleManager v2.0 applyScene()
+                                        Her sahne için otomatik enstrüman kombinasyonu.
+                                        Zen Garden: Flüt + Kuşlar
+                                        Deep Space: Piyano (geniş reverb)
+                                        Earth Grounding: Gitar + Rüzgar + Orman
+     • Canlılık Katmanı              : SampleManager v2.0'ın _scheduleLifeEvent()
+                                        sistemi üzerinden çalışır. AudioEngine
+                                        müdahale etmez — SampleManager yönetir.
+     • Gelişmiş 3D Sahneleme         : Pink Noise + Bowl Auto-Pan korundu.
+                                        SampleManager HRTF PannerNode ile kuşların
+                                        3D hareketi sağlanıyor.
+     • Tüm v8.0 özellikleri korundu  : Auto-Pan, Pink Noise, Arpeggiator (4–6sn),
+                                        filter zarf, tremolo, chaos engine.
    ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
@@ -45,31 +47,39 @@
 
   var _lfoOsc=null, _lfoGain=null, _lfoInvert=null;
   var _filterLfoOsc=null, _filterLfoGain=null;
-  var _tremoloOsc=null,   _tremoloDepth=null;
+  var _tremoloOsc=null, _tremoloDepth=null;
   var _chaosTimer=null;
   var _arpTimer=null;
   var _sampleManager=null;
 
-  /* v8.0: Anlık doğa sesi katmanı (SampleManager bağımsız) */
+  /* v8.0: Anlık doğa sesi katmanı */
   var _directWindSrc=null, _directWindGain=null, _directWindPan=null;
   var _directWaveSrc=null, _directWaveGain=null, _directWavePan=null;
   var _directWindPanOsc=null, _directWavePanOsc=null;
 
-  /* v8.0: Bowl Auto-Pan osilatörleri */
+  /* Bowl Auto-Pan */
   var _bowlPanOscL=null, _bowlPanOscR=null;
 
   /* Sabitler */
   var GOLDEN = 1.618034;
   var ARP_RATIOS = [1/1, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8, 2/1];
 
-  /* gen → SampleManager sahne adı haritası */
+  /* ═══════════════════════════════════════════════════════════════
+     AŞAMA 9: GEN → SAHNE HARİTASI (Genişletildi)
+     Yeni müzikal presetler: Zen Garden, Deep Space, Earth Grounding
+  ═══════════════════════════════════════════════════════════════ */
   var GEN_TO_SCENE = {
-    waves   : 'Calm Breath',
-    rain    : 'Deep Peace',
-    wind    : 'Light Breath',
-    fire    : 'Energy Renewal',
-    storm   : 'Focus Flow',
-    binaural: 'Heart Resonance',
+    waves       : 'Calm Breath',
+    rain        : 'Deep Peace',
+    wind        : 'Light Breath',
+    fire        : 'Energy Renewal',
+    storm       : 'Focus Flow',
+    binaural    : 'Heart Resonance',
+    zen         : 'Zen Garden',
+    space       : 'Deep Space',
+    earth       : 'Earth Grounding',
+    forest      : 'Night Forest',
+    morning     : 'Morning Mist',
   };
 
   /* ── Ruh Hali Haritası ── */
@@ -90,6 +100,11 @@
     fire    : { ambient: 0.50, tones: 0.50 },
     storm   : { ambient: 0.55, tones: 0.45 },
     binaural: { ambient: 0.25, tones: 0.75 },
+    zen     : { ambient: 0.60, tones: 0.40 },
+    space   : { ambient: 0.40, tones: 0.60 },
+    earth   : { ambient: 0.65, tones: 0.35 },
+    forest  : { ambient: 0.65, tones: 0.35 },
+    morning : { ambient: 0.60, tones: 0.40 },
   };
 
   /* ── AudioContext ── */
@@ -103,7 +118,7 @@
   }
 
   /* ══════════════════════════════════════════════════════════════════════
-     MASTER BUS — v8.0 (v7.0'dan korundu)
+     MASTER BUS — v9.0 (v8.0'dan korundu)
      ══════════════════════════════════════════════════════════════════════ */
   function ensureMaster(ctx) {
     if (_master) return;
@@ -122,7 +137,7 @@
     _masteringComp.attack.value    = 0.003;
     _masteringComp.release.value   = 0.25;
 
-    /* Soft-Clip WaveShaper k=8 */
+    /* Soft-Clip k=8 */
     _satNode = ctx.createWaveShaper();
     (function() {
       var samples = 4096, k = 8.0, tanhK = Math.tanh(k);
@@ -135,17 +150,16 @@
     })();
     _satNode.oversample = '4x';
 
-    /* Tremolo — base 0.80, ±20% */
     _tremoloNode = ctx.createGain();
     _tremoloNode.gain.value = 0.80;
 
-    /* 3-Band EQ */
-    _eqLow  = ctx.createBiquadFilter();
+    /* EQ */
+    _eqLow = ctx.createBiquadFilter();
     _eqLow.type = 'lowshelf';
     _eqLow.frequency.value = 200;
     _eqLow.gain.value = 2;
 
-    _eqMid  = ctx.createBiquadFilter();
+    _eqMid = ctx.createBiquadFilter();
     _eqMid.type = 'peaking';
     _eqMid.frequency.value = 1000;
     _eqMid.Q.value = 0.8;
@@ -156,7 +170,6 @@
     _eqHigh.frequency.value = 6000;
     _eqHigh.gain.value = 1.5;
 
-    /* Ana Lowpass Filtresi — Q:4.0 */
     _mainFilter = ctx.createBiquadFilter();
     _mainFilter.type            = 'lowpass';
     _mainFilter.frequency.value = 1900;
@@ -206,55 +219,58 @@
   }
 
   /* ════════════════════════════════════════════════════════════════════════
-     AŞAMA 8: SINGING BOWL FM SENTEZLEYİCİ — v8.0 (FM 3× Güçlendirildi)
+     AŞAMA 9: WARM SUB-PAD SENTEZLEYICI — buildWarmPad()
      ────────────────────────────────────────────────────────────────────────
-     v8.0 değişiklikleri:
-       • FM derinliği: freq × 0.010 → freq × 0.030 (3× artış)
-         Metal kase "ring" artık net ve belirgin duyuluyor.
-         Tiz frekanslarda parlak shimmer, basta derin çınlama.
-       • Micro-LFO derinliği: gainVal × 0.22 → gainVal × 0.32
-         Her harmonik daha canlı, bağımsız nefes alıyor.
-       • Auto-Pan desteği: bowlPanGain parametresi eklendi.
-         BuildBowlVoice çıkışı pannerNode'a yönlendirilebilir.
+     v9.0 radikal değişiklikleri:
+       • Gain %70 düşürüldü → Osilatörler artık ana ses DEĞİL, sub-pad.
+       • FM derinliği dramatik biçimde yumuşatıldı:
+           v8.0: freq × 0.030 (metalik, keskin)
+           v9.0: freq × 0.004 (sıcak, yumuşak warmth)
+         Artık "piyano altındaki derin sıcaklık" tınısı veriyor.
+       • FM modülatör oranı: 0.27 → 0.50 (sub-octave pad karakteri)
+       • Micro-LFO: gainVal × 0.32 → gainVal × 0.12
+         Daha sessiz, neredeyse fark edilmez nefes.
+       • Osilatör tipi tercihi: 'sine' baskın — 'triangle' kaldırıldı.
+         Sinüs dalgası warmth için uygun, metalik değil.
      ════════════════════════════════════════════════════════════════════════ */
-  function buildBowlVoice(ctx, freq, detuneCents, oscType, gainVal, destGain, attackSec) {
+  function buildWarmPad(ctx, freq, detuneCents, gainVal, destGain, attackSec) {
     var now = ctx.currentTime;
 
-    /* ── Carrier Osilatör ── */
+    /* ── Ana Pad Osilatörü — saf sinüs, sub karakteri ── */
     var carrier = ctx.createOscillator();
-    carrier.type = oscType;
+    carrier.type = 'sine';
     carrier.frequency.value = freq;
     carrier.detune.value = detuneCents;
 
-    /* ── FM Shimmer Modülatör — v8.0: 3× daha derin ─────────────────────
-     * freq × 0.030: metalik "ring" karakteri belirgin ve net.
-     * Eskiden 0.010 → sadece hafif doku; şimdi gerçek Singing Bowl çınlaması. */
+    /* ── Soft FM Modülatör — v9.0: sıcak pad warmth ──────────────────────
+     * Oran: 0.50 → tam sub-octave FM → derin, sıcak bass warmth.
+     * Derinlik: freq × 0.004 → sadece hafif tını rengi, metalik değil. */
     var fmMod = ctx.createOscillator();
     fmMod.type = 'sine';
-    fmMod.frequency.value = freq * 0.27;  /* Metalophone harmonik oranı korundu */
+    fmMod.frequency.value = freq * 0.50;  /* Sub-octave ratio */
 
     var fmDepth = ctx.createGain();
-    /* v8.0: 3× artış — freq × 0.030 (eskiden 0.010) */
-    fmDepth.gain.value = Math.max(3.6, freq * 0.030);
+    /* v9.0: 0.030 → 0.004 — metalik çınlama yerine sıcak warmth */
+    fmDepth.gain.value = Math.max(0.3, freq * 0.004);
     fmMod.connect(fmDepth);
     fmDepth.connect(carrier.frequency);
 
-    /* ── Micro-Gain LFO — v8.0: ±%32 shimmer (eskiden ±%22) ─────────────
-     * Daha derin nefes: her harmonik ensemble içinde daha belirgin titreşir. */
-    var lfoRate = 0.10 + Math.random() * 0.40;
+    /* ── Micro-LFO — v9.0: neredeyse fark edilmez, sadece doku ──────────
+     * gainVal × 0.12 → çok hafif nefes, kulak fark etmiyor ama canlılık var. */
+    var lfoRate = 0.08 + Math.random() * 0.25; /* Daha yavaş */
     var lfo = ctx.createOscillator();
     lfo.type = 'sine';
     lfo.frequency.value = lfoRate;
 
     var lfoAmp = ctx.createGain();
-    lfoAmp.gain.value = gainVal * 0.32;  /* v8.0: 0.22 → 0.32 */
+    lfoAmp.gain.value = gainVal * 0.12;  /* v9.0: 0.32 → 0.12 */
     lfo.connect(lfoAmp);
 
     var shimmer = ctx.createGain();
     shimmer.gain.value = 1.0;
     lfoAmp.connect(shimmer.gain);
 
-    /* ── Enstrüman Zarfı — Yavaş Atak ── */
+    /* ── ADSR Zarfı — v9.0: Uzun atak, yumuşak ── */
     var envNode = ctx.createGain();
     envNode.gain.setValueAtTime(0.0001, now);
     envNode.gain.exponentialRampToValueAtTime(gainVal, now + attackSec);
@@ -271,138 +287,95 @@
   }
 
   /* ════════════════════════════════════════════════════════════════════════
-     AŞAMA 8: PINK NOISE TABАНLI ORGANİK RÜZGAR — Anlık, Doğrudan
-     ────────────────────────────────────────────────────────────────────────
-     Paul Kellet algoritması ile Pink Noise üretimi.
-     SampleManager bağımsız: AudioEngine başladığı anda çalar.
-     Sessizlik anı = 0ms. Her zaman bir doğa sesi var.
-
-     Sinyal: PinkNoise → BPF (doğa rengi) → StereoPanner (Auto-Pan) → _mainFilter
+     PINK NOISE BUFFER (v8.0'dan korundu)
      ════════════════════════════════════════════════════════════════════════ */
   function makePinkNoiseBuffer(ctx, gen) {
     var sr  = ctx.sampleRate || 44100;
-    var dur = 12;  /* 12 saniye loop — daha az tekrarlayan doku */
+    var dur = 12;
     var len = Math.round(sr * dur);
     var buf = ctx.createBuffer(2, len, sr);
 
     for (var ch = 0; ch < 2; ch++) {
       var d = buf.getChannelData(ch);
-      /* Paul Kellet Pink Noise filtresi */
       var b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
-      /* Ek parametreler — gen'e göre renk */
       var p1=0, p2=0, p3=0;
 
       for (var i = 0; i < len; i++) {
         var white = Math.random() * 2 - 1;
-        /* Pink noise dönüşümü (Paul Kellet) */
-        b0 = 0.99886*b0 + white*0.0555179;
-        b1 = 0.99332*b1 + white*0.0750759;
-        b2 = 0.96900*b2 + white*0.1538520;
-        b3 = 0.86650*b3 + white*0.3104856;
-        b4 = 0.55000*b4 + white*0.5329522;
-        b5 = -0.7616*b5 - white*0.0168980;
-        var pink = (b0+b1+b2+b3+b4+b5+b6 + white*0.5362) * 0.11;
-        b6 = white * 0.115926;
+        b0=0.99886*b0+white*0.0555179; b1=0.99332*b1+white*0.0750759;
+        b2=0.96900*b2+white*0.1538520; b3=0.86650*b3+white*0.3104856;
+        b4=0.55000*b4+white*0.5329522; b5=-0.7616*b5-white*0.0168980;
+        var pink=(b0+b1+b2+b3+b4+b5+b6+white*0.5362)*0.11; b6=white*0.115926;
 
         var v = 0;
-        if (gen === 'wind' || gen === 'binaural') {
-          /* Organik rüzgar: Pink Noise + yavaş dalga modülasyonu */
-          p1 += (2*Math.PI*0.09)/sr;
-          p2 += (2*Math.PI*0.04)/sr;
-          var windEnv = Math.max(0, 0.5 + Math.sin(p2)*0.38 + Math.sin(p1*0.4)*0.12);
-          v = pink * 0.60 * windEnv;
-        } else if (gen === 'waves') {
-          /* Okyanus: Pink + dalga sürme */
-          p1 += (2*Math.PI*0.07)/sr;
-          p2 += (2*Math.PI*0.15)/sr;
-          p3 += (2*Math.PI*0.032)/sr;
-          var swell = 0.55 + Math.sin(p3)*0.45;
-          v = pink * 0.45 * swell + Math.sin(p1)*0.12*swell + Math.sin(p2)*0.06*swell;
-        } else if (gen === 'rain') {
-          /* Yağmur: Pink zemin + nadir damlalar */
-          p1 += (2*Math.PI*0.35)/sr;
-          v = pink * 0.40 * (0.7 + Math.sin(p1)*0.3);
-          if (Math.random() < 0.0006) v += (Math.random()*2-1)*0.22;
-        } else if (gen === 'fire') {
-          /* Ateş: Pink + çatlama impulsleri */
-          p1 += (2*Math.PI*2.2)/sr;
-          p2 += (2*Math.PI*0.06)/sr;
-          v = pink * 0.50 * (0.6+Math.sin(p2)*0.4) + Math.sin(p1)*0.03;
-          if (Math.random() < 0.007) v += (Math.random()*2-1)*0.40;
-        } else if (gen === 'storm') {
-          /* Fırtına: Yoğun Pink + güçlü gümbürtü */
-          p1 += (2*Math.PI*0.22)/sr;
-          p2 += (2*Math.PI*0.04)/sr;
-          v = pink * 0.75 * (0.6+Math.sin(p1)*0.4) + Math.sin(p2)*0.025;
+        if (gen==='wind'||gen==='binaural'||gen==='zen'||gen==='earth'||gen==='forest') {
+          p1+=(2*Math.PI*0.09)/sr; p2+=(2*Math.PI*0.04)/sr;
+          var windEnv=Math.max(0,0.5+Math.sin(p2)*0.38+Math.sin(p1*0.4)*0.12);
+          v=pink*0.60*windEnv;
+        } else if (gen==='waves'||gen==='morning') {
+          p1+=(2*Math.PI*0.07)/sr; p2+=(2*Math.PI*0.15)/sr; p3+=(2*Math.PI*0.032)/sr;
+          var swell=0.55+Math.sin(p3)*0.45;
+          v=pink*0.45*swell+Math.sin(p1)*0.12*swell+Math.sin(p2)*0.06*swell;
+        } else if (gen==='rain') {
+          p1+=(2*Math.PI*0.35)/sr;
+          v=pink*0.40*(0.7+Math.sin(p1)*0.3);
+          if(Math.random()<0.0006) v+=(Math.random()*2-1)*0.22;
+        } else if (gen==='fire') {
+          p1+=(2*Math.PI*2.2)/sr; p2+=(2*Math.PI*0.06)/sr;
+          v=pink*0.50*(0.6+Math.sin(p2)*0.4)+Math.sin(p1)*0.03;
+          if(Math.random()<0.007) v+=(Math.random()*2-1)*0.40;
+        } else if (gen==='storm') {
+          p1+=(2*Math.PI*0.22)/sr; p2+=(2*Math.PI*0.04)/sr;
+          v=pink*0.75*(0.6+Math.sin(p1)*0.4)+Math.sin(p2)*0.025;
+        } else if (gen==='space') {
+          /* Uzay: çok sessiz, derin */
+          v=pink*0.15;
         } else {
-          v = pink * 0.30;
+          v=pink*0.30;
         }
-        d[i] = isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
+        d[i]=isFinite(v)?Math.max(-1,Math.min(1,v)):0;
       }
     }
     return buf;
   }
 
   /* ════════════════════════════════════════════════════════════════════════
-     AŞAMA 8: STEREO AUTO-PAN SİSTEMİ
-     ────────────────────────────────────────────────────────────────────────
-     Bir StereoPannerNode'un pan AudioParam'ına LFO bağlar.
-     Kullanıcı sesin içinde yavaşça "döndüğünü" hisseder.
-
-     lfoHz: Çok yavaş — algılanabilir ama dikkat çekici değil.
-       • Rüzgar/Dalga : 0.007 Hz (~143 sn tam tur)
-       • Bowl         : 0.003 Hz (~333 sn tam tur)
-     depth: Maksimum pan sapması (0=merkez, 1=tam sağ/sol)
+     AUTO-PAN (v8.0'dan korundu)
      ════════════════════════════════════════════════════════════════════════ */
   function createAutoPan(ctx, pannerNode, lfoHz, depth, phaseOffset) {
     var lfo = ctx.createOscillator();
     lfo.type = 'sine';
     lfo.frequency.value = lfoHz;
-
-    /* Faz sapması: farklı kaynaklar aynı anda aynı yönde değil */
-    var phaseBuf = ctx.createBuffer(1, 1, ctx.sampleRate);
-    phaseBuf.getChannelData(0)[0] = 0;
-
     var lfoDepth = ctx.createGain();
     lfoDepth.gain.value = depth;
-
     lfo.connect(lfoDepth);
     lfoDepth.connect(pannerNode.pan);
     lfo.start(ctx.currentTime + (phaseOffset || 0));
-
     return lfo;
   }
 
   /* ════════════════════════════════════════════════════════════════════════
-     AŞAMA 8: DOĞRUDAN DOĞA SESİ BAŞLATICI
-     ────────────────────────────────────────────────────────────────────────
-     AudioEngine başladığı anda SampleManager'ı beklemeden
-     Pink Noise tabanlı dalga + rüzgar katmanlarını çalar.
-     Her iki katman da Auto-Pan ile stereo uzayda hareket eder.
+     DOĞRUDAN DOĞA SESİ (v8.0'dan korundu)
      ════════════════════════════════════════════════════════════════════════ */
   function startDirectNature(ctx, gen, ambVol) {
     stopDirectNature();
-
     var now = ctx.currentTime;
 
-    /* ── Katman 1: Rüzgar/Ana Ortam (Pink Noise) ── */
     var windBuf = makePinkNoiseBuffer(ctx, gen);
-
     _directWindSrc = ctx.createBufferSource();
-    _directWindSrc.buffer    = windBuf;
-    _directWindSrc.loop      = true;
+    _directWindSrc.buffer = windBuf;
+    _directWindSrc.loop = true;
     _directWindSrc.loopStart = 0;
-    _directWindSrc.loopEnd   = windBuf.duration;
+    _directWindSrc.loopEnd = windBuf.duration;
 
-    /* BPF: gen'e özel renk filtresi */
     var windFilt = ctx.createBiquadFilter();
     windFilt.type = 'bandpass';
     windFilt.frequency.value = {
-      waves: 600, rain: 2200, wind: 1100, fire: 1400, storm: 800, binaural: 700
+      waves:600, rain:2200, wind:1100, fire:1400, storm:800, binaural:700,
+      zen:900, space:300, earth:700, forest:800, morning:1000
     }[gen] || 900;
     windFilt.Q.value = 0.6;
 
-    /* Auto-Pan: 0.007 Hz, depth 0.55, faz=0 */
     _directWindPan = ctx.createStereoPanner();
     _directWindPan.pan.value = 0;
     _directWindPanOsc = createAutoPan(ctx, _directWindPan, 0.007, 0.55, 0);
@@ -417,27 +390,22 @@
     _directWindPan.connect(_mainFilter);
     _directWindSrc.start(0);
 
-    /* ── Katman 2: Dalga/İkincil Ortam (Pink Noise, waves sahnesinde) ── */
-    /* Dalgalı sahnelerde ikinci bir Pink Noise katmanı: daha yumuşak, ters fazda */
-    if (gen === 'waves' || gen === 'binaural' || gen === 'rain') {
-      var secGen = (gen === 'rain') ? 'wind' : 'waves';
+    if (gen==='waves'||gen==='binaural'||gen==='rain'||gen==='morning') {
+      var secGen = (gen==='rain') ? 'wind' : 'waves';
       var waveBuf = makePinkNoiseBuffer(ctx, secGen);
-
       _directWaveSrc = ctx.createBufferSource();
-      _directWaveSrc.buffer    = waveBuf;
-      _directWaveSrc.loop      = true;
+      _directWaveSrc.buffer = waveBuf;
+      _directWaveSrc.loop = true;
       _directWaveSrc.loopStart = 0;
-      _directWaveSrc.loopEnd   = waveBuf.duration;
+      _directWaveSrc.loopEnd = waveBuf.duration;
 
       var waveFilt = ctx.createBiquadFilter();
       waveFilt.type = 'lowpass';
       waveFilt.frequency.value = 500;
       waveFilt.Q.value = 0.5;
 
-      /* Auto-Pan: ters faz (Math.PI / 2 offset ile başlatılır zaman ötelemesiyle) */
       _directWavePan = ctx.createStereoPanner();
       _directWavePan.pan.value = 0;
-      /* Rüzgar 143 saniyede tam tur → dalga 71 saniye sonra başlıyor gibi davranır */
       _directWavePanOsc = createAutoPan(ctx, _directWavePan, 0.005, 0.40, 71);
 
       _directWaveGain = ctx.createGain();
@@ -450,31 +418,26 @@
       _directWavePan.connect(_mainFilter);
       _directWaveSrc.start(0);
     }
-
-    console.info('[AudioEngine v8.0] Anlık doğa sesi başlatıldı:', gen, 'hacim:', ambVol.toFixed(2));
   }
 
   function stopDirectNature() {
-    /* Rüzgar katmanı */
-    if (_directWindPanOsc)  { try{_directWindPanOsc.stop(); _directWindPanOsc.disconnect();}catch(e){} _directWindPanOsc=null; }
+    if (_directWindPanOsc)  { try{_directWindPanOsc.stop();_directWindPanOsc.disconnect();}catch(e){} _directWindPanOsc=null; }
     if (_directWindGain)    { try{_directWindGain.disconnect();}catch(e){} _directWindGain=null; }
     if (_directWindPan)     { try{_directWindPan.disconnect();}catch(e){} _directWindPan=null; }
-    if (_directWindSrc)     { try{_directWindSrc.stop(); _directWindSrc.disconnect();}catch(e){} _directWindSrc=null; }
-    /* Dalga katmanı */
-    if (_directWavePanOsc)  { try{_directWavePanOsc.stop(); _directWavePanOsc.disconnect();}catch(e){} _directWavePanOsc=null; }
+    if (_directWindSrc)     { try{_directWindSrc.stop();_directWindSrc.disconnect();}catch(e){} _directWindSrc=null; }
+    if (_directWavePanOsc)  { try{_directWavePanOsc.stop();_directWavePanOsc.disconnect();}catch(e){} _directWavePanOsc=null; }
     if (_directWaveGain)    { try{_directWaveGain.disconnect();}catch(e){} _directWaveGain=null; }
     if (_directWavePan)     { try{_directWavePan.disconnect();}catch(e){} _directWavePan=null; }
-    if (_directWaveSrc)     { try{_directWaveSrc.stop(); _directWaveSrc.disconnect();}catch(e){} _directWaveSrc=null; }
+    if (_directWaveSrc)     { try{_directWaveSrc.stop();_directWaveSrc.disconnect();}catch(e){} _directWaveSrc=null; }
   }
 
   /* ════════════════════════════════════════════════════════════════════════
-     MODÜLASYON SİSTEMİ — v8.0 (v7.0'dan korundu)
+     MODÜLASYON (v8.0'dan korundu)
      ════════════════════════════════════════════════════════════════════════ */
   function startModulation(ctx) {
     stopModulation();
     var now = ctx.currentTime;
 
-    /* 1. Filter LFO — Kademeli açılım */
     _filterLfoOsc = ctx.createOscillator();
     _filterLfoOsc.type = 'sine';
     _filterLfoOsc.frequency.value = 0.05;
@@ -487,7 +450,6 @@
     _filterLfoGain.connect(_mainFilter.frequency);
     _filterLfoOsc.start();
 
-    /* 2. Tremolo LFO — %20 fiziksel nabız */
     _tremoloOsc = ctx.createOscillator();
     _tremoloOsc.type = 'sine';
     _tremoloOsc.frequency.value = 0.08;
@@ -499,18 +461,17 @@
     _tremoloDepth.connect(_tremoloNode.gain);
     _tremoloOsc.start();
 
-    /* 3. Chaos Engine — Analog Drift ±4 cent */
     function scheduleNextChaos() {
       var delay = 3000 + Math.random() * 3000;
       _chaosTimer = setTimeout(function() {
         if (!_playing || !_oscs.length) return;
         try {
-          var idx  = Math.floor(Math.random() * _oscs.length);
-          var osc  = _oscs[idx];
+          var idx = Math.floor(Math.random() * _oscs.length);
+          var osc = _oscs[idx];
           if (osc && osc.detune) {
-            var cur   = osc.detune.value;
-            var drift = (Math.random() - 0.5) * 8.0;
-            var next  = Math.max(-8, Math.min(8, cur + drift));
+            var cur  = osc.detune.value;
+            var drift= (Math.random() - 0.5) * 8.0;
+            var next = Math.max(-8, Math.min(8, cur + drift));
             osc.detune.setValueAtTime(cur, ctx.currentTime);
             osc.detune.linearRampToValueAtTime(next, ctx.currentTime + 1.5);
           }
@@ -539,12 +500,7 @@
   }
 
   /* ════════════════════════════════════════════════════════════════════════
-     AŞAMA 8: GOLDEN RATIO ARPEGGİATOR — v8.0 (Hızlandırıldı)
-     ────────────────────────────────────────────────────────────────────────
-     v8.0 değişiklikleri:
-       • Bekleme süresi: 8–12 sn → 4–6 sn (beyin yeni olayı daha erken algılar)
-       • Glide süresi: 3–4.5 sn → 1.5–2.5 sn (daha akışkan, daha az "bekleme")
-       • Phi birikimi aynı: Golden Ratio adım ilerlemesi korundu.
+     GOLDEN RATIO ARPEGGİATOR — v9.0 (v8.0'dan korundu: 4–6 sn, 1.5–2.5 sn glide)
      ════════════════════════════════════════════════════════════════════════ */
   function startArpeggiator(ctx) {
     stopArpeggiator();
@@ -553,7 +509,6 @@
     var phiAccum = 0;
 
     function scheduleNextArp() {
-      /* v8.0: 4–6 sn (eskiden 8–12 sn) */
       var delay = 4000 + Math.random() * 2000;
       _arpTimer = setTimeout(function() {
         if (!_playing || !_oscs.length) { scheduleNextArp(); return; }
@@ -562,20 +517,19 @@
         var stepIdx = Math.floor(phiAccum) % ARP_RATIOS.length;
         var ratio   = ARP_RATIOS[stepIdx];
 
-        var phiFrac  = phiAccum - Math.floor(phiAccum);
+        var phiFrac   = phiAccum - Math.floor(phiAccum);
         var microDrift = 1.0 + (phiFrac - 0.5) * 0.036;
         var targetBase = _curBase * ratio * microDrift;
         targetBase = Math.max(20, Math.min(1200, targetBase));
 
         var ratioChange = targetBase / _curBase;
-        /* v8.0: 1.5–2.5 sn glide (eskiden 3–4.5 sn) */
         var glide = 1.5 + Math.random() * 1.0;
-        var now = ctx.currentTime;
+        var now   = ctx.currentTime;
 
         _oscs.forEach(function(osc) {
           if (!osc || !osc.frequency) return;
-          var cur = osc.frequency.value;
-          var newFreq = Math.min(20000, Math.max(20, cur * ratioChange));
+          var cur    = osc.frequency.value;
+          var newFreq= Math.min(20000, Math.max(20, cur * ratioChange));
           osc.frequency.setValueAtTime(cur, now);
           osc.frequency.linearRampToValueAtTime(newFreq, now + glide);
         });
@@ -598,8 +552,8 @@
   }
 
   function stopBowlPans() {
-    if (_bowlPanOscL) { try{_bowlPanOscL.stop(); _bowlPanOscL.disconnect();}catch(e){} _bowlPanOscL=null; }
-    if (_bowlPanOscR) { try{_bowlPanOscR.stop(); _bowlPanOscR.disconnect();}catch(e){} _bowlPanOscR=null; }
+    if (_bowlPanOscL) { try{_bowlPanOscL.stop();_bowlPanOscL.disconnect();}catch(e){} _bowlPanOscL=null; }
+    if (_bowlPanOscR) { try{_bowlPanOscR.stop();_bowlPanOscR.disconnect();}catch(e){} _bowlPanOscR=null; }
   }
 
   function stopOscs() {
@@ -621,7 +575,7 @@
   }
 
   /* ════════════════════════════════════════════════════════════════════════
-     SES BAŞLAT — startSound v8.0
+     SES BAŞLAT — startSound v9.0
      ════════════════════════════════════════════════════════════════════════ */
   function startSound(gen, base, beat, offset) {
     var ctx = getCtx();
@@ -639,7 +593,7 @@
 
     stopOscs();
     stopModulation();
-    stopDirectNature();  /* v8.0: önceki doğa seslerini temizle */
+    stopDirectNature();
 
     /* ── Filtre Zarfı ── */
     var _fEnvNow = ctx.currentTime;
@@ -651,21 +605,21 @@
     var _baseVol = window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60;
     var _mix     = SCENE_MIX[gen] || { ambient: 0.50, tones: 0.50 };
     var ambVol   = Math.max(0.05, Math.min(0.95, _baseVol * (_mix.ambient / 0.50)));
-    var oscVol   = _mix.tones;
 
-    var xfDur = 2.5;
-    var BOWL_ATTACK = 4.0;
+    /* ══ Aşama 9: Sub-Pad Gain — %70 düşürüldü ═══════════════════════════
+     * v9.0: Osilatörler artık sadece arka plan warmth sağlar.
+     * Kulağın duyduğu ana ses = SampleManager enstrümanları. */
+    var oscVol = _mix.tones * 0.30; /* v9.0: 1.00 → 0.30 (%70 düşüş) */
 
-    /* ════════════════════════════════════════════════════════════════════
-       v8.0: AŞAMA 8 — DOĞRUDAN DOĞA SESİ (SampleManager bağımsız)
-       Pink Noise tabanlı ortam sesi HEMEN başlar.
-       SampleManager sonradan eklenince crossfade ile geçiş yapar.
-       ════════════════════════════════════════════════════════════════════ */
+    var xfDur   = 2.5;
+    var PAD_ATTACK = 5.5; /* v9.0: Daha yavaş atak — sub-pad doğal açılım */
+
+    /* ══ DOĞRUDAN DOĞA SESİ ══ */
     startDirectNature(ctx, gen, ambVol);
 
-    /* ══ Binaural + Singing Bowl Osilatörler ═══════════════════════════════
-     * v8.0: buildBowlVoice FM derinliği 3×, LFO derinliği %32.
-     * Auto-Pan: Bowl osilatörleri de yavaşça stereo uzayda dolaşır. */
+    /* ══ Aşama 9: WARM SUB-PAD OSİLATÖRLER ═══════════════════════════════
+     * buildWarmPad: FM çok yumuşak, gain çok düşük.
+     * Kulak sadece perde değişimlerinde fark eder — siren yok. */
     if (beat > 0) {
       var _fm = (typeof window.getFrequencyManager === 'function')
         ? window.getFrequencyManager(base)
@@ -674,15 +628,14 @@
 
       var _leftFreq = _fm ? _fm.getNextFrequency() : (isFinite(base) ? base : 200);
 
-      /* v8.0: Auto-Pan StereoPanners — Bowl sesi de döner */
+      /* Auto-Pan StereoPanners */
       var panL = ctx.createStereoPanner();
       var panR = ctx.createStereoPanner();
       panL.pan.value = -0.8;
       panR.pan.value =  0.8;
 
-      /* Bowl Auto-Pan — 0.003 Hz, depth 0.20 (çok yavaş, hafif) */
       _bowlPanOscL = createAutoPan(ctx, panL, 0.003, 0.20, 0);
-      _bowlPanOscR = createAutoPan(ctx, panR, 0.003, 0.20, 166); /* ~ters faz */
+      _bowlPanOscR = createAutoPan(ctx, panR, 0.003, 0.20, 166);
 
       panL.connect(_mainFilter);
       panR.connect(_mainFilter);
@@ -691,13 +644,13 @@
 
       var envGainL = ctx.createGain();
       envGainL.gain.setValueAtTime(0.0001, _oscStartNow);
-      envGainL.gain.exponentialRampToValueAtTime(oscVol, _oscStartNow + BOWL_ATTACK);
+      envGainL.gain.exponentialRampToValueAtTime(oscVol, _oscStartNow + PAD_ATTACK);
 
       var envGainR = ctx.createGain();
       envGainR.gain.setValueAtTime(0.0001, _oscStartNow);
-      envGainR.gain.exponentialRampToValueAtTime(oscVol, _oscStartNow + BOWL_ATTACK);
+      envGainR.gain.exponentialRampToValueAtTime(oscVol, _oscStartNow + PAD_ATTACK);
 
-      /* Cross-panning LFO (0.07 Hz) */
+      /* Cross-panning LFO */
       stopLFO();
       _lfoOsc = ctx.createOscillator();
       _lfoOsc.type = 'sine';
@@ -720,29 +673,27 @@
       envGainL.connect(xGainL); xGainL.connect(panL);
       envGainR.connect(xGainR); xGainR.connect(panR);
 
-      /* ── v8.0: 4 Katmanlı Harmonik Binaural × Singing Bowl FM ──────────
-       * FM derinliği 3× artırıldı (buildBowlVoice içinde freq×0.030).
-       * LFO shimmer %32 (eskiden %22). */
+      /* ── Aşama 9: Sadece 2 harmonik — daha az sinüs yoğunluğu ──────────
+       * v8.0: 4 harmonik × 2 kanal = 8 osilatör → siren riski yüksek.
+       * v9.0: 2 harmonik × 2 kanal = 4 osilatör → sub-pad karakteri. */
       var _beat = isFinite(beat) ? beat : 0;
-      var HARMONICS = [
-        { mult:1, type:'sine',     gainVal:0.10  },
-        { mult:2, type:'sine',     gainVal:0.05  },
-        { mult:3, type:'triangle', gainVal:0.03  },
-        { mult:4, type:'sine',     gainVal:0.015 },
+      var PAD_HARMONICS = [
+        { mult:1, gainVal: oscVol * 1.0 },  /* Temel */
+        { mult:2, gainVal: oscVol * 0.4 },  /* Oktav — derin warmth */
       ];
 
-      HARMONICS.forEach(function(h) {
+      PAD_HARMONICS.forEach(function(h) {
         var freqL = Math.min(20000, _leftFreq * h.mult);
         var freqR = Math.min(20000, _leftFreq * h.mult + _beat * h.mult);
-        var detuneL = (Math.random() - 0.5) * 16.0;
-        var detuneR = (Math.random() - 0.5) * 16.0;
+        var detuneL = (Math.random() - 0.5) * 10.0; /* Daha az detune */
+        var detuneR = (Math.random() - 0.5) * 10.0;
 
-        var vL = buildBowlVoice(ctx, freqL, detuneL, h.type, h.gainVal, envGainL, BOWL_ATTACK);
+        var vL = buildWarmPad(ctx, freqL, detuneL, h.gainVal, envGainL, PAD_ATTACK);
         _oscs.push(vL.carrier);
         _fmOscs.push(vL.fmMod);
         _harmLfos.push(vL.lfo);
 
-        var vR = buildBowlVoice(ctx, freqR, detuneR, h.type, h.gainVal, envGainR, BOWL_ATTACK);
+        var vR = buildWarmPad(ctx, freqR, detuneR, h.gainVal, envGainR, PAD_ATTACK);
         _oscs.push(vR.carrier);
         _fmOscs.push(vR.fmMod);
         _harmLfos.push(vR.lfo);
@@ -753,41 +704,37 @@
 
     var now = ctx.currentTime;
 
-    /* ══ GranularEngine / Fallback Ortam Sesi ═══════════════════════════
-     * GranularEngine varsa çalıştır (v8.0: Pink Noise ile paralel çalışır,
-     * ikisi birlikte daha zengin doku).
-     * Yoksa: makeBuffer fallback — Direct Nature zaten çalışıyor. */
+    /* ══ GranularEngine / Fallback ══════════════════════════════════════ */
     if (window.GranularEngine) {
-      var grainTypeMap = {waves:'waves', rain:'rain', wind:'wind', fire:'forest', storm:'wind', binaural:'forest'};
+      var grainTypeMap = {waves:'waves',rain:'rain',wind:'wind',fire:'forest',storm:'wind',binaural:'forest',zen:'wind',space:'wind',earth:'forest',forest:'forest',morning:'wind'};
       var grainType = grainTypeMap[gen] || 'wind';
       var _panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-      var _panVal = {waves:0.6, rain:0.4, wind:0.7, fire:0.5, storm:0.8, binaural:0.0}[gen] || 0.3;
+      var _panVal = {waves:0.6,rain:0.4,wind:0.7,fire:0.5,storm:0.8,binaural:0.0,zen:0.5,space:0.3,earth:0.6,forest:0.7,morning:0.4}[gen]||0.3;
       if (_panner) {
         _panner.pan.value = (Math.random()>0.5?1:-1)*_panVal;
         _panner.connect(_mainFilter);
       }
       var _granDest = _panner || _mainFilter;
-      _granular = new window.GranularEngine(ctx, _granDest, { volume: ambVol * 0.60 }); /* v8.0: %60 — Direct Nature ile denge */
+      _granular = new window.GranularEngine(ctx, _granDest, { volume: ambVol * 0.50 });
       _granular.generateBuffer(grainType);
       _granular.start();
       _startTime = now;
     } else {
-      /* Fallback buffer: Direct Nature zaten çalışıyor, bu yüzden hacim düşük */
       var src  = ctx.createBufferSource();
       var filt = ctx.createBiquadFilter();
       var gain = ctx.createGain();
-      src.buffer    = makePinkNoiseBuffer(ctx, gen); /* v8.0: fallback da Pink Noise kullanıyor */
+      src.buffer    = makePinkNoiseBuffer(ctx, gen);
       src.loop      = true;
       src.loopStart = 0;
       src.loopEnd   = src.buffer.duration;
-      filt.type            = 'highpass'; /* Tiz renk — Direct Nature'un bass'ını tamamlar */
-      filt.frequency.value = {waves:800, rain:2000, wind:1500, fire:1000, storm:2500, binaural:300}[gen]||700;
+      filt.type            = 'highpass';
+      filt.frequency.value = {waves:800,rain:2000,wind:1500,fire:1000,storm:2500,binaural:300,zen:1200,space:200,earth:700,forest:900,morning:1100}[gen]||700;
       filt.Q.value = 0.6;
       src.connect(filt); filt.connect(gain); gain.connect(_mainFilter);
 
       var off = isFinite(offset) ? (offset % _loopDur + _loopDur) % _loopDur : 0;
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(ambVol * 0.40, now + xfDur); /* v8.0: 0.40× — Direct Nature'la denge */
+      gain.gain.exponentialRampToValueAtTime(ambVol * 0.35, now + xfDur);
 
       if (_noiseGain) {
         var oldG = _noiseGain;
@@ -871,7 +818,7 @@
     } else {
       if (_ctx && _startTime) _pauseOffset = (_ctx.currentTime - _startTime) % _loopDur;
       stopModulation();
-      stopDirectNature();  /* v8.0: Direct Nature da durdurulur */
+      stopDirectNature();
       if (_ctx && _master) {
         var _stopNow = _ctx.currentTime;
         _master.gain.cancelScheduledValues(_stopNow);
@@ -901,10 +848,7 @@
   };
 
   /* ════════════════════════════════════════════════════════════════════════
-     switchSound — v8.0: SampleManager + Direct Nature paralel
-     ────────────────────────────────────────────────────────────────────────
-     v8.0: Direct Nature anında başlatılır (SampleManager beklemeden).
-     SampleManager gelince ses zenginleşir, kulakta kopukluk olmaz.
+     switchSound — v9.0: Enstrüman Preset Entegrasyonu
      ════════════════════════════════════════════════════════════════════════ */
   window.switchSound = function(gen, base, beat, label, msd) {
     try{ localStorage.setItem('lastGen',gen); localStorage.setItem('lastBase',base); localStorage.setItem('lastBeat',beat); }catch(e){}
@@ -912,6 +856,7 @@
     _pauseOffset = 0;
     if (_playing) startSound(gen, base, beat, 0);
 
+    /* ── SampleManager v2.0 — Sahne + Enstrüman Preset ── */
     if (typeof window.SampleManager !== 'undefined') {
       var ctx = getCtx();
       ensureMaster(ctx);
@@ -925,6 +870,7 @@
         ? msd.sceneName
         : (GEN_TO_SCENE[gen] || 'Calm Breath');
 
+      /* applyScene hem ortam seslerini hem enstrüman presetini uygular */
       _sampleManager.applyScene(_sceneTarget).then(function() {
         if (_playing) _sampleManager.start();
       }).catch(function(e){ console.warn('[SampleManager] applyScene hata:', e); });
@@ -976,7 +922,7 @@
 })();
 /* ═══════════════════════════════════════════════════ */
 
-/* ══ ADIM 8: Listener adaptasyonu + syncStart ══ */
+/* ══ ADIM 8+9: Listener adaptasyonu + syncStart ══ */
 
   window.applyRemoteState = function(params) {
     if (!params) return;
@@ -1028,7 +974,7 @@ window.applyBiometricEffect = function(p) {
   } catch(e) { console.warn('[applyBiometricEffect]', e); }
 };
 
-/* ── Yedek referans: main.js wrapper'ları için güvenlik kilidi ── */
+/* ── Yedek referans ── */
 window._audioToggle      = window.togglePlay;
 window._audioSwitchSound = window.switchSound;
 window._audioSleepTimer  = window.setSleepTimer;
