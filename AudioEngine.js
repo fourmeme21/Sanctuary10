@@ -1,4 +1,4 @@
-/* v5.0 — Aşama 5: Organik Yaşam, Filter Modülasyonu, Tremolo, Chaos Engine, Otomatik Mikser */
+/* v6.0 — Aşama 6: Psikoakustik Güçlendirme, Doku, Analog Karakter */
 
 /* ═══════════════════════════════════════════════════════════════════
    SANCTUARY SES MOTORU (v5.0 — Canlı Organizma)
@@ -21,7 +21,8 @@
 
   /* ── Modül-Düzeyi Değişkenler ── */
   var _ctx=null, _master=null, _comp=null, _mainFilter=null, _masteringComp=null;
-  var _tremoloNode=null; /* Aşama 5: zincir içi tremolo gain düğümü */
+  var _satNode=null;    /* Aşama 6: Soft-Clip WaveShaper — sıcaklık dokusu */
+  var _tremoloNode=null;
   var _eqLow=null, _eqMid=null, _eqHigh=null;
   var _oscs=[], _noise=null, _noiseGain=null, _granular=null;
   var _playing=false, _startTime=0, _pauseOffset=0;
@@ -92,10 +93,24 @@
     _masteringComp.attack.value    = 0.003;
     _masteringComp.release.value   = 0.25;
 
-    /* Aşama 5: Tremolo düğümü — zincir içinde kalıcı, LFO ayrıca başlatılır
-     * Base: 0.925 → LFO ±0.05 eklince 0.875–0.975 arası (~5–12% dalgalanma) */
+    /* Aşama 6: Soft-Clip WaveShaper — analog sıcaklık/doku
+     * tanh S-eğrisi: düşük genlikler temiz, yüksek genlikler yumuşak kırpılır.
+     * oversample 4x: aliasing bastırılır, daha müzikal saturasyon. */
+    _satNode = ctx.createWaveShaper();
+    (function() {
+      var samples = 2048, k = 4.0, tanhK = Math.tanh(k);
+      var curve = new Float32Array(samples);
+      for (var i = 0; i < samples; i++) {
+        var x = (i * 2) / (samples - 1) - 1;
+        curve[i] = Math.tanh(k * x) / tanhK;
+      }
+      _satNode.curve = curve;
+    })();
+    _satNode.oversample = '4x';
+
+    /* Tremolo düğümü (Aşama 6: base 0.85, LFO ±0.15 → 0.70–1.00 fiziksel nabız) */
     _tremoloNode = ctx.createGain();
-    _tremoloNode.gain.value = 0.925;
+    _tremoloNode.gain.value = 0.85; /* Aşama 6: ±15% için geniş bant */
 
     /* 3-band EQ */
     _eqLow  = ctx.createBiquadFilter();
@@ -118,8 +133,8 @@
      * Aşama 5: başlangıç 1700 Hz → LFO onu 1200–2200 Hz arasında tarar */
     _mainFilter = ctx.createBiquadFilter();
     _mainFilter.type            = 'lowpass';
-    _mainFilter.frequency.value = 1700;  /* Merkez frekans; LFO ±500 Hz ekler */
-    _mainFilter.Q.value         = 0.8;
+    _mainFilter.frequency.value = 1900;  /* Aşama 6: merkez yükseltildi (LFO ±1300) */
+    _mainFilter.Q.value         = 3.5;   /* Aşama 6: vokal rezonans */
 
     /* Master gain */
     _master = ctx.createGain();
@@ -128,7 +143,8 @@
     /* ═══ Zincir bağlantısı (Aşama 5) ═══
      * kaynaklar → _mainFilter → _masteringComp → _tremoloNode → _master → EQ → _comp → destination */
     _mainFilter.connect(_masteringComp);
-    _masteringComp.connect(_tremoloNode);
+    _masteringComp.connect(_satNode);
+    _satNode.connect(_tremoloNode);
     _tremoloNode.connect(_master);
     _master.connect(_eqLow);
     _eqLow.connect(_eqMid);
@@ -140,6 +156,7 @@
     window._master        = _master;
     window._mainFilter    = _mainFilter;
     window._masteringComp = _masteringComp;
+    window._satNode       = _satNode;
     window._tremoloNode   = _tremoloNode;
     window._eqLow         = _eqLow;
     window._eqMid         = _eqMid;
@@ -229,7 +246,7 @@
     _filterLfoOsc.frequency.value = 0.05; /* 20 sn döngü */
 
     _filterLfoGain = ctx.createGain();
-    _filterLfoGain.gain.value = 500; /* ±500 Hz sapma genliği */
+    _filterLfoGain.gain.value = 1300; /* Aşama 6: ±1300 Hz (600–3200 Hz arası) */
 
     _filterLfoOsc.connect(_filterLfoGain);
     _filterLfoGain.connect(_mainFilter.frequency); /* AudioParam'a bağlantı: ekler */
@@ -244,7 +261,7 @@
     _tremoloOsc.frequency.value = 0.08;
 
     _tremoloDepth = ctx.createGain();
-    _tremoloDepth.gain.value = 0.05; /* ±5% genlik */
+    _tremoloDepth.gain.value = 0.15; /* Aşama 6: ±15% fiziksel nabız */
 
     _tremoloOsc.connect(_tremoloDepth);
     _tremoloDepth.connect(_tremoloNode.gain); /* AudioParam: 0.925 ± 0.05 */
@@ -256,7 +273,7 @@
      * Burada setTimeout zinciri bu doğallığı simüle eder.
      * 5–10 sn arası: fark edilemez ama beyin "yeni veri" olarak kodlar. */
     function scheduleNextChaos() {
-      var delay = 5000 + Math.random() * 5000; /* 5–10 sn */
+      var delay = 3000 + Math.random() * 3000; /* Aşama 6: 3–6 sn */
       _chaosTimer = setTimeout(function() {
         if (!_playing || !_oscs.length) return;
         try {
@@ -264,11 +281,11 @@
           var osc = _oscs[idx];
           if (osc && osc.detune) {
             var cur = osc.detune.value;
-            var drift = (Math.random() - 0.5) * 1.0; /* [-0.5, +0.5] cent */
-            var next  = Math.max(-3, Math.min(3, cur + drift));
+            var drift = (Math.random() - 0.5) * 8.0; /* Aşama 6: [-4, +4] cent */
+            var next  = Math.max(-6, Math.min(6, cur + drift));
             /* Yumuşak glide: anında sıçrama değil, 2 sn'de erir */
             osc.detune.setValueAtTime(cur, ctx.currentTime);
-            osc.detune.linearRampToValueAtTime(next, ctx.currentTime + 2.0);
+            osc.detune.linearRampToValueAtTime(next, ctx.currentTime + 1.5); /* Aşama 6 */
           }
         } catch(e) { /* Osilatör durmuş olabilir — sessizce geç */ }
         scheduleNextChaos();
@@ -286,11 +303,11 @@
     /* Kalıcı düğümleri varsayılan değerlerine döndür */
     if (_mainFilter) {
       try { _mainFilter.frequency.cancelScheduledValues(0); } catch(e){}
-      try { _mainFilter.frequency.value = 1700; } catch(e){}
+      try { _mainFilter.frequency.value = 1900; } catch(e){} /* Aşama 6 */
     }
     if (_tremoloNode) {
       try { _tremoloNode.gain.cancelScheduledValues(0); } catch(e){}
-      try { _tremoloNode.gain.value = 0.925; } catch(e){}
+      try { _tremoloNode.gain.value = 0.85; /* Aşama 6: ±15% için geniş bant */ } catch(e){}
     }
   }
 
@@ -354,9 +371,7 @@
       if (_fm) _fm.setBaseFreq(isFinite(base) ? base : 200);
 
       var _leftFreq  = _fm ? _fm.getNextFrequency() : (isFinite(base) ? base : 200);
-      var _rightFreq = _fm
-        ? Math.max(20, Math.min(20000, _leftFreq + beat))
-        : (isFinite(base + beat) ? base + beat : 207);
+      /* _rightFreq removed in v6.0: N×beat differential computed per harmonic */
 
       var panL = ctx.createStereoPanner();
       var panR = ctx.createStereoPanner();
@@ -399,43 +414,33 @@
       envGainL.connect(xGainL); xGainL.connect(panL);
       envGainR.connect(xGainR); xGainR.connect(panR);
 
-      /* Harmonik üretici — 4 katman + chaos-drift destekli detune */
-      function addHarmonics(freq, envGain) {
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.value = freq;
-        o.detune.value = 1.5 + Math.random() * 1.5;
-        g.gain.value = 0.10;
-        o.connect(g); g.connect(envGain);
-        o.start(); _oscs.push(o);
-
-        var o2 = ctx.createOscillator(), g2 = ctx.createGain();
-        o2.type = 'sine';
-        o2.frequency.value = Math.min(20000, freq * 2);
-        o2.detune.value = 1.5 + Math.random() * 1.5;
-        g2.gain.value = 0.04;
-        o2.connect(g2); g2.connect(envGain);
-        o2.start(); _oscs.push(o2);
-
-        var o3 = ctx.createOscillator(), g3 = ctx.createGain();
-        o3.type = 'triangle';
-        o3.frequency.value = Math.min(20000, freq * 3);
-        o3.detune.value = 1.5 + Math.random() * 1.5;
-        g3.gain.value = 0.02;
-        o3.connect(g3); g3.connect(envGain);
-        o3.start(); _oscs.push(o3);
-
-        var o4 = ctx.createOscillator(), g4 = ctx.createGain();
-        o4.type = 'sine';
-        o4.frequency.value = Math.min(20000, freq * 4);
-        o4.detune.value = 1.5 + Math.random() * 1.5;
-        g4.gain.value = 0.01;
-        o4.connect(g4); g4.connect(envGain);
-        o4.start(); _oscs.push(o4);
-      }
-
-      addHarmonics(_leftFreq,  envGainL);
-      addHarmonics(_rightFreq, envGainR);
+      /* ── Aşama 6: Harmonik Binaural Diferansiyel ──────────────────
+       * Her N. harmonik: Sol = N×baseFreq | Sağ = N×baseFreq + N×beat
+       * Binaural etki: temel 1× → harmonikler 2×, 3×, 4× katlı etki.
+       * Beyin dört frekanslı binaural sinyali çok daha derin işler. */
+      var _beat = isFinite(beat) ? beat : 0;
+      var HARMONICS = [
+        { mult: 1, type: 'sine',     gainVal: 0.10 },
+        { mult: 2, type: 'sine',     gainVal: 0.04 },
+        { mult: 3, type: 'triangle', gainVal: 0.02 },
+        { mult: 4, type: 'sine',     gainVal: 0.01 },
+      ];
+      HARMONICS.forEach(function(h) {
+        var freqL = Math.min(20000, _leftFreq * h.mult);
+        var freqR = Math.min(20000, _leftFreq * h.mult + _beat * h.mult);
+        var oL = ctx.createOscillator(), gL = ctx.createGain();
+        oL.type = h.type; oL.frequency.value = freqL;
+        oL.detune.value = 1.5 + Math.random() * 1.5;
+        gL.gain.value = h.gainVal;
+        oL.connect(gL); gL.connect(envGainL);
+        oL.start(); _oscs.push(oL);
+        var oR = ctx.createOscillator(), gR = ctx.createGain();
+        oR.type = h.type; oR.frequency.value = freqR;
+        oR.detune.value = 1.5 + Math.random() * 1.5;
+        gR.gain.value = h.gainVal;
+        oR.connect(gR); gR.connect(envGainR);
+        oR.start(); _oscs.push(oR);
+      });
 
       _lfoOsc.start();
     }
