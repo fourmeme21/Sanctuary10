@@ -3713,7 +3713,7 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 
     <div class="play-wrap a5" style="position:relative;">
 <canvas id="vis-canvas"></canvas>
-      <button class="play-btn" id="play-btn" onclick="window.togglePlay()"
+      <button class="play-btn" id="play-btn"
         aria-label="Start frequency" aria-pressed="false">
         <span class="play-icon" id="play-icon" aria-hidden="true">▶</span>
       </button>
@@ -7274,6 +7274,32 @@ function applyTranslations(lang) {
   if (saved && saved !== 'en') {
     window.addEventListener('load', function() { setLang(saved); });
   }
+})();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   SANCTUARY — Play Butonu Güvenli Bağlama
+   Bu script AudioEngine_v12.js ve SanctuarySync.js'ten
+   SONRA yüklenir — window.togglePlay artık hazır.
+   ═══════════════════════════════════════════════════════ */
+(function() {
+  var btn = document.getElementById('play-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    /* AudioContext kullanıcı etkileşimi gerektirir — her tıkta resume */
+    if (window._ctx && window._ctx.state === 'suspended') {
+      window._ctx.resume();
+    }
+    if (typeof window.togglePlay === 'function') {
+      window.togglePlay();
+    } else {
+      console.error('[Sanctuary] togglePlay bulunamadı. Dosya yükleme sırası kontrol edilsin.');
+    }
+  });
+
+  console.info('[Sanctuary] Play butonu bağlandı ✓');
 })();
 </script>
 </body>
