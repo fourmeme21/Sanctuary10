@@ -6062,6 +6062,53 @@ function createLegacyAdapter() {
 /* Browser global */
 window.AudioEngine = AudioEngine;
 
+/* ── window.togglePlay — inline AudioEngine'den doğrudan türet ──
+   main.js veya başka hiçbir dış dosyaya bağımlı değil.
+   AudioEngine_v12.js yüklenirse onu, yoksa bu inline versiyonu kullanır. */
+(function() {
+  var _engine = null;
+  function _getEngine() {
+    if (!_engine) _engine = AudioEngine.getInstance();
+    return _engine;
+  }
+
+  window.togglePlay = function() {
+    var eng = _getEngine();
+    /* AudioContext suspend → resume (tarayıcı politikası) */
+    var ctx = eng._ctx;
+    if (!ctx) {
+      /* Henüz init olmamış — initialize et sonra toggle */
+      eng.initialize().then(function() {
+        eng.togglePlay();
+      }).catch(function(e) { console.error('[togglePlay] init hatası:', e); });
+      return;
+    }
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(function() { eng.togglePlay(); });
+    } else {
+      eng.togglePlay();
+    }
+  };
+
+  /* Play butonu — DOMContentLoaded sonrası bağla */
+  function _bindBtn() {
+    var btn = document.getElementById('play-btn');
+    if (!btn) return;
+    /* Clone: önceki listener'ları temizle */
+    var fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
+    fresh.addEventListener('click', function() {
+      window.togglePlay();
+    });
+    console.info('[Sanctuary] Play butonu bağlandı (inline) ✓');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _bindBtn);
+  } else {
+    _bindBtn();
+  }
+})();
 </script>
 
 
@@ -7274,32 +7321,6 @@ function applyTranslations(lang) {
   if (saved && saved !== 'en') {
     window.addEventListener('load', function() { setLang(saved); });
   }
-})();
-</script>
-
-<script>
-/* ═══════════════════════════════════════════════════════
-   SANCTUARY — Play Butonu Güvenli Bağlama
-   Bu script AudioEngine_v12.js ve SanctuarySync.js'ten
-   SONRA yüklenir — window.togglePlay artık hazır.
-   ═══════════════════════════════════════════════════════ */
-(function() {
-  var btn = document.getElementById('play-btn');
-  if (!btn) return;
-
-  btn.addEventListener('click', function() {
-    /* AudioContext kullanıcı etkileşimi gerektirir — her tıkta resume */
-    if (window._ctx && window._ctx.state === 'suspended') {
-      window._ctx.resume();
-    }
-    if (typeof window.togglePlay === 'function') {
-      window.togglePlay();
-    } else {
-      console.error('[Sanctuary] togglePlay bulunamadı. Dosya yükleme sırası kontrol edilsin.');
-    }
-  });
-
-  console.info('[Sanctuary] Play butonu bağlandı ✓');
 })();
 </script>
 </body>
