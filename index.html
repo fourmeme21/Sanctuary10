@@ -3672,7 +3672,7 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
         placeholder="What's on your mind today? You don't have to write anything..." data-i18n-placeholder="What's on your mind today? You don't have to write anything..."></textarea>
     </div>
 
-    <button class="cta-btn a5" onclick="window.goSanctuary()" aria-label="Go to Sanctuary">
+    <button class="cta-btn a5" onclick="goSanctuary()" aria-label="Go to Sanctuary">
       <span data-i18n="Enter Sanctuary">Enter Sanctuary</span>
     </button>
   </div>
@@ -3793,19 +3793,19 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
           <span class="ai-oracle-badge">✦ Free</span>
         </div>
         <div class="ai-card">
-          <div class="ai-oracle-skeleton" id="ai-oracle-skeleton" aria-hidden="true" style="display:none;">
+          <div class="ai-oracle-skeleton" id="ai-oracle-skeleton" aria-hidden="true">
             <div class="sk-line"></div>
             <div class="sk-line"></div>
             <div class="sk-line"></div>
           </div>
-          <div id="ai-oracle-content" style="display:block;">
+          <div id="ai-oracle-content">
             <div class="ai-textarea-wrap">
               <span class="ai-textarea-label">What's on your mind</span>
               <textarea class="ai-textarea" id="ai-input" rows="3"
                 placeholder="How are you feeling today? Let Oracle design a frequency just for you..." data-i18n-placeholder="How are you feeling today? Let Oracle design a frequency just for you..."></textarea>
               <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Voice input">🎙</button>
             </div>
-            <button class="ai-generate-btn" id="ai-generate-btn" onclick="window.generateAIFreq()">
+            <button class="ai-generate-btn" id="ai-generate-btn" onclick="generateAIFreq()">
               ✦ Awaken Oracle
             </button>
             <div class="ai-result" id="ai-result">
@@ -7008,9 +7008,8 @@ window.sendReaction = function(emoji) {
 <script src="SecurityWrapper.js"></script>
 <script src="modules.js"></script> -->
 <script src="FrequencyManager.js"></script>
-<script src="SampleManager_v3.js"></script>
-<script src="AudioEngine_v12.js"></script>
-<script src="SanctuarySync.js"></script>
+<script src="SampleManager.js"></script>
+<script src="AudioEngine.js"></script>
 <script src="StateManager.js"></script>
 <script src="VisualizerEngine.js"></script>
 <script src="PerformanceMonitor.js"></script>
@@ -7269,41 +7268,6 @@ function applyTranslations(lang) {
     window.addEventListener('load', function() { setLang(saved); });
   }
 })();
-</script>
-
-<script>
-/* ── Sanctuary: window.togglePlay güvenlik köprüsü ──
-   main.js sonradan override edebilir, bu yüzden
-   window.load'da — tüm scriptler bittikten sonra — yeniden bağlıyoruz. */
-window.addEventListener('load', function() {
-  var btn = document.getElementById('play-btn');
-  if (!btn) return;
-
-  /* Tüm eski onclick ve listener'ları temizle */
-  var fresh = btn.cloneNode(true);
-  btn.parentNode.replaceChild(fresh, btn);
-
-  fresh.addEventListener('click', function() {
-    /* AudioContext resume — tarayıcı politikası */
-    var ctx = window._ctx;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume();
-    }
-
-    /* togglePlay zinciri: SanctuarySync → AudioEngine */
-    if (typeof window.togglePlay === 'function') {
-      window.togglePlay();
-    } else if (window._audioToggle) {
-      window._audioToggle();
-    } else if (window.AudioEngine) {
-      window.AudioEngine.getInstance().togglePlay();
-    } else {
-      console.error('[Sanctuary] Hiçbir togglePlay bulunamadı.');
-    }
-  });
-
-  console.info('[Sanctuary] Play butonu window.load\'da bağlandı ✓');
-});
 </script>
 </body>
 </html>
