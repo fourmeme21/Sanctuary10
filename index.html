@@ -16,7 +16,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sanctuary">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="description" content="Sanctuary — Ses frekansları ve nefes rehberiyle zihinsel huzur.">
+<meta name="description" content="Sanctuary — Science-based sound therapy for mental rest and clarity.">
 <meta name="theme-color" content="#050507">
 
 <!-- PWA Manifest -->
@@ -2441,7 +2441,7 @@ html.low-power .detox-exit__progress {
   50%       { opacity: 1; }
 }
 
-/* ── Nefes Alma Halkası — GPU Dostu (transform + opacity) ── */
+/* ── Inhalema Halkası — GPU Dostu (transform + opacity) ── */
 .breath-ring-wrapper {
   position: relative;
   width: 200px;
@@ -2714,7 +2714,7 @@ html.low-power .detox-exit__progress {
    Bu blokları mevcut style-1.css dosyasının sonuna ekleyin.
    ================================================================= */
 
-/* ── Canlı Odalar bölümü ── */
+/* ── Live Rooms bölümü ── */
 .live-rooms-section { margin: 0 0 40px; width: 100%; }
 
 .section-header {
@@ -2748,7 +2748,7 @@ html.low-power .detox-exit__progress {
   50%      { opacity:.6; transform:scale(1.3); }
 }
 
-/* ── Oda Kur butonu ── */
+/* ── Create Room butonu ── */
 .btn-create-room {
   background: linear-gradient(135deg, var(--gold, #d4a853), var(--gold-light, #f0c97a));
   color: var(--night-deep, #0a0e1a);
@@ -3552,6 +3552,17 @@ _gen-canvas {
 </style>
 <style>
 #connection-badge{display:none;position:fixed;top:12px;right:12px;background:rgba(6,10,24,0.92);border:1px solid rgba(201,169,110,0.3);border-radius:10px;padding:5px 12px;font-size:10px;color:#c9a96e;letter-spacing:1px;z-index:1000;}
+#lang-selector{position:fixed;top:calc(12px + var(--sat,0px));right:calc(16px + var(--sar,0px));z-index:99999;}
+#lang-btn{background:rgba(6,10,24,0.85);border:1px solid rgba(201,169,110,0.3);border-radius:20px;padding:6px 12px;font-size:13px;color:rgba(255,255,255,0.6);cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+#lang-btn:hover{color:#c9a96e;}
+#lang-dropdown{display:none;position:absolute;top:calc(100% + 8px);right:0;background:#111118;border:1px solid rgba(201,169,110,0.2);border-radius:12px;overflow:hidden;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+#lang-dropdown.open{display:block;}
+.lang-option{padding:10px 16px;font-size:14px;color:rgba(255,255,255,0.6);cursor:pointer;display:flex;align-items:center;gap:10px;}
+.lang-option:hover{background:rgba(255,255,255,0.05);color:#c9a96e;}
+.lang-option.active{color:#c9a96e;}
+html[dir="rtl"]{direction:rtl;}
+html[dir="rtl"] #lang-selector{right:auto;left:calc(16px + var(--sal,0px));}
+html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 </style>
 <style>
 #vis-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;border-radius:inherit;}
@@ -3582,6 +3593,20 @@ _gen-canvas {
 </div>
 
 <!-- SCREEN — MOOD -->
+
+<!-- Language Selector -->
+<div id="lang-selector">
+  <button id="lang-btn" onclick="toggleLangDropdown()">
+    <span id="lang-flag">🇬🇧</span>
+    <span id="lang-label">EN</span>
+    <span style="font-size:10px;opacity:0.6">▾</span>
+  </button>
+  <div id="lang-dropdown">
+    <div class="lang-option active" data-lang="en" onclick="setLang('en')">🇬🇧 English</div>
+    <div class="lang-option" data-lang="ar" onclick="setLang('ar')">🇸🇦 العربية</div>
+  </div>
+</div>
+
 <div class="screen on" id="screen-mood">
   <div class="inner">
     <div class="brand a1">
@@ -3590,32 +3615,32 @@ _gen-canvas {
     </div>
 
     <div class="mood-question a2">
-      <p class="eyebrow">Günün Tonu</p>
-      <h1 class="display">Şu an nasıl<br><em>hissediyorsun?</em></h1>
-      <p>Seni gerçekten dinleyecek bir alan. Bugün hangi duygular içindesin?</p>
+      <p class="eyebrow" data-i18n="Today's Tone">Today's Tone</p>
+      <h1 class="display"><span data-i18n="How are you">How are you</span><br><em data-i18n="feeling right now?">feeling right now?</em></h1>
+      <p data-i18n="A space that truly listens. What emotions are present for you today?">A space that truly listens. What emotions are present for you today?</p>
     </div>
 
     <section class="live-rooms-section" id="liveRoomsSection">
       <div class="section-header">
         <h2 class="section-title">
           <span class="live-dot"></span>
-          Canlı Odalar
+          Live Rooms
         </h2>
         <button class="btn-create-room" id="btnOpenCreateModal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          Oda Kur
+          Create Room
         </button>
       </div>
 
       <div class="filter-bar" id="roomFilterBar">
-        <button class="filter-chip active" data-filter="all">Tümü</button>
-        <button class="filter-chip" data-filter="uyku">😴 Uyku</button>
-        <button class="filter-chip" data-filter="odak">🎯 Odak</button>
-        <button class="filter-chip" data-filter="meditasyon">🧘 Meditasyon</button>
-        <button class="filter-chip" data-filter="tr">🇹🇷 Türkçe</button>
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="sleep">😴 Sleep</button>
+        <button class="filter-chip" data-filter="focus">🎯 Focus</button>
+        <button class="filter-chip" data-filter="meditation">🧘 Meditation</button>
+        <button class="filter-chip" data-filter="tr">🇹🇷 Turkish</button>
         <button class="filter-chip" data-filter="en">🇬🇧 English</button>
       </div>
 
@@ -3631,24 +3656,24 @@ _gen-canvas {
       <div class="sk-chip"></div>
     </div>
 
-    <div class="mood-grid a3" id="mood-grid" role="group" aria-label="Ruh hali seç">
-      <div class="mood-chip" data-mood="Huzursuz" onclick="window.pickMood(this)" role="button" aria-label="Huzursuz" tabindex="0"><span class="ic" aria-hidden="true">🌊</span><span class="lbl">Huzursuz</span></div>
-      <div class="mood-chip" data-mood="Yorgun"   onclick="window.pickMood(this)" role="button" aria-label="Yorgun"   tabindex="0"><span class="ic" aria-hidden="true">🌙</span><span class="lbl">Yorgun</span></div>
-      <div class="mood-chip" data-mood="Kaygılı"  onclick="window.pickMood(this)" role="button" aria-label="Kaygılı"  tabindex="0"><span class="ic" aria-hidden="true">🌪</span><span class="lbl">Kaygılı</span></div>
-      <div class="mood-chip" data-mood="Mutsuz"   onclick="window.pickMood(this)" role="button" aria-label="Mutsuz"   tabindex="0"><span class="ic" aria-hidden="true">🌧</span><span class="lbl">Mutsuz</span></div>
-      <div class="mood-chip" data-mood="Sakin"    onclick="window.pickMood(this)" role="button" aria-label="Sakin"    tabindex="0"><span class="ic" aria-hidden="true">🕯</span><span class="lbl">Sakin</span></div>
-      <div class="mood-chip" data-mood="Minnettar" onclick="window.pickMood(this)" role="button" aria-label="Minnettar" tabindex="0"><span class="ic" aria-hidden="true">✨</span><span class="lbl">Minnettar</span></div>
+    <div class="mood-grid a3" id="mood-grid" role="group" aria-label="Select mood">
+      <div class="mood-chip" data-mood="Anxious" onclick="window.pickMood(this)" role="button" aria-label="Anxious" tabindex="0"><span class="ic" aria-hidden="true">🌊</span><span class="lbl" data-i18n="Anxious">Anxious</span></div>
+      <div class="mood-chip" data-mood="Tired" onclick="window.pickMood(this)" role="button" aria-label="Tired"   tabindex="0"><span class="ic" aria-hidden="true">🌙</span><span class="lbl" data-i18n="Tired">Tired</span></div>
+      <div class="mood-chip" data-mood="Stressed" onclick="window.pickMood(this)" role="button" aria-label="Stressed"  tabindex="0"><span class="ic" aria-hidden="true">🌪</span><span class="lbl" data-i18n="Stressed">Stressed</span></div>
+      <div class="mood-chip" data-mood="Sad" onclick="window.pickMood(this)" role="button" aria-label="Sad"   tabindex="0"><span class="ic" aria-hidden="true">🌧</span><span class="lbl" data-i18n="Sad">Sad</span></div>
+      <div class="mood-chip" data-mood="Calm" onclick="window.pickMood(this)" role="button" aria-label="Calm"    tabindex="0"><span class="ic" aria-hidden="true">🕯</span><span class="lbl" data-i18n="Calm">Calm</span></div>
+      <div class="mood-chip" data-mood="Grateful" onclick="window.pickMood(this)" role="button" aria-label="Grateful" tabindex="0"><span class="ic" aria-hidden="true">✨</span><span class="lbl" data-i18n="Grateful">Grateful</span></div>
     </div>
 
     <div class="textarea-wrap a4">
-      <span class="textarea-label" id="textarea-label">Biraz daha anlat</span>
+      <span class="textarea-label" id="textarea-label" data-i18n="Tell us more">Tell us more</span>
       <textarea class="mood-textarea" id="mood-textarea" rows="3"
         aria-labelledby="textarea-label"
-        placeholder="Bugün aklında neler var? Yazmak zorunda değilsin..."></textarea>
+        placeholder="What's on your mind today? You don't have to write anything..." data-i18n-placeholder="What's on your mind today? You don't have to write anything..."></textarea>
     </div>
 
-    <button class="cta-btn a5" onclick="goSanctuary()" aria-label="Sanctuary ekranına geç">
-      Sanctuary'ye Gir
+    <button class="cta-btn a5" onclick="goSanctuary()" aria-label="Go to Sanctuary">
+      <span data-i18n="Enter Sanctuary">Enter Sanctuary</span>
     </button>
   </div>
 </div>
@@ -3659,14 +3684,14 @@ _gen-canvas {
     <div class="mood-badge-wrap a1">
       <div class="mood-badge">
         <span id="s-emoji">🌊</span>
-        <span id="s-mood">Huzursuz</span>
+        <span id="s-mood">Anxious</span>
       </div>
     </div>
 
     <div class="freq-badge-wrap a2">
       <div class="freq-badge" id="freq-badge">
         <div class="freq-dot"></div>
-        <span id="freq-label">Frekans Seçildi</span>
+        <span id="freq-label">Frequency Selected</span>
       </div>
     </div>
 
@@ -3676,10 +3701,10 @@ _gen-canvas {
       <div class="b-ring b-ring-3"></div>
       <div class="b-core" id="b-core">☽</div>
     </div>
-    <span id="ai-thinking-label" style="display:block;text-align:center;margin-top:10px;">✦ AI Düşünüyor</span>
+    <span id="ai-thinking-label" style="display:block;text-align:center;margin-top:10px;">✦ AI Thinking</span>
 
     <div class="breath-guide-wrap a4">
-      <span class="breath-guide" id="breath-guide">Hazır olduğunda butona dokun</span>
+      <span class="breath-guide" id="breath-guide">Touch the button when ready</span>
     </div>
 
     <div class="waveform a4" id="waveform"></div>
@@ -3687,19 +3712,19 @@ _gen-canvas {
     <div class="play-wrap a5" style="position:relative;">
 <canvas id="vis-canvas"></canvas>
       <button class="play-btn" id="play-btn" onclick="window.togglePlay()"
-        aria-label="Frekansı başlat" aria-pressed="false">
+        aria-label="Start frequency" aria-pressed="false">
         <span class="play-icon" id="play-icon" aria-hidden="true">▶</span>
       </button>
-      <span class="play-lbl" id="play-lbl">Frekansı Başlat</span>
+      <span class="play-lbl" id="play-lbl">Start Frequency</span>
 <div id="bio-strip" onclick="document.getElementById('bio-panel').classList.toggle('on')">
   <div id="bio-dot"></div>
-  <span id="bio-text">KARDİYAK</span>
+  <span id="bio-text">CARDIAC</span>
   <span id="bio-val">72 bpm</span>
 </div>
 <div id="bio-panel">
-  <div class="bprow"><span>Kalp Atışı</span><span id="bio-bpm">72 bpm</span></div>
+  <div class="bprow"><span>Heart Rate</span><span id="bio-bpm">72 bpm</span></div>
   <div class="bprow"><span>HRV</span><span id="bio-hrv">45 ms</span></div>
-  <div class="bprow"><span>Durum</span><span id="bio-status">Sakin</span></div>
+  <div class="bprow"><span>Durum</span><span id="bio-status">Calm</span></div>
   <div class="bpsl"><label>BPM</label><input type="range" min="45" max="110" value="72" oninput="window.BiometricSimulator&&window.BiometricSimulator.setBPM(+this.value)"></div>
   <div class="bpsl"><label>HRV</label><input type="range" min="10" max="80" value="45" oninput="window.BiometricSimulator&&window.BiometricSimulator.setHRV(+this.value)"></div>
 </div>
@@ -3711,37 +3736,37 @@ _gen-canvas {
       <div class="pill pill-b" id="pill-b"><span class="pill-icon">〰️</span><span>Binaural</span></div>
     </div>
 
-    <div class="sleep-timer-row a5" role="group" aria-label="Uyku sayacı">
-      <span class="sleep-timer-label" aria-hidden="true">🌙 Uyku Sayacı</span>
+    <div class="sleep-timer-row a5" role="group" aria-label="Sleep timer">
+      <span class="sleep-timer-label" aria-hidden="true">🌙 Sleep Timer</span>
       <button class="stimer-btn" onclick="window.setSleepTimer(10)"  aria-label="10 dakika">10dk</button>
       <button class="stimer-btn" onclick="window.setSleepTimer(20)"  aria-label="20 dakika">20dk</button>
       <button class="stimer-btn" onclick="window.setSleepTimer(30)"  aria-label="30 dakika">30dk</button>
       <button class="stimer-btn" onclick="window.setSleepTimer(45)"  aria-label="45 dakika">45dk</button>
       <button class="stimer-btn" id="stimer-cancel-btn" onclick="window.cancelSleepTimer()"
-        aria-label="Sayacı iptal et">✕ İptal</button>
+        aria-label="Cancel timer">✕ Cancel</button>
       <div id="stimer-status" aria-live="polite"></div>
     </div>
 
     <div class="div-line a6"></div>
-    <h1 class="display sanc-title a6">Hoş geldin,<br><em>burası senin alanın</em></h1>
-    <p class="sanc-sub a6" id="s-message">Hissettiklerin tamamen geçerli. Şu an için tek yapman gereken bir nefes almak.</p>
+    <h1 class="display sanc-title a6"><span data-i18n="Welcome,">Welcome,</span><br><em data-i18n="this is your space">this is your space</em></h1>
+    <p class="sanc-sub a6" id="s-message">What you feel is completely valid. All you need to do right now is take one breath.</p>
 
     <div class="s-cards a7">
-      <div class="s-card"><span class="s-card-ic">🫁</span><span class="s-card-nm">Nefes</span><span class="s-card-dur">4 · 7 · 8</span></div>
-      <div class="s-card"><span class="s-card-ic">🎵</span><span class="s-card-nm">Ses</span><span class="s-card-dur">Ambiyans</span></div>
-      <div class="s-card"><span class="s-card-ic">✍️</span><span class="s-card-nm">Günlük</span><span class="s-card-dur">Serbest yaz</span></div>
+      <div class="s-card"><span class="s-card-ic">🫁</span><span class="s-card-nm">Breathe</span><span class="s-card-dur">4 · 7 · 8</span></div>
+      <div class="s-card"><span class="s-card-ic">🎵</span><span class="s-card-nm">Sound</span><span class="s-card-dur">Ambiance</span></div>
+      <div class="s-card"><span class="s-card-ic">✍️</span><span class="s-card-nm">Journal</span><span class="s-card-dur">Free write</span></div>
     </div>
 
     <div class="tab-nav a7" role="tablist" aria-label="Sanctuary sekmeleri">
       <button class="tab-item active" id="tab-btn-audio"
               onclick="window.switchTab('tab-audio')"
               role="tab" aria-selected="true" aria-controls="tab-audio">
-        🎵 Ses
+        🎵 <span data-i18n="Sound">Sound</span>
       </button>
       <button class="tab-item" id="tab-btn-journal"
               onclick="window.switchTab('tab-journal')"
               role="tab" aria-selected="false" aria-controls="tab-journal">
-        ✍️ Günlük
+        ✍️ <span data-i18n="Journal">Journal</span>
       </button>
       <button class="tab-item" id="tab-btn-premium"
               onclick="window.switchTab('tab-premium')"
@@ -3752,7 +3777,7 @@ _gen-canvas {
 
     <div class="tab-panel active" id="tab-audio" role="tabpanel" aria-labelledby="tab-btn-audio">
       <div class="sounds-section">
-        <div class="sounds-section-title">Premium Frekanslar</div>
+        <div class="sounds-section-title">Premium Frequencies</div>
         <div class="s-sounds-skeleton" id="premium-sounds-skeleton" aria-hidden="true">
           <div class="sk-card"></div>
           <div class="sk-card"></div>
@@ -3775,16 +3800,16 @@ _gen-canvas {
           </div>
           <div id="ai-oracle-content">
             <div class="ai-textarea-wrap">
-              <span class="ai-textarea-label">Zihninden geçenler</span>
+              <span class="ai-textarea-label">What's on your mind</span>
               <textarea class="ai-textarea" id="ai-input" rows="3"
-                placeholder="Bugün nasıl hissediyorsun? Oracle sana özel bir frekans tasarlasın..."></textarea>
-              <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Sesli giriş">🎙</button>
+                placeholder="How are you feeling today? Let Oracle design a frequency just for you..." data-i18n-placeholder="How are you feeling today? Let Oracle design a frequency just for you..."></textarea>
+              <button class="ai-mic-btn" id="ai-mic-btn" aria-label="Voice input">🎙</button>
             </div>
             <button class="ai-generate-btn" id="ai-generate-btn" onclick="generateAIFreq()">
-              ✦ Oracle'ı Uyandır
+              ✦ Awaken Oracle
             </button>
             <div class="ai-result" id="ai-result">
-              <span class="ai-result-label">Oracle Mesajı</span>
+              <span class="ai-result-label" data-i18n="Oracle Message">Oracle Message</span>
               <div class="ai-result-text" id="ai-result-text"></div>
               <div class="ai-result-freq" id="ai-result-freq"></div>
             </div>
@@ -3792,8 +3817,8 @@ _gen-canvas {
         </div>
       </div>
 
-      <div class="analytics-link" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Analitikleri göster">
-        📊 Oturumlarına Bak
+      <div class="analytics-link" onclick="showAnalytics()" role="button" tabindex="0" aria-label="Show analytics">
+        📊 <span data-i18n="View Your Sessions">View Your Sessions</span>
       </div>
     </div>
 
@@ -3803,17 +3828,17 @@ _gen-canvas {
         <!-- ── Haftalık Zihin Haritası ── -->
         <div class="mind-map-wrap">
           <div class="mind-map-header">
-            <span class="mind-map-title">🧠 Haftalık Zihin Haritası</span>
+            <span class="mind-map-title">🧠 Weekly Mind Map</span>
             <span class="mind-map-sub" id="mind-map-streak"></span>
           </div>
           <div class="mind-map-dots" id="mind-map-dots"></div>
           <div class="mind-map-legend">
-            <span><i style="background:#6ecdc4"></i>Sakin</span>
-            <span><i style="background:#9b8ec4"></i>Kaygılı</span>
-            <span><i style="background:#c9a96e"></i>Minnettar</span>
-            <span><i style="background:#7a8fc4"></i>Huzursuz</span>
-            <span><i style="background:#c48ea0"></i>Mutsuz</span>
-            <span><i style="background:#8ec4b0"></i>Yorgun</span>
+            <span><i style="background:#6ecdc4"></i>Calm</span>
+            <span><i style="background:#9b8ec4"></i>Stressed</span>
+            <span><i style="background:#c9a96e"></i>Grateful</span>
+            <span><i style="background:#7a8fc4"></i>Anxious</span>
+            <span><i style="background:#c48ea0"></i>Sad</span>
+            <span><i style="background:#8ec4b0"></i>Tired</span>
           </div>
         </div>
 
@@ -3825,17 +3850,17 @@ _gen-canvas {
 
         <div class="journal-header">
           <span class="journal-date" id="journal-date"></span>
-          <span class="journal-title">Günlük Notun</span>
+          <span class="journal-title" data-i18n="Your Journal">Your Journal</span>
         </div>
         <div class="textarea-wrap">
-          <span class="textarea-label" id="journal-label">Bugün ne hissediyorsun?</span>
+          <span class="textarea-label" id="journal-label">How are you feeling today?</span>
           <textarea class="mood-textarea journal-textarea" id="journal-textarea" rows="6"
             aria-labelledby="journal-label"
-            placeholder="Düşüncelerini, duygularını, minnetlerini buraya yaz. Bu alan yalnızca sana ait..."></textarea>
+            placeholder="Write your thoughts, feelings, and gratitude here. This space is yours alone..."></textarea>
         </div>
         <div class="journal-actions">
           <button class="journal-save-btn" onclick="saveJournalEntry()">
-            💾 Kaydet
+            💾 Save
           </button>
           <span class="journal-save-status" id="journal-save-status"></span>
         </div>
@@ -3848,42 +3873,42 @@ _gen-canvas {
         <div class="premium-tab-hero">
           <div class="premium-tab-badge"><span class="pw-badge-dot"></span>Sanctuary Premium</div>
           <h3 class="premium-tab-title">Daha Derin Bir <em>Huzur</em></h3>
-          <p class="premium-tab-sub">Bilim destekli ses frekanslarıyla zihin ve bedeninizin tam potansiyelini açın.</p>
+          <p class="premium-tab-sub">Unlock the full potential of your mind and body with science-backed sound frequencies.</p>
         </div>
         <div class="premium-tab-features">
           <div class="premium-tab-feat">
             <span class="premium-feat-ic">🎛️</span>
             <div>
-              <div class="premium-feat-title">AI Destekli Özel Ritimler</div>
-              <div class="premium-feat-sub">Ruh halinize özel, gerçek zamanlı üretilen binaural beat kompozisyonları.</div>
+              <div class="premium-feat-title">AI-Powered Custom Rhythms</div>
+              <div class="premium-feat-sub">Real-time binaural beat compositions generated specifically for your mood.</div>
             </div>
           </div>
           <div class="premium-tab-feat">
             <span class="premium-feat-ic">🌙</span>
             <div>
-              <div class="premium-feat-title">Çevrimdışı Erişim</div>
-              <div class="premium-feat-sub">İnternet olmadan, uçakta bile tüm premium seanslara erişin.</div>
+              <div class="premium-feat-title">Offline Access</div>
+              <div class="premium-feat-sub">Access all premium sessions offline, even on a plane.</div>
             </div>
           </div>
           <div class="premium-tab-feat">
             <span class="premium-feat-ic">❤️</span>
             <div>
-              <div class="premium-feat-title">Sağlık Verisi Senkronizasyonu</div>
+              <div class="premium-feat-title">Health Data Sync</div>
               <div class="premium-feat-sub">Apple Health &amp; Google Fit ile otomatik mindfulness takibi.</div>
             </div>
           </div>
           <div class="premium-tab-feat">
             <span class="premium-feat-ic">📊</span>
             <div>
-              <div class="premium-feat-title">Gelişmiş Analitik</div>
-              <div class="premium-feat-sub">Zihinsel örüntülerinizi haftalık ve aylık grafiklerle takip edin.</div>
+              <div class="premium-feat-title">Advanced Analytics</div>
+              <div class="premium-feat-sub">Track your mental patterns with weekly and monthly charts.</div>
             </div>
           </div>
         </div>
         <button class="premium-tab-cta" onclick="window.openPaywall()">
-          ✨ Premium'a Geç — 7 Gün Ücretsiz
+          ✨ <span data-i18n="Go Premium — 7 Days Free">Go Premium — 7 Days Free</span>
         </button>
-        <p class="premium-tab-note">Deneme bittikten sonra $59.99/yıl. İstediğin zaman iptal et.</p>
+        <p class="premium-tab-note">After trial, $59.99/year. Cancel anytime.</p>
         <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
           <a href="privacy.html" style="color:rgba(201,169,110,0.85);text-decoration:none;font-size:13px;font-weight:500;margin:0 12px;font-family:'DM Sans',sans-serif;letter-spacing:0.06em;">Privacy Policy</a>
           <span style="color:rgba(255,255,255,0.3);font-size:13px;">·</span>
@@ -3892,8 +3917,8 @@ _gen-canvas {
       </div>
     </div>
 
-    <button class="back-btn a7" onclick="goBack()" aria-label="Geri dön">
-      ← Geri Dön
+    <button class="back-btn a7" onclick="goBack()" aria-label="Go back">
+      ← <span data-i18n="Back">Back</span>
     </button>
   </div>
 </div>
@@ -3902,32 +3927,32 @@ _gen-canvas {
 <div class="screen off" id="screen-analytics">
   <div class="inner">
     <div class="analytics-header a1">
-      <h2 class="display">Zihin<br><em>Haritanı</em> Gör</h2>
-      <p>Oturumların ve duygusal örüntülerin</p>
+      <h2 class="display">See Your<br><em>Mind Map</em></h2>
+      <p>Your sessions and emotional patterns</p>
     </div>
     <div class="analytics-grid a2">
-      <div class="astat"><span class="astat-val" id="stat-sessions">0</span><span class="astat-lbl">Oturum</span></div>
-      <div class="astat"><span class="astat-val" id="stat-minutes">0</span><span class="astat-lbl">Dakika</span></div>
-      <div class="astat"><span class="astat-val" id="stat-streak">0</span><span class="astat-lbl">Seri</span></div>
+      <div class="astat"><span class="astat-val" id="stat-sessions">0</span><span class="astat-lbl">Sessions</span></div>
+      <div class="astat"><span class="astat-val" id="stat-minutes">0</span><span class="astat-lbl">Minutes</span></div>
+      <div class="astat"><span class="astat-val" id="stat-streak">0</span><span class="astat-lbl">Streak</span></div>
     </div>
     <div class="chart-wrap a3">
-      <div class="chart-title">Son 7 Gün</div>
+      <div class="chart-title">Last 7 Days</div>
       <canvas id="analytics-canvas" height="120"></canvas>
     </div>
     <div class="mood-log-list a4" id="mood-log-list"></div>
-    <button class="clear-data-btn a5" onclick="clearData()">Verileri Temizle</button>
-    <div class="analytics-link a5" onclick="exportHealth()" role="button" tabindex="0" aria-label="Sağlık uygulamasına aktar">
-      ❤️ Sağlık Uygulamasına Aktar
+    <button class="clear-data-btn a5" onclick="clearData()">Clear Data</button>
+    <div class="analytics-link a5" onclick="exportHealth()" role="button" tabindex="0" aria-label="Export to Health app">
+      ❤️ Export to Health App
     </div>
-    <button class="back-btn a6" onclick="goBack()" aria-label="Geri dön">← Geri Dön</button>
+    <button class="back-btn a6" onclick="goBack()" aria-label="Go back">← Back</button>
   </div>
 </div>
 
 <!-- MODALS & OVERLAYS -->
 <div id="health-modal" onclick="closeHealthModal(event)">
   <div class="health-sheet">
-    <h3>❤️ Sağlık Uygulaması</h3>
-    <p class="hs-sub">Apple Health / Google Fit formatında dışa aktar</p>
+    <h3>❤️ Health App</h3>
+    <p class="hs-sub">Export in Apple Health / Google Fit format</p>
     <div class="health-json" id="health-json-content"></div>
     <div class="hs-actions">
       <button class="hs-copy"  onclick="copyHealthData()">Kopyala</button>
@@ -3936,7 +3961,7 @@ _gen-canvas {
   </div>
 </div>
 
-<div id="ai-processing" role="status" aria-label="AI frekans oluşturuyor" aria-live="polite">
+<div id="ai-processing" role="status" aria-label="AI generating frequency" aria-live="polite">
   <div class="ai-stars" id="ai-stars"></div>
   <div class="ai-proc-inner">
     <div class="ai-orb">
@@ -3949,7 +3974,7 @@ _gen-canvas {
     <div>
       <div class="ai-proc-title">Oracle <em>dinliyor</em></div>
       <p class="ai-proc-sub">
-        Bilinçdışının frekansına ayarlanıyor<br>
+        Tuning to the frequency of your subconscious<br>
         <span class="ai-proc-dots"><span>·</span><span>·</span><span>·</span></span>
       </p>
     </div>
@@ -3962,57 +3987,57 @@ _gen-canvas {
     <div class="pw-hero">
       <div class="pw-badge"><span class="pw-badge-dot"></span>Sanctuary Premium</div>
       <h2 class="display">Daha Derin<br>Bir <em>Huzur</em></h2>
-      <p>Bilim destekli ses frekanslarıyla zihin ve bedeninizin tam potansiyelini açın.</p>
+      <p>Unlock the full potential of your mind and body with science-backed sound frequencies.</p>
     </div>
     <div class="pw-features">
       <div class="pw-feat">
         <div class="pw-feat-ic">🎛️</div>
         <div class="pw-feat-text">
-          <div class="pw-feat-title">AI Destekli Özel Ritimler</div>
-          <div class="pw-feat-sub">Ruh halinize özel, gerçek zamanlı üretilen binaural beat kompozisyonları.</div>
+          <div class="pw-feat-title">AI-Powered Custom Rhythms</div>
+          <div class="pw-feat-sub">Real-time binaural beat compositions generated for your mood.</div>
         </div>
       </div>
       <div class="pw-feat">
         <div class="pw-feat-ic">🌙</div>
         <div class="pw-feat-text">
-          <div class="pw-feat-title">Çevrimdışı Erişim</div>
-          <div class="pw-feat-sub">İnternet olmadan, uçakta bile tüm premium seanslara erişin.</div>
+          <div class="pw-feat-title">Offline Access</div>
+          <div class="pw-feat-sub">Access all premium sessions offline, even on a plane.</div>
         </div>
       </div>
       <div class="pw-feat">
         <div class="pw-feat-ic">❤️</div>
         <div class="pw-feat-text">
-          <div class="pw-feat-title">Sağlık Verisi Senkronizasyonu</div>
+          <div class="pw-feat-title">Health Data Sync</div>
           <div class="pw-feat-sub">Apple Health &amp; Google Fit ile otomatik mindfulness takibi.</div>
         </div>
       </div>
     </div>
     <div class="pw-trial-row" id="pw-trial-row">
-      <label class="pw-toggle" aria-label="7 Günlük Ücretsiz Deneme">
+      <label class="pw-toggle" aria-label="7-Day Free Trial">
         <input type="checkbox" id="pw-trial-toggle" checked onchange="updateTrialState()">
         <div class="pw-toggle-track"></div>
         <div class="pw-toggle-thumb"></div>
       </label>
       <div class="pw-trial-label" id="pw-trial-label">
-        <strong>7 Günlük Ücretsiz Deneme</strong> — İstediğin zaman iptal et
+        <strong>7-Day Free Trial</strong> — Cancel anytime
       </div>
     </div>
     <div class="pw-plans" id="pw-plans">
       <div class="pw-plan" data-plan="monthly" onclick="selectPlan(this)">
-        <div class="pw-plan-period">Aylık</div>
+        <div class="pw-plan-period">Monthly</div>
         <div class="pw-plan-price">$9.99</div>
-        <div class="pw-plan-sub">aylık faturalanır</div>
+        <div class="pw-plan-sub">billed monthly</div>
       </div>
       <div class="pw-plan sel" data-plan="yearly" onclick="selectPlan(this)">
-        <div class="pw-plan-badge">En Popüler</div>
-        <div class="pw-plan-period">Yıllık</div>
+        <div class="pw-plan-badge">Most Popular</div>
+        <div class="pw-plan-period">Yearly</div>
         <div class="pw-plan-price">$59.99</div>
         <div class="pw-plan-sub">$5.00 / ay · %50 tasarruf</div>
       </div>
       <div class="pw-plan" data-plan="lifetime" onclick="selectPlan(this)">
-        <div class="pw-plan-period">Ömürlük</div>
+        <div class="pw-plan-period">Lifetime</div>
         <div class="pw-plan-price">$199</div>
-        <div class="pw-plan-sub">tek seferlik ödeme</div>
+        <div class="pw-plan-sub">one-time payment</div>
       </div>
     </div>
     <div class="pw-cta-wrap">
@@ -4020,15 +4045,15 @@ _gen-canvas {
         Ücretsiz Dene — 7 Gün
       </button>
       <div class="pw-cta-note" id="pw-cta-note">
-        Deneme bittikten sonra $59.99/yıl olarak faturalandırılır. İptal edilebilir.
+        After trial ends, billed $59.99/year. Cancellable.
       </div>
     </div>
     <div class="pw-legal">
-      <button onclick="restorePurchase()">Satın Alımı Geri Yükle</button>
+      <button onclick="restorePurchase()">Restore Purchase</button>
       <span class="pw-sep">·</span>
-      <a href="#" onclick="return false;">Kullanım Koşulları</a>
+      <a href="terms.html">Terms of Service</a>
       <span class="pw-sep">·</span>
-      <a href="#" onclick="return false;">Gizlilik Politikası</a>
+      <a href="privacy.html">Privacy Policy</a>
     </div>
   </div>
 </div>
@@ -4051,16 +4076,16 @@ _gen-canvas {
 
 <div id="crossfade-indicator" aria-hidden="true">
   <div class="cf-dot"></div>
-  <span>Geçiş</span>
+  <span>Transition</span>
 </div>
 
 <!-- Legal disclaimer -->
 <div id="legal-disclaimer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; justify-content:center; align-items:center; padding:20px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);">
   <div style="background:#1c1c1e; padding:30px; border-radius:28px; text-align:center; border:1px solid #333; max-width:380px; box-shadow:0 25px 50px rgba(0,0,0,0.6);">
     <div style="font-size:45px; margin-bottom:20px;">🛡️</div>
-    <h3 style="color:#fff; font-family:-apple-system,sans-serif; margin-bottom:15px;">Önemli Bilgilendirme</h3>
+    <h3 style="color:#fff; font-family:-apple-system,sans-serif; margin-bottom:15px;">Important Noticeme</h3>
     <p style="color:#a1a1a6; font-family:-apple-system,sans-serif; font-size:14px; line-height:1.6; margin-bottom:30px;">
-      Sanctuary bir zihinsel huzur rehberidir. Tıbbi bir cihaz değildir. Sağlık durumlarınız için lütfen bir doktora danışın.
+      Sanctuary is a mental wellness guide, not a medical device. Please consult a doctor for health conditions.
     </p>
     <button onclick="acceptDisclaimer()" style="background:#fff; color:#000; border:none; padding:14px; border-radius:14px; font-weight:700; font-family:-apple-system,sans-serif; width:100%; cursor:pointer; font-size:16px; touch-action:manipulation;">
       Anladım ve Kabul Ediyorum
@@ -4111,12 +4136,12 @@ _gen-canvas {
     if (grid) {
       grid.style.display = 'grid';
       var sounds = [
-        { ic:'🌊', name:'Okyanus',  locked:false, gen:'waves',    base:180, beat:0 },
-        { ic:'🌧️', name:'Yağmur',  locked:false, gen:'rain',     base:200, beat:4 },
-        { ic:'🌬️', name:'Rüzgar',  locked:false, gen:'wind',     base:160, beat:8 },
+        { ic:'🌊', name:'Ocean',  locked:false, gen:'waves',    base:180, beat:0 },
+        { ic:'🌧️', name:'Rain',  locked:false, gen:'rain',     base:200, beat:4 },
+        { ic:'🌬️', name:'Wind',  locked:false, gen:'wind',     base:160, beat:8 },
         { ic:'🎵', name:'Binaural', locked:false, gen:'binaural', base:200, beat:7 },
-        { ic:'🔥', name:'Ateş',     locked:true,  gen:'fire',     base:174, beat:3 },
-        { ic:'⚡', name:'Fırtına',  locked:true,  gen:'storm',    base:220, beat:5 },
+        { ic:'🔥', name:'Fire',     locked:true,  gen:'fire',     base:174, beat:3 },
+        { ic:'⚡', name:'Storm',  locked:true,  gen:'storm',    base:220, beat:5 },
       ];
       sounds.forEach(function(s) {
         var card = document.createElement('div');
@@ -4150,51 +4175,51 @@ _gen-canvas {
   <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-handle-bar"></div>
     <div class="modal-header">
-      <h3 class="modal-title" id="modalTitle">Yeni Oda Kur</h3>
+      <h3 class="modal-title" id="modalTitle">Yeni Create Room</h3>
       <button class="btn-modal-close" id="btnCloseModal" aria-label="Kapat">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label class="form-label" for="roomName">Oda Adı</label>
+        <label class="form-label" for="roomName">Room Name</label>
         <input class="form-input" type="text" id="roomName"
-               placeholder="örn. Gece Odak Seansı" maxlength="50" autocomplete="off">
+               placeholder="e.g. Night Focus Session" maxlength="50" autocomplete="off">
       </div>
 
       <div class="form-group">
         <label class="form-label">Tip</label>
         <div class="type-toggle">
-          <button class="type-btn selected" data-type="public">🌍 Halka Açık</button>
-          <button class="type-btn" data-type="private">🔒 Özel</button>
+          <button class="type-btn selected" data-type="public">🌍 Public</button>
+          <button class="type-btn" data-type="private">🔒 Private</button>
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Kapasite</label>
+        <label class="form-label">Capacity</label>
         <div class="capacity-stepper">
           <button class="stepper-btn" id="btnCapDec">−</button>
           <span class="stepper-value" id="capValue">5</span>
           <button class="stepper-btn" id="btnCapInc">+</button>
-          <span style="font-size:13px;color:var(--text-muted)">kişi</span>
+          <span style="font-size:13px;color:var(--text-muted)">people</span>
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="roomCategory">Kategori</label>
+        <label class="form-label" for="roomCategory">Category</label>
         <select class="form-input" id="roomCategory">
-          <option value="uyku">😴 Uyku</option>
-          <option value="odak">🎯 Odak</option>
-          <option value="meditasyon">🧘 Meditasyon</option>
-          <option value="doga">🌿 Doğa</option>
+          <option value="sleep">😴 Sleep</option>
+          <option value="focus">🎯 Focus</option>
+          <option value="meditation">🧘 Meditation</option>
+          <option value="doga">🌿 Nature</option>
         </select>
       </div>
 
       <div class="form-group password-field" id="passwordField">
-        <label class="form-label" for="roomPassword">Şifre</label>
+        <label class="form-label" for="roomPassword">Password</label>
         <input class="form-input" type="password" id="roomPassword"
-               placeholder="Oda şifresi" autocomplete="new-password">
+               placeholder="Room password" autocomplete="new-password">
       </div>
 
-      <button class="btn-submit-room" id="btnSubmitRoom">Odayı Başlat ✨</button>
+      <button class="btn-submit-room" id="btnSubmitRoom">Start Room ✨</button>
     </div>
   </div>
 </div>
@@ -4442,7 +4467,7 @@ class FMSynthesizer {
     };
   }
 
-  /* ── Başlat ───────────────────────────────────────────────────────────── */
+  /* ── Start ───────────────────────────────────────────────────────────── */
   start() {
     if (this._active) return;
     this._active = true;
@@ -4466,7 +4491,7 @@ class FMSynthesizer {
     this._applyADSR(now);
   }
 
-  /* ── Durdur (Release fazı) ─────────────────────────────────────────────── */
+  /* ── Stop (Release fazı) ─────────────────────────────────────────────── */
   stop() {
     if (!this._active) return;
     this._active = false;
@@ -4973,9 +4998,15 @@ class AudioLayer {
           data[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.18 + (Math.random() * 2 - 1) * 0.08;
           break;
         case 'binaural': {
-          const baseFreq = this.params.baseFreq || 200;
+          /* Aşama 1 — FrequencyManager üzerinden harmonik frekans al */
+          const _fm = (typeof window.getFrequencyManager === 'function')
+            ? window.getFrequencyManager(this.params.baseFreq || 200)
+            : null;
+          const baseFreq = _fm
+            ? _fm.getNextFrequency()
+            : (this.params.baseFreq || 200);
           const beatFreq = this.params.beatFreq || 10;
-          const chFreq   = channel === 0 ? baseFreq : baseFreq + beatFreq;
+          const chFreq   = channel === 0 ? baseFreq : Math.max(20, Math.min(20000, baseFreq + beatFreq));
           data[i] = Math.sin(2 * Math.PI * chFreq * t) * 0.12;
           break;
         }
@@ -5323,6 +5354,11 @@ class AudioEngine {
     /* PHASE 5: Event listener referansları — dispose()'da kaldırılır */
     this._boundHandlers   = {};
 
+    /* Aşama 1 — FrequencyManager: harmonik frekans yönetimi */
+    this.frequencyManager = (typeof window.getFrequencyManager === 'function')
+      ? window.getFrequencyManager(432)
+      : null;
+
     this._attachAppStateListeners();
   }
 
@@ -5364,10 +5400,10 @@ class AudioEngine {
 
         this.isInitialized = true;
         this._emit('initialized');
-        console.info('[AudioEngine] Başlatıldı. State:', this._ctx.state);
+        console.info('[AudioEngine] Startıldı. State:', this._ctx.state);
       } catch (err) {
         this._initPromise = null;
-        console.error('[AudioEngine] Başlatma hatası:', err);
+        console.error('[AudioEngine] Startma hatası:', err);
         throw err;
       } finally {
         this._initPromise = null;
@@ -5602,6 +5638,12 @@ class AudioEngine {
   setFrequency(hz) {
     const freq = isFinite(hz) && hz > 0 ? hz : 432;
     this._currentFreq = freq;
+
+    /* Aşama 1 — FrequencyManager'ı da güncelle */
+    if (this.frequencyManager) {
+      this.frequencyManager.setBaseFreq(freq);
+    }
+
     this._layers.forEach((layer) => {
       if (layer.type === 'binaural') {
         layer.setParameter('baseFreq', freq);
@@ -5674,7 +5716,7 @@ class AudioEngine {
           console.warn('[AudioEngine] Safari unlock hatası:', err);
         }
       }
-      // Dinleyicileri tek seferlik kaldır
+      // Listenyicileri tek seferlik kaldır
       document.removeEventListener('click',      unlock, true);
       document.removeEventListener('touchstart', unlock, true);
       document.removeEventListener('touchend',   unlock, true);
@@ -5929,7 +5971,7 @@ AudioEngine.prototype._listenRoomEvents = function _listenRoomEvents(roomId) {
           if (window.SanctuaryToast) {
             window.SanctuaryToast.info(
               (data.audioConfig.base || '') + ' Hz · ' + (data.audioConfig.gen || ''),
-              '🎵 Host sesi güncelledi'
+              '🎵 Host updated the sound'
             );
           }
         } catch (e) {}
@@ -6043,7 +6085,7 @@ window.acceptDisclaimer = function(){
   try{localStorage.setItem('disclaimerAccepted','true');}catch(e){}
 };
 window.clearData = function(){
-  if(confirm('Tüm veriler silinecek. Emin misin?')){
+  if(confirm('All data will be deleted. Are you sure?')){
     try{localStorage.clear();}catch(e){}
     window.showAnalytics && window.showAnalytics();
   }
@@ -6056,7 +6098,7 @@ window.closeHealthModal = function(ev){
 window.copyHealthData = function(){
   var txt=document.getElementById('health-json-content');
   try{navigator.clipboard.writeText(txt?txt.textContent:'{}');}catch(e){}
-  alert('Kopyalandı');
+  alert('Copied');
 };
 window.dismissBanner = function(){
   var b=document.getElementById('hp-banner');
@@ -6066,18 +6108,18 @@ window.dismissBanner = function(){
 window.dismissPWABanner = function(){
   var b=document.getElementById('pwa-banner');if(b)b.style.display='none';
 };
-window.exportHealth = function(){ alert('Sağlık verileri dışa aktarıldı.'); };
-window.handlePurchase = function(){ alert('Premium satın alındı!'); window.closePaywall && window.closePaywall(); };
-window.restorePurchase = function(){ alert('Satın alım geri yükleniyor...'); };
+window.exportHealth = function(){ alert('Health data exported.'); };
+window.handlePurchase = function(){ alert('Premium purchase successful!'); window.closePaywall && window.closePaywall(); };
+window.restorePurchase = function(){ alert('Restoring purchase...'); };
 window.selectPlan = function(el){
   document.querySelectorAll('.pw-plan').forEach(function(p){p.classList.remove('sel');});
   el.classList.add('sel');
 };
-window.triggerPWAInstall = function(){ alert('PWA kurulumu başlatılıyor...'); };
+window.triggerPWAInstall = function(){ alert('Starting PWA install...'); };
 window.updateTrialState = function(){
   var on=document.getElementById('pw-trial-toggle');
   var note=document.getElementById('pw-cta-note');
-  if(note)note.textContent=on&&on.checked?'Deneme bittikten sonra $59.99/yıl.':'Hemen $59.99/yıl faturalandırılır.';
+  if(note)note.textContent=on&&on.checked?'After trial, $59.99/year.':'Billed immediately at $59.99/year.';
 };
 </script>
 <script>
@@ -6090,15 +6132,15 @@ window.pickMood = function(el) {
   var me=document.getElementById('s-emoji'), mm=document.getElementById('s-mood');
   if(me) me.textContent=emoji;
   if(mm) mm.textContent=mood;
-  var msgs={'Huzursuz':'Huzursuzluk geçici bir misafir gibidir. Nefes al, buradasın.',
-    'Yorgun':'Dinlenmek bir lüks değil, ihtiyaçtır. Kendine izin ver.',
-    'Kaygılı':'Kaygı, zihninin seni koruma çabası. Şimdi güvendesin.',
-    'Mutsuz':'Her duygu geçer. Bu da geçecek. Burada seninleyim.',
-    'Sakin':'Sakinlik senin doğal halin. Onu koruyalım.',
-    'Minnettar':'Minnettarlık kalbi açar, dünyayı aydınlatır.'};
+  var msgs={'Anxious':'Restlessness is a temporary guest. Breathe — you are here.',
+    'Tired':'Rest is not a luxury, it is a need. Give yourself permission.',
+    'Stressed':'Anxiety is your mind trying to protect you. You are safe now.',
+    'Sad':'Every feeling passes. This too shall pass. I am here with you.',
+    'Calm':'Calm is your natural state. Let us protect it.',
+    'Grateful':'Gratitude opens the heart and lights the world.'};
   var msgEl=document.getElementById('s-message');
   if(msgEl) msgEl.textContent=msgs[mood]||'';
-  var bgMap={'Huzursuz':'teal','Yorgun':'violet','Kaygılı':'sky','Mutsuz':'rose','Sakin':'teal','Minnettar':'gold'};
+  var bgMap={'Anxious':'teal','Tired':'violet','Stressed':'sky','Sad':'rose','Calm':'teal','Grateful':'gold'};
   if(typeof window.setBgMood==='function') window.setBgMood(bgMap[mood]||'teal');
   /* StateManager'a kaydet — global _activeMood yerine merkezi state */
   try {
@@ -6145,27 +6187,72 @@ window.generateAIFreq = async function(){
   var fe  = document.getElementById('ai-result-freq');
   if(btn){ btn.disabled=true; btn.textContent='✦ Thinking...'; }
 
+  /* Seçili mood'u al */
+  var moodEl = document.querySelector('.mood-chip.selected, .mood-chip[aria-pressed="true"]');
+  var mood = moodEl ? (moodEl.getAttribute('data-mood') || '') : '';
+
   try {
     var response = await fetch('/.netlify/functions/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: input.value })
+      body: JSON.stringify({ mood: mood, input: input.value })
     });
 
     var msd = await response.json();
+    console.log('[generateAIFreq] MSD alındı:', JSON.stringify(msd));
 
-    if(te) te.textContent = msd.message || 'Your frequency has been designed.';
-    if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + (msd.freq||432) + ' Hz</span><span class="ai-freq-chip">Binaural ' + (msd.beat||7) + ' Hz</span>';
+    /* Aşama 12 — updateFromGemini: tüm ses motoru MSD ile güncellenir */
+    if (typeof window.updateFromGemini === 'function') {
+      try { window.updateFromGemini(msd); } catch(e) {
+        console.warn('[generateAIFreq] updateFromGemini hatası:', e.message);
+      }
+    }
+
+    /* Aşama 1 — GeminiAdapter MSD'sini FrequencyManager'a aktar */
+    if (typeof window.getFrequencyManager === 'function') {
+      window.getFrequencyManager().applyMSD(msd);
+      console.info('[FrequencyManager] MSD uygulandı:', msd.frequencySuggestion, 'Hz');
+    }
+
+    /* MSD doğrulama */
+    var freq = msd.frequencySuggestion || msd.freq || 432;
+    var beat = (msd.layers && msd.layers.find(function(l){ return l.type==='binaural'; })) ? 7 : (msd.beat || 7);
+    var sceneName = msd.sceneName || '';
+    var bp = msd.breathPattern || {inhale:4,hold:4,exhale:8};
+
+    /* UI güncelle */
+    if(te) te.textContent = sceneName || 'Your frequency has been designed.';
+    if(fe) fe.innerHTML = '<span class="ai-freq-chip">' + freq + ' Hz</span>'
+      + '<span class="ai-freq-chip">Binaural ' + beat + ' Hz</span>'
+      + (sceneName ? '<span class="ai-freq-chip" style="color:var(--gold)">' + sceneName + '</span>' : '');
     if(re) re.classList.add('show');
-    try{ localStorage.setItem('lastGen','binaural'); localStorage.setItem('lastBase', msd.freq||432); localStorage.setItem('lastBeat', msd.beat||7); }catch(e){}
+
+    /* Nefes rehberini güncelle */
+    var bg = document.getElementById('breath-guide');
+    if(bg && bp) bg.textContent = bp.inhale + '-' + bp.hold + '-' + bp.exhale;
+
+    /* AudioEngine'e uygula */
+    try{
+      localStorage.setItem('lastGen','binaural');
+      localStorage.setItem('lastBase', freq);
+      localStorage.setItem('lastBeat', beat);
+      if(window.engine && window.engine.switchSound){
+        window.engine.switchSound({gen:'binaural', base:freq, beat:beat});
+      }
+      /* Aşama 2 — SampleManager MSD köprüsü: global switchSound'a msd ilet */
+      if(typeof window.switchSound === 'function'){
+        window.switchSound('binaural', freq, beat, sceneName, msd);
+      }
+    }catch(e){}
 
   } catch(err) {
+    console.error('[generateAIFreq] Hata:', err.message);
     if(te) te.textContent = 'Your personal frequency has been designed.';
     if(fe) fe.innerHTML = '<span class="ai-freq-chip">432 Hz</span><span class="ai-freq-chip">Binaural 7 Hz</span>';
     if(re) re.classList.add('show');
   }
 
-  if(btn){ btn.disabled=false; btn.textContent="✦ Oracle'ı Uyandır"; }
+  if(btn){ btn.disabled=false; btn.textContent='✦ Awaken Oracle'; }
 };
 
 window.showAnalytics = function(){
@@ -6186,7 +6273,7 @@ window.showAnalytics = function(){
     if(!canvas)return;
     var ctx=canvas.getContext('2d'),W=canvas.offsetWidth||300,H=120;
     canvas.width=W;canvas.height=H;
-    var days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+    var days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     var vals=days.map(function(){return Math.floor(Math.random()*40);});
     vals[6]=minutes%40;
     var max=Math.max.apply(null,vals.concat([1]));
@@ -6238,12 +6325,12 @@ window.showAnalytics = function(){
 
   /* ── Demo Oda Verisi ── */
   var DEMO_ROOMS = [
-    { id:'GRUP-0304-AAA1', type:'public', name:'Gece Odak Seansı',   hostId:'user_zeynep', participants:['user_zeynep','u2','u3','u4','u5'], capacity:8,  password:null, category:'odak',       isActive:true, createdAt:Date.now()-3600000, audioConfig:{gen:'binaural',base:40,beat:10} },
-    { id:'GRUP-0304-BBB2', type:'public', name:'Derin Uyku Rituali', hostId:'user_mert',   participants:['user_mert','u6'],                  capacity:6,  password:null, category:'uyku',       isActive:true, createdAt:Date.now()-7200000, audioConfig:{gen:'rain',base:174,beat:3}    },
-    { id:'GRUP-0304-CCC3', type:'public', name:'Sabah Meditasyonu',  hostId:'user_selin',  participants:['user_selin','u7','u8'],             capacity:10, password:null, category:'meditasyon', isActive:true, createdAt:Date.now()-1800000, audioConfig:{gen:'waves',base:432,beat:7}   },
-    { id:'GRUP-0304-DDD4', type:'public', name:'432 Hz Şifa Odası',  hostId:'user_ayse',   participants:['user_ayse','u9','u10','u11','u12','u13','u14','u15','u16'], capacity:12, password:null, category:'meditasyon', isActive:true, createdAt:Date.now()-900000, audioConfig:{gen:'binaural',base:432,beat:7} },
-    { id:'GRUP-0304-EEE5', type:'public', name:'Çalışma Müziği',     hostId:'user_can',    participants:['user_can','u17','u18','u19','u20','u21'], capacity:20, password:null, category:'odak', isActive:true, createdAt:Date.now()-600000, audioConfig:{gen:'wind',base:40,beat:10} },
-    { id:'PRIV-0304-FFF6', type:'private',name:'Özel Seans',         hostId:'user_nilufer',participants:['user_nilufer','u22'], capacity:4, password:hashPassword('demo'), category:'uyku', isActive:true, createdAt:Date.now()-300000, audioConfig:{gen:'rain',base:528,beat:6} },
+    { id:'GRUP-0304-AAA1', type:'public', name:'Night Focus Session',   hostId:'user_zeynep', participants:['user_zeynep','u2','u3','u4','u5'], capacity:8,  password:null, category:'focus',       isActive:true, createdAt:Date.now()-3600000, audioConfig:{gen:'binaural',base:40,beat:10} },
+    { id:'GRUP-0304-BBB2', type:'public', name:'Deep Sleep Ritual', hostId:'user_mert',   participants:['user_mert','u6'],                  capacity:6,  password:null, category:'sleep',       isActive:true, createdAt:Date.now()-7200000, audioConfig:{gen:'rain',base:174,beat:3}    },
+    { id:'GRUP-0304-CCC3', type:'public', name:'Morning Meditation',  hostId:'user_selin',  participants:['user_selin','u7','u8'],             capacity:10, password:null, category:'meditation', isActive:true, createdAt:Date.now()-1800000, audioConfig:{gen:'waves',base:432,beat:7}   },
+    { id:'GRUP-0304-DDD4', type:'public', name:'432 Hz Healing Room',  hostId:'user_ayse',   participants:['user_ayse','u9','u10','u11','u12','u13','u14','u15','u16'], capacity:12, password:null, category:'meditation', isActive:true, createdAt:Date.now()-900000, audioConfig:{gen:'binaural',base:432,beat:7} },
+    { id:'GRUP-0304-EEE5', type:'public', name:'Study Music',     hostId:'user_can',    participants:['user_can','u17','u18','u19','u20','u21'], capacity:20, password:null, category:'focus', isActive:true, createdAt:Date.now()-600000, audioConfig:{gen:'wind',base:40,beat:10} },
+    { id:'PRIV-0304-FFF6', type:'private',name:'Private Session',         hostId:'user_nilufer',participants:['user_nilufer','u22'], capacity:4, password:hashPassword('demo'), category:'sleep', isActive:true, createdAt:Date.now()-300000, audioConfig:{gen:'rain',base:528,beat:6} },
   ];
 
   /* ── Broadcast Simülasyonu ── */
@@ -6282,7 +6369,7 @@ window.showAnalytics = function(){
   /* ── Katılımcı Host Adları ── */
   var HOST_NAMES = {
     'user_zeynep':'Zeynep A.','user_mert':'Mert K.','user_selin':'Selin T.',
-    'user_ayse':'Ayşe D.','user_can':'Can B.','user_nilufer':'Nilüfer Y.',
+    'user_ayse':'Ayse D.','user_can':'Can B.','user_nilufer':'Nilufer Y.',
   };
   function _hostName(id) { return HOST_NAMES[id] || (id ? id.replace('user_','').replace('_',' ') : 'Misafir'); }
 
@@ -6323,7 +6410,7 @@ window.showAnalytics = function(){
         participants: [opts.hostId||'user_local'],
         capacity: opts.capacity||10,
         password: opts.type==='private' ? hashPassword(opts.password) : null,
-        category: opts.category||'genel',
+        category: opts.category||'general',
         isActive: true,
         createdAt: Date.now(),
         audioConfig: opts.audioConfig||{gen:'binaural',base:432,beat:7},
@@ -6338,11 +6425,11 @@ window.showAnalytics = function(){
     joinRoom: function(roomId, password) {
       var rooms = _load();
       var room = rooms[roomId];
-      if (!room) return {success:false, error:'Oda bulunamadı.'};
-      if (!room.isActive) return {success:false, error:'Oda aktif değil.'};
+      if (!room) return {success:false, error:'Room not found.'};
+      if (!room.isActive) return {success:false, error:'Room is not active.'};
       if (room.participants.length >= room.capacity) return {success:false, error:'Oda dolu.'};
       if (room.type==='private' && room.password) {
-        if (hashPassword(password) !== room.password) return {success:false, error:'Şifre yanlış.'};
+        if (hashPassword(password) !== room.password) return {success:false, error:'Wrong password.'};
       }
       var userId = 'user_local';
       if (!room.participants.includes(userId)) {
@@ -6357,7 +6444,7 @@ window.showAnalytics = function(){
     leaveRoom: function(roomId) {
       var rooms = _load();
       var room = rooms[roomId];
-      if (!room) return {success:false, error:'Oda bulunamadı.'};
+      if (!room) return {success:false, error:'Room not found.'};
       var userId = 'user_local';
       room.participants = room.participants.filter(function(id){ return id!==userId; });
       var result = {success:true, deleted:false, newHost:null};
@@ -6450,11 +6537,11 @@ window.renderRooms = function(filter) {
   grid.innerHTML = '';
 
   if (!rooms.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">Bu kategoride oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌙</div><p class="empty-title">No rooms in this category oda yok</p><p class="empty-sub">İlk odayı sen kur!</p></div>';
     return;
   }
 
-  var catLabels = {odak:'🎯 Odak', uyku:'😴 Uyku', meditasyon:'🧘 Meditasyon', doga:'🌿 Doğa', genel:'✨ Genel'};
+  var catLabels = {focus:'🎯 Focus', sleep:'😴 Sleep', meditation:'🧘 Meditation', doga:'🌿 Nature', genel:'✨ General', odak:'🎯 Focus', uyku:'😴 Sleep', meditasyon:'🧘 Meditation'};
 
   rooms.forEach(function(room) {
     var card = rm.buildRoomCard(room);
@@ -6467,7 +6554,7 @@ window.renderRooms = function(filter) {
     el.innerHTML =
       '<div class="card-top">' +
         '<span class="badge-live"><span class="dot"></span>LIVE</span>' +
-        (card.isPrivate ? '<span class="badge-private">🔒 Özel</span>' : '') +
+        (card.isPrivate ? '<span class="badge-private">🔒 Private</span>' : '') +
       '</div>' +
       '<div class="room-name">' + card.name + '</div>' +
       '<div class="room-category">' + (catLabels[card.category]||card.category) + '</div>' +
@@ -6478,7 +6565,7 @@ window.renderRooms = function(filter) {
           '<span class="host-name">' + card.hostName + '</span>' +
         '</div>' +
         '<div class="capacity-bar-wrap">' +
-          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' kişi</div>' +
+          '<div class="capacity-text">' + card.current + '/' + card.capacity + ' people</div>' +
           '<div class="capacity-bar"><div class="capacity-fill" style="width:' + pct + '%"></div></div>' +
         '</div>' +
       '</div>' +
@@ -6522,7 +6609,7 @@ window.openRoomModal = function(roomId) {
   var card = rm.buildRoomCard(room);
   modal.querySelector('.rm-title').textContent = card.name;
   modal.querySelector('.rm-host').textContent = '🎙 Host: ' + card.hostName;
-  modal.querySelector('.rm-count').textContent = card.current + '/' + card.capacity + ' katılımcı';
+  modal.querySelector('.rm-count').textContent = card.current + '/' + card.capacity + ' participants';
   modal.setAttribute('data-room-id', roomId);
 
   // Ses senkronizasyonu
@@ -6573,7 +6660,7 @@ function _createRoomModal() {
         '<button class="reaction-btn" onclick="window.sendReaction(\'🌊\')">🌊</button>' +
         '<button class="reaction-btn" onclick="window.sendReaction(\'🔥\')">🔥</button>' +
       '</div>' +
-      '<button class="rm-join-btn cta-btn">✦ Odaya Katıl</button>' +
+      '<button class="rm-join-btn cta-btn">✦ Join Room</button>' +
     '</div>';
   m.addEventListener('click', function(e){ if(e.target===m) window.closeRoomModal(); });
   return m;
@@ -6634,7 +6721,7 @@ window.sendReaction = function(emoji) {
         if (toast) {
           var t = toast.querySelector('.nt-title');
           var b = toast.querySelector('.nt-body');
-          if (t) t.textContent = '🎵 Host sesi güncelledi';
+          if (t) t.textContent = '🎵 Host updated the sound';
           if (b) b.textContent = (data.audioConfig.base||'') + ' Hz · ' + (data.audioConfig.gen||'');
           toast.classList.add('show');
           setTimeout(function(){ toast.classList.remove('show'); }, 3000);
@@ -6664,7 +6751,7 @@ window.sendReaction = function(emoji) {
     btn.addEventListener('click', function() {
       var name = (document.getElementById('roomName')||{}).value;
       if (!name || !name.trim()) { var ni=document.getElementById('roomName'); if(ni)ni.focus(); return; }
-      var category = (document.getElementById('roomCategory')||{}).value || 'genel';
+      var category = (document.getElementById('roomCategory')||{}).value || 'general';
       var isPriv = !!(document.querySelector('.type-btn.selected') && document.querySelector('.type-btn.selected').getAttribute('data-type')==='private');
       var cap = parseInt((document.getElementById('capValue')||{}).textContent||'10') || 10;
       var pwd = isPriv ? ((document.getElementById('roomPassword')||{}).value||'') : null;
@@ -6871,7 +6958,7 @@ window.sendReaction = function(emoji) {
 
 
 <script>
-/* ── PreferenceVector + FeedbackCollector Başlatma ── */
+/* ── PreferenceVector + FeedbackCollector Startma ── */
 (function() {
   function _initAdaptive() {
     if (window.PreferenceVector) {
@@ -6927,7 +7014,10 @@ window.sendReaction = function(emoji) {
 <script src="OfflineManager.js"></script>
 <script src="SecurityWrapper.js"></script>
 <script src="modules.js"></script> -->
-<script src="AudioEngine.js"></script>
+<script src="FrequencyManager.js"></script>
+<script src="SampleManager_v3.js"></script>
+<script src="AudioEngine_v12.js"></script>
+<script src="SanctuarySync.js"></script>
 <script src="StateManager.js"></script>
 <script src="VisualizerEngine.js"></script>
 <script src="PerformanceMonitor.js"></script>
@@ -7045,6 +7135,147 @@ if (typeof window.switchTab !== 'function') {
     if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
   };
 }
+</script>
+<script>
+/* ── Language System ── */
+var TRANSLATIONS = {
+  en: {
+    "Today's Tone": "Today's Tone",
+    "How are you": "How are you",
+    "feeling right now?": "feeling right now?",
+    "A space that truly listens. What emotions are present for you today?": "A space that truly listens. What emotions are present for you today?",
+    "Tell us more": "Tell us more",
+    "What's on your mind today? You don't have to write anything...": "What's on your mind today? You don't have to write anything...",
+    "Enter Sanctuary": "Enter Sanctuary",
+    "Live Rooms": "Live Rooms",
+    "Create Room": "Create Room",
+    "Anxious": "Anxious",
+    "Tired": "Tired",
+    "Stressed": "Stressed",
+    "Sad": "Sad",
+    "Calm": "Calm",
+    "Grateful": "Grateful",
+    "Sound": "Sound",
+    "Journal": "Journal",
+    "Premium": "Premium",
+    "Start Frequency": "Start Frequency",
+    "Stop Frequency": "Stop Frequency",
+    "Sleep Timer": "Sleep Timer",
+    "Your Journal": "Your Journal",
+    "How are you feeling today?": "How are you feeling today?",
+    "Write your thoughts, feelings, and gratitude here. This space is yours alone...": "Write your thoughts, feelings, and gratitude here. This space is yours alone...",
+    "View Your Sessions": "View Your Sessions",
+    "Go Premium — 7 Days Free": "Go Premium — 7 Days Free",
+    "After trial, $59.99/year. Cancel anytime.": "After trial, $59.99/year. Cancel anytime.",
+    "Back": "Back",
+    "Oracle Message": "Oracle Message",
+    "How are you feeling today? Let Oracle design a frequency just for you...": "How are you feeling today? Let Oracle design a frequency just for you...",
+    "Awaken Oracle": "Awaken Oracle",
+    "Welcome,": "Welcome,",
+    "this is your space": "this is your space"
+  },
+  ar: {
+    "Today's Tone": "نبضة اليوم",
+    "How are you": "كيف تشعر",
+    "feeling right now?": "في هذه اللحظة؟",
+    "A space that truly listens. What emotions are present for you today?": "مساحة تستمع إليك حقاً. ما المشاعر التي تعيشها اليوم؟",
+    "Tell us more": "أخبرنا أكثر",
+    "What's on your mind today? You don't have to write anything...": "ما الذي يشغل تفكيرك اليوم؟ لست مضطراً للكتابة...",
+    "Enter Sanctuary": "ادخل الملاذ",
+    "Live Rooms": "الغرف المباشرة",
+    "Create Room": "إنشاء غرفة",
+    "Anxious": "قلق",
+    "Tired": "متعب",
+    "Stressed": "مجهد",
+    "Sad": "حزين",
+    "Calm": "هادئ",
+    "Grateful": "ممتنّ",
+    "Sound": "الصوت",
+    "Journal": "المذكرة",
+    "Premium": "بريميوم",
+    "Start Frequency": "ابدأ التردد",
+    "Stop Frequency": "أوقف التردد",
+    "Sleep Timer": "مؤقت النوم",
+    "Your Journal": "مذكرتك",
+    "How are you feeling today?": "كيف تشعر اليوم؟",
+    "Write your thoughts, feelings, and gratitude here. This space is yours alone...": "اكتب أفكارك ومشاعرك وامتنانك هنا. هذه المساحة لك وحدك...",
+    "View Your Sessions": "عرض جلساتك",
+    "Go Premium — 7 Days Free": "اشترك الآن — 7 أيام مجاناً",
+    "After trial, $59.99/year. Cancel anytime.": "بعد التجربة، 59.99$/سنة. إلغاء في أي وقت.",
+    "Back": "رجوع",
+    "Oracle Message": "رسالة الأوراكل",
+    "How are you feeling today? Let Oracle design a frequency just for you...": "كيف تشعر اليوم؟ دع الأوراكل يصمم تردداً خاصاً بك...",
+    "Awaken Oracle": "أيقظ الأوراكل",
+    "Welcome,": "أهلاً،",
+    "this is your space": "هذا مكانك"
+  }
+};
+
+var _currentLang = 'en';
+
+function toggleLangDropdown() {
+  var d = document.getElementById('lang-dropdown');
+  if (d) d.classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+  var sel = document.getElementById('lang-selector');
+  if (sel && !sel.contains(e.target)) {
+    var d = document.getElementById('lang-dropdown');
+    if (d) d.classList.remove('open');
+  }
+});
+
+function setLang(lang) {
+  _currentLang = lang;
+  try { localStorage.setItem('sanctuary_lang', lang); } catch(e) {}
+
+  var flag = lang === 'ar' ? '🇸🇦' : '🇬🇧';
+  var label = lang === 'ar' ? 'AR' : 'EN';
+  document.getElementById('lang-flag').textContent = flag;
+  document.getElementById('lang-label').textContent = label;
+
+  /* RTL */
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+
+  /* Active state */
+  document.querySelectorAll('.lang-option').forEach(function(o) {
+    o.classList.toggle('active', o.getAttribute('data-lang') === lang);
+  });
+
+  /* Çevir */
+  applyTranslations(lang);
+
+  /* Dropdown kapat */
+  var d = document.getElementById('lang-dropdown');
+  if (d) d.classList.remove('open');
+}
+
+function applyTranslations(lang) {
+  var t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+
+  /* data-i18n attribute'u olan elementleri çevir */
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    if (t[key]) el.textContent = t[key];
+  });
+
+  /* Placeholder'ları çevir */
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n-placeholder');
+    if (t[key]) el.placeholder = t[key];
+  });
+}
+
+/* Sayfa açılışında kayıtlı dili uygula */
+(function() {
+  var saved;
+  try { saved = localStorage.getItem('sanctuary_lang'); } catch(e) {}
+  if (saved && saved !== 'en') {
+    window.addEventListener('load', function() { setLang(saved); });
+  }
+})();
 </script>
 </body>
 </html>
