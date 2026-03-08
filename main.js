@@ -488,7 +488,9 @@
       ? global._ctx.resume() : Promise.resolve();
     resume.then(function() {
       if (typeof global.togglePlay === 'function') global.togglePlay();
-      _updatePlayUI(isPlaying());
+      /* togglePlay senkron — hemen UI güncelle, sonra bir tick sonra tekrar kontrol et */
+      _updatePlayUI(true);
+      setTimeout(function() { _updatePlayUI(isPlaying()); }, 50);
       if (_state.currentMSD && _state.currentMSD.breathPattern) {
         startBreath(_state.currentMSD.breathPattern);
       }
@@ -521,7 +523,12 @@
     var ref = setTimeout(function() {
       if (!isPlaying()) {
         doPlay();
+        /* UI'ı biraz sonra güncelle — AudioEngine state set etsin */
+        setTimeout(function() { _updatePlayUI(isPlaying()); }, 200);
         log('Otomatik başlatma ✓');
+      } else {
+        /* Zaten çalıyorsa sadece UI'ı senkronize et */
+        _updatePlayUI(true);
       }
     }, 300);
     _state._timers.push(ref);
