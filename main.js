@@ -2111,34 +2111,23 @@ window.addEventListener('load', function() {
   var _visStarted = false;
   /* _audioToggle: AudioEngine.js sonunda tanımlanan güvenli yedek referans */
   window.togglePlay = function() {
-    /* AudioContext tarayıcı politikası: kullanıcı etkileşiminde resume et */
+    var fn = window._audioToggle || null;
+    if (!fn) { console.error('[Sanctuary] AudioEngine yüklenmedi.'); return; }
+    /* AudioContext tarayıcı politikası — resume et */
     var ctx = window._ctx;
     if (ctx && ctx.state === 'suspended') {
-      ctx.resume().then(function() {
-        _doToggle();
-      }).catch(function() {
-        _doToggle();
-      });
+      ctx.resume().then(function() { fn(); });
     } else {
-      _doToggle();
+      fn();
     }
-
-    function _doToggle() {
-      var fn = window._audioToggle || null;
-      if (!fn) {
-        console.error('[main.js] _audioToggle yok — AudioEngine_v12.js yüklendi mi?');
-        return;
+    setTimeout(function() {
+      if (!_visStarted && window.VisualizerEngine) {
+        window.VisualizerEngine.init('vis-canvas', window._analyser || null);
+        _visStarted = true;
       }
-      fn.apply(this, arguments);
-      setTimeout(function() {
-        if (!_visStarted && window.VisualizerEngine) {
-          window.VisualizerEngine.init('vis-canvas', window._analyser || null);
-          _visStarted = true;
-        }
-        if (window._playing && window.VisualizerEngine) window.VisualizerEngine.start();
-        else if (window.VisualizerEngine) window.VisualizerEngine.stop();
-      }, 100);
-    }
+      if (window._playing && window.VisualizerEngine) window.VisualizerEngine.start();
+      else if (window.VisualizerEngine) window.VisualizerEngine.stop();
+    }, 100);
   };
   /* Mood değişince renk güncelle */
   var _origMood = window.selectMood;

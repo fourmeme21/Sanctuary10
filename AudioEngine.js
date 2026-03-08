@@ -1203,36 +1203,3 @@ window.applyBiometricEffect = function(p) {
 window._audioToggle      = window.togglePlay;
 window._audioSwitchSound = window.switchSound;
 window._audioSleepTimer  = window.setSleepTimer;
-
-/* ── Play butonu doğrudan bağlama ──
-   main.js veya başka scriptler window.togglePlay'i override etse bile
-   bu binding AudioEngine'in kendi togglePlay'ini doğrudan çağırır.    */
-(function() {
-  var _tp = window.togglePlay; /* AudioEngine'in togglePlay referansını sakla */
-
-  function _bindBtn() {
-    var btn = document.getElementById('play-btn');
-    if (!btn) return;
-    /* Önceki listener'ları temizlemek için clone trick */
-    var fresh = btn.cloneNode(true);
-    btn.parentNode.replaceChild(fresh, btn);
-    fresh.addEventListener('click', function() {
-      if (window._ctx && window._ctx.state === 'suspended') {
-        window._ctx.resume();
-      }
-      /* Saklanan referansı kullan — override'a karşı korumalı */
-      if (typeof _tp === 'function') {
-        _tp();
-      } else if (typeof window.togglePlay === 'function') {
-        window.togglePlay();
-      }
-    });
-    console.info('[AudioEngine v12] Play butonu bağlandı ✓');
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _bindBtn);
-  } else {
-    _bindBtn();
-  }
-})();
