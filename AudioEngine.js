@@ -1003,6 +1003,7 @@
     var wrap = document.querySelector('.breath-wrap');
 
     _playing = !_playing;
+    window._playing = _playing; /* Aşama 12 fix: SanctuarySync için global erişim */
 
     if (icon) icon.textContent = _playing ? '⏸' : '▶';
     if (btn)  { btn.setAttribute('aria-pressed', String(_playing)); btn.classList.toggle('on', _playing); }
@@ -1025,6 +1026,7 @@
         if (window._feedbackCollector) try{ window._feedbackCollector.startSession(mood||null); }catch(e){}
       } catch(e) {
         _playing = false;
+        window._playing = false;
         if (icon) icon.textContent = '▶';
         if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
         if (lbl)  lbl.textContent = 'Frekansı Başlat';
