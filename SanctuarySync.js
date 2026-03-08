@@ -305,31 +305,46 @@
       /* Orijinal togglePlay'i çağır */
       _origToggle.apply(this, arguments);
 
-      /* togglePlay oynatma başlattıysa SM'yi de başlat */
-      var isNowPlaying = global._playing ||
-        (document.getElementById('play-btn') &&
-         document.getElementById('play-btn').classList.contains('on'));
+      /* togglePlay oynatma başlattıysa SM'yi de başlat.
+         window._playing AudioEngine v12'de artık doğru set ediliyor.
+         Buton durumu ikincil kontrol olarak eklendi. */
+      var isNowPlaying = (global._playing === true) ||
+        !!(document.getElementById('play-btn') &&
+           document.getElementById('play-btn').classList.contains('on'));
 
-      if (isNowPlaying && _sm && !_sm._isPlaying) {
-        /* Bekleyen sahne varsa önce onu uygula */
-        var applyPromise = _pendingScene
-          ? _sm.applyScene(_pendingScene)
-          : Promise.resolve();
+      /* _master henüz hazır olmayabilir (ensureMaster ilk startSound'da çalışır).
+         Kısa bir beklemeyle tekrar dene. */
+      function _tryStartSM() {
+        var masterNode = global._master;
+        var ctxNode    = global._ctx || ctx;
 
-        applyPromise.then(function() {
-          _pendingScene = null;
-          _sm.start();
-          console.info(TAG.nature, 'SampleManager oynatma başladı ✓');
-          console.info(TAG.instr, 'Enstrüman katmanı aktif ✓');
-        }).catch(function(e){
-          console.warn(TAG.nature, 'SM start hatası:', e.message);
-          if (ctx && global._master) _enforceSafetyMute(ctx);
-        });
+        if (!_sm && _smReady && ctxNode && masterNode) {
+          _sm = _bootstrapSampleManager(ctxNode, masterNode);
+        }
 
-        /* Master LFO başlat */
-        _startMasterLFO(ctx);
+        if (isNowPlaying && _sm && !_sm._isPlaying) {
+          var applyPromise = _pendingScene
+            ? _sm.applyScene(_pendingScene)
+            : Promise.resolve();
+
+          applyPromise.then(function() {
+            _pendingScene = null;
+            _sm.start();
+            console.info(TAG.nature, 'SampleManager oynatma başladı ✓');
+            console.info(TAG.instr,  'Enstrüman katmanı aktif ✓');
+          }).catch(function(e){
+            console.warn(TAG.nature, 'SM start hatası:', e.message);
+            if (ctxNode && masterNode) _enforceSafetyMute(ctxNode);
+          });
+
+          _startMasterLFO(ctxNode);
+        }
       }
 
+      /* İlk deneme: hemen */
+      _tryStartSM();
+      /* _master henüz null olabilir — 300ms sonra tekrar dene */
+      setTimeout(_tryStartSM, 300);
       /* SM duruyorsa (pause) */
       if (!isNowPlaying && _sm && _sm._isPlaying) {
         _sm.stop(3.0);
@@ -338,7 +353,7 @@
       }
     };
 
-    global._audioToggle = global.togglePlay; /* Referans güncelle */
+    global._audioToggle = global.togglePlay;
     console.info(TAG.sync, 'togglePlay hook bağlandı ✓');
   }
 

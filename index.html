@@ -3566,6 +3566,9 @@ html[dir="rtl"] #lang-dropdown{right:auto;left:0;}
 </style>
 <style>
 #vis-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;border-radius:inherit;}
+/* Aşama 12 fix: play-btn vis-canvas'ın her zaman üstünde */
+#play-btn { position: relative; z-index: 2; }
+#play-lbl  { position: relative; z-index: 2; }
 </style>
 </head>
 <body>
@@ -6071,6 +6074,24 @@ window.goSanctuary = function() {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
   var t = document.getElementById('screen-sanctuary');
   if (t) { t.classList.remove('off'); t.classList.add('on'); }
+
+  /* Aşama 12 fix: Sanctuary ekranı göründüğünde AudioContext askıda kalabilir.
+     Kullanıcı etkileşimi bu noktada garantili → resume et. */
+  setTimeout(function() {
+    if (window._ctx && window._ctx.state === 'suspended') {
+      window._ctx.resume().catch(function(){});
+    }
+    /* togglePlay henüz tanımlı değilse play butonuna fallback listener ekle */
+    var btn = document.getElementById('play-btn');
+    if (btn && typeof window.togglePlay !== 'function') {
+      console.warn('[goSanctuary] togglePlay henüz yüklenmedi, 500ms sonra tekrar denenecek.');
+      setTimeout(function() {
+        if (typeof window.togglePlay === 'function') {
+          btn.onclick = function() { window.togglePlay(); };
+        }
+      }, 500);
+    }
+  }, 100);
 };
 window.goBack = function() {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); s.classList.add('off'); });
@@ -6200,6 +6221,13 @@ window.generateAIFreq = async function(){
 
     var msd = await response.json();
     console.log('[generateAIFreq] MSD alındı:', JSON.stringify(msd));
+
+    /* Aşama 12 — Gemini derin sahne analizi: tüm ses motoru tek çağrıyla güncellenir */
+    if (typeof window.updateFromGemini === 'function') {
+      try { window.updateFromGemini(msd); } catch(e) {
+        console.warn('[generateAIFreq] updateFromGemini hatası:', e.message);
+      }
+    }
 
     /* Aşama 1 — GeminiAdapter MSD'sini FrequencyManager'a aktar */
     if (typeof window.getFrequencyManager === 'function') {
@@ -7008,8 +7036,8 @@ window.sendReaction = function(emoji) {
 <script src="SecurityWrapper.js"></script>
 <script src="modules.js"></script> -->
 <script src="FrequencyManager.js"></script>
-<script src="SampleManager_v2.js"></script>
-<script src="AudioEngine_v11.js"></script>
+<script src="SampleManager_v3.js"></script>
+<script src="AudioEngine_v12.js"></script>
 <script src="SanctuarySync.js"></script>
 <script src="StateManager.js"></script>
 <script src="VisualizerEngine.js"></script>
