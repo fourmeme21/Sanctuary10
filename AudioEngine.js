@@ -1022,28 +1022,24 @@
     }
 
     if (_playing) {
-      /* UI hemen güncellendi — startSound'u async yap, ekran donmasın */
-      setTimeout(function() {
-        try {
-          var gen='', base=0, beat=0;
-          try { gen=localStorage.getItem('lastGen')||''; base=parseInt(localStorage.getItem('lastBase')||'0')||0; beat=parseInt(localStorage.getItem('lastBeat')||'0')||0; } catch(e){}
-          if (!gen || !base) {
-            var mood='Calm'; try{ mood=localStorage.getItem('lastMood')||'Calm'; }catch(e){}
-            var cfg = MOOD_MAP[mood] || MOOD_MAP['Calm'];
-            gen=cfg.gen; base=cfg.base; beat=cfg.beat;
-          }
-          startSound(gen, base, beat, _pauseOffset);
-          if (window._feedbackCollector) try{ window._feedbackCollector.startSession(mood||null); }catch(e){}
-        } catch(e) {
-          _playing = false;
-          window._playing = false;
-          if (icon) icon.textContent = '▶';
-          if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
-          if (lbl)  lbl.textContent = 'Frekansı Başlat';
-          if (wrap) { wrap.classList.remove('breath-inhale'); wrap.classList.add('breath-idle'); }
-          console.warn('[togglePlay]', e);
+      try {
+        var gen='', base=0, beat=0;
+        try { gen=localStorage.getItem('lastGen')||''; base=parseInt(localStorage.getItem('lastBase')||'0')||0; beat=parseInt(localStorage.getItem('lastBeat')||'0')||0; } catch(e){}
+        if (!gen || !base) {
+          var mood='Calm'; try{ mood=localStorage.getItem('lastMood')||'Calm'; }catch(e){}
+          var cfg = MOOD_MAP[mood] || MOOD_MAP['Calm'];
+          gen=cfg.gen; base=cfg.base; beat=cfg.beat;
         }
-      }, 0);
+        startSound(gen, base, beat, _pauseOffset);
+        if (window._feedbackCollector) try{ window._feedbackCollector.startSession(mood||null); }catch(e){}
+      } catch(e) {
+        _playing = false;
+        window._playing = false;
+        if (icon) icon.textContent = '▶';
+        if (btn)  { btn.setAttribute('aria-pressed','false'); btn.classList.remove('on'); }
+        if (lbl)  lbl.textContent = 'Frekansı Başlat';
+        console.warn('[togglePlay]', e);
+      }
     } else {
       if (_ctx && _startTime) _pauseOffset = (_ctx.currentTime - _startTime) % _loopDur;
       stopModulation();
