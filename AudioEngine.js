@@ -1,38 +1,40 @@
-/* v6.0 — Aşama 6: Psikoakustik Güçlendirme, Doku, Analog Karakter */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SANCTUARY SES MOTORU — v6.0 (Psikoakustik Güçlendirme & Texture Operasyonu)
+   ─────────────────────────────────────────────────────────────────────────────
+   Sinyal Zinciri:
+     Kaynaklar
+       → _mainFilter  (LFO: 600–3200 Hz @ 0.05 Hz | Q:3.5 vokal rezonans)
+       → _masteringComp
+       → _satNode     (tanh Soft-Clip k=6, oversample 4x — analog sıcaklık)
+       → _tremoloNode (±18% @ 0.08 Hz — fiziksel nabız)
+       → _master
+       → EQ (low/mid/high)
+       → _comp
+       → destination
 
-/* ═══════════════════════════════════════════════════════════════════
-   SANCTUARY SES MOTORU (v5.0 — Canlı Organizma)
-   Sinyal Şeması:
-     Kaynaklar → _mainFilter (LFO: 1200–2200 Hz @ 0.05 Hz)
-       → _masteringComp → _tremoloNode (±5% @ 0.08 Hz)
-       → _master → EQ → _comp → destination
-   Aşama 5 değişiklikleri:
-     • Filter LFO : _mainFilter.frequency 1200–2200 Hz arası 0.05 Hz'de salınır (Nefes)
-     • Tremolo    : _tremoloNode ±5% @ 0.08 Hz kalp atışı dalgalanması
-     • Chaos Engine: 5–10 sn'de bir osilatör detune'larına ±0.5 cent rastgele drift
-     • Sahne Mikseri: gen adına göre ambient/tones oranı dinamik (waves→70/30, binaural→25/75)
-   Aşama 4 mirası:
-     • Gerçek binaural: Sol pan:-1 @ baseFreq | Sağ pan:+1 @ baseFreq+beatFreq
-     • Harmonik detune: 1.5–3 cent koro etkisi
-     • Cross-panning LFO 0.07 Hz | _masteringComp glue
-   ═══════════════════════════════════════════════════════════════════ */
+   Aşama 6 değişiklikleri:
+     • Filter LFO   : ±1300 Hz → 600–3200 Hz aralığı; Q 3.5 vokal/uğultu karakteri
+     • Binaural     : N. harmonik sol=N×base, sağ=N×base+N×beat (4 harmonic katmanı)
+     • Soft-Clip    : WaveshaperNode tanh(k=6)/tanh(6) eğrisi — lambalı amfi dokusu
+     • Chaos Engine : 3–6 sn'de bir, ±4 cent drift (1.5 sn glide)
+     • Tremolo      : base 0.82, depth ±0.18 → 0.64–1.00 fiziksel nabız (%18)
+   ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
 
   /* ── Modül-Düzeyi Değişkenler ── */
   var _ctx=null, _master=null, _comp=null, _mainFilter=null, _masteringComp=null;
-  var _satNode=null;    /* Aşama 6: Soft-Clip WaveShaper — sıcaklık dokusu */
+  var _satNode=null;
   var _tremoloNode=null;
   var _eqLow=null, _eqMid=null, _eqHigh=null;
   var _oscs=[], _noise=null, _noiseGain=null, _granular=null;
   var _playing=false, _startTime=0, _pauseOffset=0;
   var _loopDur=8, _curGen=null, _curBase=0, _curBeat=0;
 
-  /* Aşama 4 — LFO | Aşama 5: filter + tremolo + chaos eklendi */
   var _lfoOsc=null, _lfoGain=null, _lfoInvert=null;
-  var _filterLfoOsc=null, _filterLfoGain=null; /* Aşama 5: nefes alan filtre */
-  var _tremoloOsc=null,   _tremoloDepth=null;  /* Aşama 5: kalp atışı tremolo */
-  var _chaosTimer=null;                         /* Aşama 5: chaos engine handle */
+  var _filterLfoOsc=null, _filterLfoGain=null;
+  var _tremoloOsc=null,   _tremoloDepth=null;
+  var _chaosTimer=null;
   var _sampleManager=null;
 
   /* ── Ruh Hali Haritası ── */
@@ -45,10 +47,7 @@
     'Minnettar': {base:528, beat:10, gen:'rain'},
   };
 
-  /* ── Aşama 5: Sahne Mikseri — ambient/tones dengesi ──
-   * Her sahne için {ambient, tones} oranları — toplam ~1.0.
-   * Waves/rain/wind gibi doğa sahnelerinde ambiyans öne çıkar;
-   * binaural sahnelerinde tonlar öne çıkar. */
+  /* ── Sahne Mikseri ── */
   var SCENE_MIX = {
     waves   : { ambient: 0.70, tones: 0.30 },
     rain    : { ambient: 0.65, tones: 0.35 },
@@ -68,16 +67,16 @@
     return _ctx;
   }
 
-  /* ── Master Bus ──
-   * Aşama 5 — Sinyal Zinciri:
-   *   Kaynaklar → _mainFilter → _masteringComp → _tremoloNode → _master → EQ → _comp → destination
-   *   _tremoloNode: GainNode (base: 0.925). Tremolo LFO ±0.05 modüle eder → 0.875–0.975 arası.
-   *   Tremolo LFO başlatma/durdurma startModulation/stopModulation ile yönetilir.
-   * ────────────────────────────────────────────────────────────── */
+  /* ══════════════════════════════════════════════════════════════════════
+     MASTER BUS
+     Sinyal zinciri:
+       kaynaklar → _mainFilter → _masteringComp → _satNode
+         → _tremoloNode → _master → EQ → _comp → destination
+     ══════════════════════════════════════════════════════════════════════ */
   function ensureMaster(ctx) {
     if (_master) return;
 
-    /* Son aşama limiter */
+    /* ── Son Aşama Limiter ── */
     _comp = ctx.createDynamicsCompressor();
     _comp.threshold.value = -6;
     _comp.ratio.value     = 10;
@@ -85,7 +84,7 @@
     _comp.attack.value    = 0.003;
     _comp.release.value   = 0.25;
 
-    /* Glue compressor */
+    /* ── Glue Compressor ── */
     _masteringComp = ctx.createDynamicsCompressor();
     _masteringComp.threshold.value = -24;
     _masteringComp.knee.value      = 30;
@@ -93,26 +92,34 @@
     _masteringComp.attack.value    = 0.003;
     _masteringComp.release.value   = 0.25;
 
-    /* Aşama 6: Soft-Clip WaveShaper — analog sıcaklık/doku
-     * tanh S-eğrisi: düşük genlikler temiz, yüksek genlikler yumuşak kırpılır.
-     * oversample 4x: aliasing bastırılır, daha müzikal saturasyon. */
+    /* ── Aşama 6: Soft-Clip WaveShaper — Analog Sıcaklık & Doku ──────────
+     * tanh(k*x)/tanh(k) S-eğrisi:
+     *   k=6 → düşük genlik temiz; yüksek genlik yumuşak kırpılır.
+     *   k=4'e göre %50 daha fazla saturasyon → bariz lambalı amfi dokusu.
+     *   4096 sample: daha pürüzsüz eğri, daha müzikal harmonik doygunluk.
+     *   oversample '4x': aliasing bastırılır.
+     * Etkisi: "soğuk" dijital ton → "sıcak" analog atmosfer. */
     _satNode = ctx.createWaveShaper();
     (function() {
-      var samples = 2048, k = 4.0, tanhK = Math.tanh(k);
-      var curve = new Float32Array(samples);
+      var samples = 4096;
+      var k       = 6.0;
+      var tanhK   = Math.tanh(k);
+      var curve   = new Float32Array(samples);
       for (var i = 0; i < samples; i++) {
-        var x = (i * 2) / (samples - 1) - 1;
+        var x    = (i * 2) / (samples - 1) - 1;
         curve[i] = Math.tanh(k * x) / tanhK;
       }
       _satNode.curve = curve;
     })();
     _satNode.oversample = '4x';
 
-    /* Tremolo düğümü (Aşama 6: base 0.85, LFO ±0.15 → 0.70–1.00 fiziksel nabız) */
+    /* ── Aşama 6: Tremolo Düğümü ──────────────────────────────────────────
+     * base 0.82: LFO ±0.18 → aralık 0.64–1.00 (%18 derinlik).
+     * Aşama 5'teki %5'ten %18'e: ses artık fiziksel olarak nabız atıyor. */
     _tremoloNode = ctx.createGain();
-    _tremoloNode.gain.value = 0.85; /* Aşama 6: ±15% için geniş bant */
+    _tremoloNode.gain.value = 0.82;
 
-    /* 3-band EQ */
+    /* ── 3-Band EQ ── */
     _eqLow  = ctx.createBiquadFilter();
     _eqLow.type = 'lowshelf';
     _eqLow.frequency.value = 200;
@@ -129,19 +136,21 @@
     _eqHigh.frequency.value = 6000;
     _eqHigh.gain.value = 1.5;
 
-    /* Ana Lowpass Filtresi (kaynaklar buraya bağlanır)
-     * Aşama 5: başlangıç 1700 Hz → LFO onu 1200–2200 Hz arasında tarar */
+    /* ── Ana Lowpass Filtresi ──────────────────────────────────────────────
+     * Aşama 6:
+     *   merkez 1900 Hz → LFO ±1300 Hz → aralık 600–3200 Hz
+     *   Q 3.5 → filtre hareket ederken rezonans tümseği "vokal/uğultu" karakteri
+     *   Ses nefes alıyor — deniz dalgası gibi ama beynin bunu duyması garantili. */
     _mainFilter = ctx.createBiquadFilter();
     _mainFilter.type            = 'lowpass';
-    _mainFilter.frequency.value = 1900;  /* Aşama 6: merkez yükseltildi (LFO ±1300) */
-    _mainFilter.Q.value         = 3.5;   /* Aşama 6: vokal rezonans */
+    _mainFilter.frequency.value = 1900;
+    _mainFilter.Q.value         = 3.5;
 
-    /* Master gain */
+    /* ── Master Gain ── */
     _master = ctx.createGain();
     _master.gain.value = (window._prefVector ? window._prefVector.masterVolume : 0.8);
 
-    /* ═══ Zincir bağlantısı (Aşama 5) ═══
-     * kaynaklar → _mainFilter → _masteringComp → _tremoloNode → _master → EQ → _comp → destination */
+    /* ── Zincir Bağlantısı ── */
     _mainFilter.connect(_masteringComp);
     _masteringComp.connect(_satNode);
     _satNode.connect(_tremoloNode);
@@ -152,7 +161,7 @@
     _eqHigh.connect(_comp);
     _comp.connect(ctx.destination);
 
-    /* Dış erişim için yayınla */
+    /* Dış erişim için global referanslar */
     window._master        = _master;
     window._mainFilter    = _mainFilter;
     window._masteringComp = _masteringComp;
@@ -224,68 +233,74 @@
     return buf;
   }
 
-  /* ── Aşama 5: Modülasyon Sistemi ──────────────────────────────────────
-   *
-   * startModulation(ctx):
-   *   1. Filter LFO (0.05 Hz, ±500 Hz) → _mainFilter.frequency nefes alır
-   *   2. Tremolo LFO (0.08 Hz, ±0.05)  → _tremoloNode.gain ±5% salınır
-   *   3. Chaos Engine                   → 5–10 sn'de bir rastgele osilatöre ±0.5 cent drift
-   *
-   * stopModulation():
-   *   Üç sistemi de temizle, node değerlerini varsayılana döndür.
-   * ──────────────────────────────────────────────────────────────────── */
+  /* ══════════════════════════════════════════════════════════════════════
+     MODÜLASYON SİSTEMİ — Aşama 6 (Güçlendirilmiş)
+     ─────────────────────────────────────────────────────────────────────
+     startModulation(ctx):
+       1. Filter LFO (0.05 Hz, ±1300 Hz) → _mainFilter.frequency 600–3200 Hz
+       2. Tremolo LFO (0.08 Hz, ±0.18)   → _tremoloNode.gain 0.64–1.00 (%18)
+       3. Chaos Engine (3–6 sn, ±4 cent) → analog drift hissi
+
+     stopModulation():
+       Üç sistemi temizle, node değerlerini varsayılana döndür.
+     ══════════════════════════════════════════════════════════════════════ */
   function startModulation(ctx) {
     stopModulation();
 
-    /* 1. Filter LFO — "nefes alan ses perdesi"
-     * 0.05 Hz → ~20 saniye tam döngü. Bilinçaltı seviyede algılanır.
-     * ±500 Hz sapma: alt 1200 Hz (koyu) ↔ üst 2200 Hz (parlak).
-     * Ses sürekli açılıp kapanıyor — deniz nefesi gibi. */
+    /* ── 1. Filter LFO — "Nefes Alan Ses Perdesi" ─────────────────────────
+     * 0.05 Hz → ~20 saniye tam döngü (yavaş, bilinçaltı algı).
+     * ±1300 Hz sapma: 600 Hz (koyu, kapalı) ↔ 3200 Hz (parlak, açık).
+     * Q 3.5: filtre hareket ederken rezonans tümseği bariz bir "vokal/uğultu"
+     * karakteri yaratır — ses gerçekten nefes alıyor. API gelmese bile
+     * bu modülasyon sesi sürekli canlı tutar. */
     _filterLfoOsc = ctx.createOscillator();
     _filterLfoOsc.type = 'sine';
-    _filterLfoOsc.frequency.value = 0.05; /* 20 sn döngü */
+    _filterLfoOsc.frequency.value = 0.05;
 
     _filterLfoGain = ctx.createGain();
-    _filterLfoGain.gain.value = 1300; /* Aşama 6: ±1300 Hz (600–3200 Hz arası) */
+    _filterLfoGain.gain.value = 1300; /* ±1300 Hz → 600–3200 Hz */
 
     _filterLfoOsc.connect(_filterLfoGain);
-    _filterLfoGain.connect(_mainFilter.frequency); /* AudioParam'a bağlantı: ekler */
+    _filterLfoGain.connect(_mainFilter.frequency);
     _filterLfoOsc.start();
 
-    /* 2. Tremolo LFO — "kalp atışı dalgalanması"
+    /* ── 2. Tremolo LFO — "Fiziksel Nabız Atışı" ─────────────────────────
      * 0.08 Hz → ~12.5 sn döngü.
-     * ±0.05 → _tremoloNode.gain (0.925) etrafında 0.875–0.975 arasında salınır.
-     * Volümdeki bu hafif nefes ritmi "canlı ama sessiz" bir his yaratır. */
+     * Aşama 6: depth 0.18 (±18%) → gain 0.64–1.00.
+     * %5'ten %18'e: ses artık kulakla ve bedenle hissedilen bir ritim taşıyor.
+     * Bu, müzikal "swell" etkisinin psikoakustik versiyonu. */
     _tremoloOsc = ctx.createOscillator();
     _tremoloOsc.type = 'sine';
     _tremoloOsc.frequency.value = 0.08;
 
     _tremoloDepth = ctx.createGain();
-    _tremoloDepth.gain.value = 0.15; /* Aşama 6: ±15% fiziksel nabız */
+    _tremoloDepth.gain.value = 0.18; /* Aşama 6: %18 fiziksel nabız */
 
     _tremoloOsc.connect(_tremoloDepth);
-    _tremoloDepth.connect(_tremoloNode.gain); /* AudioParam: 0.925 ± 0.05 */
+    _tremoloDepth.connect(_tremoloNode.gain);
     _tremoloOsc.start();
 
-    /* 3. Chaos Engine — "analog synthesizer drift"
-     * Analog sentezleyiciler sıcaklık değişimi ve voltaj dalgalanması
-     * nedeniyle sürekli hafif detune olur. Bu, onları "sıcak" yapar.
-     * Burada setTimeout zinciri bu doğallığı simüle eder.
-     * 5–10 sn arası: fark edilemez ama beyin "yeni veri" olarak kodlar. */
+    /* ── 3. Chaos Engine — "Analog Synthesizer Drift" ─────────────────────
+     * Gerçek analog sentezleyiciler sıcaklık ve voltaj dalgalanmasıyla
+     * sürekli hafif detune olur; bu onları "canlı" hissettirir.
+     * Aşama 6:
+     *   ±4 cent (Aşama 5'e göre 8× artış) — fark edilir ama rahatsız etmez
+     *   3–6 sn tetikleme → beyin "statik kayıt" olarak kodlamaz
+     *   1.5 sn glide → anında sıçrama değil, organik kayma
+     * API'den veri gelmese bile bu engine sesi "canlı organizma" gibi tutar. */
     function scheduleNextChaos() {
-      var delay = 3000 + Math.random() * 3000; /* Aşama 6: 3–6 sn */
+      var delay = 3000 + Math.random() * 3000; /* 3–6 sn */
       _chaosTimer = setTimeout(function() {
         if (!_playing || !_oscs.length) return;
         try {
-          var idx = Math.floor(Math.random() * _oscs.length);
-          var osc = _oscs[idx];
+          var idx  = Math.floor(Math.random() * _oscs.length);
+          var osc  = _oscs[idx];
           if (osc && osc.detune) {
-            var cur = osc.detune.value;
-            var drift = (Math.random() - 0.5) * 8.0; /* Aşama 6: [-4, +4] cent */
+            var cur   = osc.detune.value;
+            var drift = (Math.random() - 0.5) * 8.0; /* [-4, +4] cent */
             var next  = Math.max(-6, Math.min(6, cur + drift));
-            /* Yumuşak glide: anında sıçrama değil, 2 sn'de erir */
             osc.detune.setValueAtTime(cur, ctx.currentTime);
-            osc.detune.linearRampToValueAtTime(next, ctx.currentTime + 1.5); /* Aşama 6 */
+            osc.detune.linearRampToValueAtTime(next, ctx.currentTime + 1.5);
           }
         } catch(e) { /* Osilatör durmuş olabilir — sessizce geç */ }
         scheduleNextChaos();
@@ -300,14 +315,13 @@
     if (_tremoloOsc)    { try{_tremoloOsc.stop();_tremoloOsc.disconnect();}catch(e){} _tremoloOsc=null; }
     if (_tremoloDepth)  { try{_tremoloDepth.disconnect();}catch(e){} _tremoloDepth=null; }
     if (_chaosTimer)    { clearTimeout(_chaosTimer); _chaosTimer=null; }
-    /* Kalıcı düğümleri varsayılan değerlerine döndür */
     if (_mainFilter) {
       try { _mainFilter.frequency.cancelScheduledValues(0); } catch(e){}
-      try { _mainFilter.frequency.value = 1900; } catch(e){} /* Aşama 6 */
+      try { _mainFilter.frequency.value = 1900; } catch(e){}
     }
     if (_tremoloNode) {
       try { _tremoloNode.gain.cancelScheduledValues(0); } catch(e){}
-      try { _tremoloNode.gain.value = 0.85; /* Aşama 6: ±15% için geniş bant */ } catch(e){}
+      try { _tremoloNode.gain.value = 0.82; } catch(e){}
     }
   }
 
@@ -330,12 +344,9 @@
     if (_granular)  { try{_granular.stop();}catch(e){} _granular = null; }
   }
 
-  /* ── Ses Başlat ──
-   *
-   * Aşama 5 değişiklikleri:
-   *   1. Sahne Mikseri: gen'e göre ambVol ve oscVol SCENE_MIX'ten alınır
-   *   2. startModulation(ctx) çağrısı → filter LFO + tremolo + chaos devreye girer
-   * ─────────────────────────────────────────────────────────────── */
+  /* ══════════════════════════════════════════════════════════════════════
+     SES BAŞLAT — startSound(gen, base, beat, offset)
+     ══════════════════════════════════════════════════════════════════════ */
   function startSound(gen, base, beat, offset) {
     var ctx = getCtx();
     if (ctx.state === 'suspended') ctx.resume();
@@ -353,25 +364,30 @@
     stopOscs();
     stopModulation();
 
-    /* ── Aşama 5: Sahne Mikseri ──
-     * prefVector'dan gelen temel hacim değerini SCENE_MIX oranlarıyla çarp.
-     * Normalize etmek için 0.50 baz (SCENE_MIX'in "nötr" noktası) kullanılır. */
+    /* ── Sahne Mikseri ── */
     var _baseVol = window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60;
     var _mix     = SCENE_MIX[gen] || { ambient: 0.50, tones: 0.50 };
     var ambVol   = Math.max(0.05, Math.min(0.95, _baseVol * (_mix.ambient / 0.50)));
-    var oscVol   = _mix.tones; /* tones oranı envGain hedef değeri olarak */
+    var oscVol   = _mix.tones;
 
     var xfDur = 2.5;
 
-    /* ═══ Binaural Osilatörler (Aşama 4 mirası + Aşama 5 mikser) ═══ */
+    /* ══ Binaural Osilatörler ══════════════════════════════════════════════
+     * Aşama 6: Harmonik Binaural Diferansiyel
+     *   Her N. harmonik: Sol = N×baseFreq | Sağ = N×baseFreq + N×beat
+     *
+     *   Neden bu güçlü?
+     *   Standart binaural: sadece temel frekansta 1×beat Hz fark.
+     *   Bu sistem: 4 frekans katmanında sırasıyla 1×, 2×, 3×, 4× beat farkı.
+     *   Beyin dört ayrı binaural sinyali üst üste işler →
+     *   "kafanın içindeki titreşim" hissi dramatik şekilde genişler. */
     if (beat > 0) {
       var _fm = (typeof window.getFrequencyManager === 'function')
         ? window.getFrequencyManager(base)
         : null;
       if (_fm) _fm.setBaseFreq(isFinite(base) ? base : 200);
 
-      var _leftFreq  = _fm ? _fm.getNextFrequency() : (isFinite(base) ? base : 200);
-      /* _rightFreq removed in v6.0: N×beat differential computed per harmonic */
+      var _leftFreq = _fm ? _fm.getNextFrequency() : (isFinite(base) ? base : 200);
 
       var panL = ctx.createStereoPanner();
       var panR = ctx.createStereoPanner();
@@ -382,7 +398,6 @@
 
       var _oscStartNow = ctx.currentTime;
 
-      /* Zarf: fade-in 2.5sn | Aşama 5: oscVol sahne oranından */
       var envGainL = ctx.createGain();
       envGainL.gain.setValueAtTime(0.0001, _oscStartNow);
       envGainL.gain.exponentialRampToValueAtTime(oscVol, _oscStartNow + 2.5);
@@ -414,28 +429,30 @@
       envGainL.connect(xGainL); xGainL.connect(panL);
       envGainR.connect(xGainR); xGainR.connect(panR);
 
-      /* ── Aşama 6: Harmonik Binaural Diferansiyel ──────────────────
-       * Her N. harmonik: Sol = N×baseFreq | Sağ = N×baseFreq + N×beat
-       * Binaural etki: temel 1× → harmonikler 2×, 3×, 4× katlı etki.
-       * Beyin dört frekanslı binaural sinyali çok daha derin işler. */
+      /* ── Aşama 6: 4 Katmanlı Harmonik Binaural ── */
       var _beat = isFinite(beat) ? beat : 0;
       var HARMONICS = [
-        { mult: 1, type: 'sine',     gainVal: 0.10 },
-        { mult: 2, type: 'sine',     gainVal: 0.04 },
-        { mult: 3, type: 'triangle', gainVal: 0.02 },
-        { mult: 4, type: 'sine',     gainVal: 0.01 },
+        { mult: 1, type: 'sine',     gainVal: 0.10  }, /* temel: 1×beat */
+        { mult: 2, type: 'sine',     gainVal: 0.05  }, /* 2. harmonik: 2×beat */
+        { mult: 3, type: 'triangle', gainVal: 0.03  }, /* 3. harmonik: 3×beat */
+        { mult: 4, type: 'sine',     gainVal: 0.015 }, /* 4. harmonik: 4×beat */
       ];
+
       HARMONICS.forEach(function(h) {
         var freqL = Math.min(20000, _leftFreq * h.mult);
         var freqR = Math.min(20000, _leftFreq * h.mult + _beat * h.mult);
+
         var oL = ctx.createOscillator(), gL = ctx.createGain();
-        oL.type = h.type; oL.frequency.value = freqL;
-        oL.detune.value = 1.5 + Math.random() * 1.5;
+        oL.type = h.type;
+        oL.frequency.value = freqL;
+        oL.detune.value = 1.5 + Math.random() * 1.5; /* hafif koro */
         gL.gain.value = h.gainVal;
         oL.connect(gL); gL.connect(envGainL);
         oL.start(); _oscs.push(oL);
+
         var oR = ctx.createOscillator(), gR = ctx.createGain();
-        oR.type = h.type; oR.frequency.value = freqR;
+        oR.type = h.type;
+        oR.frequency.value = freqR;
         oR.detune.value = 1.5 + Math.random() * 1.5;
         gR.gain.value = h.gainVal;
         oR.connect(gR); gR.connect(envGainR);
@@ -447,7 +464,7 @@
 
     var now = ctx.currentTime;
 
-    /* ═══ Ortam Sesi (Ambient Layer) — Aşama 5: ambVol sahne mikserinden ═══ */
+    /* ══ Ortam Sesi (Ambient Layer) ═══════════════════════════════════════ */
     if (window.GranularEngine) {
       var grainTypeMap = {waves:'waves', rain:'rain', wind:'wind', fire:'forest', storm:'wind', binaural:'forest'};
       var grainType = grainTypeMap[gen] || 'wind';
@@ -491,8 +508,8 @@
       src.start(0, off); _startTime=now; _noise=src; _noiseGain=gain;
     }
 
-    /* ── Aşama 5: Modülasyon sistemlerini başlat ──
-     * 300ms gecikme: fade-in ile örtüşen ilk anda algılanabilir sıçramayı önler. */
+    /* ── Modülasyon Sistemlerini Başlat ──
+     * 300ms gecikme: fade-in ile örtüşen ilk anda sıçramayı önler. */
     setTimeout(function() {
       if (_playing && _ctx) startModulation(_ctx);
     }, 300);
@@ -560,7 +577,7 @@
       }
     } else {
       if (_ctx && _startTime) _pauseOffset = (_ctx.currentTime - _startTime) % _loopDur;
-      stopModulation(); /* Aşama 5: modülasyon sistemlerini hemen durdur */
+      stopModulation();
       if (_ctx && _master) {
         var _stopNow = _ctx.currentTime;
         _master.gain.cancelScheduledValues(_stopNow);
@@ -697,8 +714,8 @@ window.applyBiometricEffect = function(p) {
       window._eqHigh.gain.linearRampToValueAtTime(Math.max(-6, Math.min(6, 1.5 + p.eqHighCut)), now + ramp);
     if (window._granular && typeof window._granular.setDensity === 'function')
       window._granular.setDensity(Math.max(0.2, p.granularDensity || 0.8));
-    /* Aşama 5 uyumu: filterFreq biyometrik parametresi LFO merkezini kaydırır.
-     * Doğrudan value atamak LFO modülasyonunu bozmaz; LFO buna ±500 Hz ekler. */
+    /* filterFreq biyometrik parametresi LFO merkezini kaydırır.
+     * Doğrudan value atamak LFO modülasyonunu bozmaz; LFO buna ±1300 Hz ekler. */
     if (window._mainFilter && p.filterFreq !== undefined)
       window._mainFilter.frequency.linearRampToValueAtTime(
         Math.max(500, Math.min(8000, p.filterFreq)), now + ramp
