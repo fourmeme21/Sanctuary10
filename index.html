@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <script>
-/* Console polyfill — artifact/sandbox uyumluluğu */
+/* Console polyfill -- artifact/sandbox uyumluluğu */
 (function(){
   var c = window.console = window.console || {};
   ['log','info','warn','error','debug','group','groupEnd','time','timeEnd'].forEach(function(m){
@@ -4246,15 +4246,15 @@ if ('serviceWorker' in navigator) {
 
 
 <script>
-/* ═══════════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------
    GRANULAR ENGINE
-   ═══════════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------- */
 /**
- * GranularEngine.js — Sanctuary Granular Sentez Motoru
- * ─────────────────────────────────────────────────────────────────────────────
+ * GranularEngine.js -- Sanctuary Granular Sentez Motoru
+ * -----------------------------------------------------------------------------
  * Rastgele grain (ses parçacığı) üreterek organik, "bulutsu" ses dokusu sağlar.
- * Grain boyutu: 50–200ms | Yoğunluk: 8–20 grain/saniye
- * ─────────────────────────────────────────────────────────────────────────────
+ * Grain boyutu: 50-200ms | Yoğunluk: 8-20 grain/saniye
+ * -----------------------------------------------------------------------------
  */
 
 class GranularEngine {
@@ -4267,10 +4267,10 @@ class GranularEngine {
     this._grains      = [];
 
     this.params = {
-      grainSize : 160,   // ms — sabit büyük grain
-      grainRate : 20,    // /saniye — maksimum overlap
+      grainSize : 160,   // ms -- sabit büyük grain
+      grainRate : 20,    // /saniye -- maksimum overlap
       pitch     : 1.0,
-      scatter   : 0.15,  // çok düşük scatter — tutarlı doku
+      scatter   : 0.15,  // çok düşük scatter -- tutarlı doku
       volume    : params.volume || 0.65,
     };
 
@@ -4285,7 +4285,7 @@ class GranularEngine {
   generateBuffer(type) {
     const ctx = this._ctx;
     const sr  = ctx.sampleRate;
-    const dur = 8;  // 8 saniyelik — yeterince uzun, grain tekrarı az
+    const dur = 8;  // 8 saniyelik -- yeterince uzun, grain tekrarı az
     const buf = ctx.createBuffer(2, sr * dur, sr);
 
     for (let ch = 0; ch < 2; ch++) {
@@ -4364,7 +4364,7 @@ class GranularEngine {
   _scheduleNext() {
     if (!this._active) return;
     this._spawnGrain();
-    // Düşük jitter (%5) — tutarlı overlap
+    // Düşük jitter (%5) -- tutarlı overlap
     const interval = 1000 / this.params.grainRate;
     const jitter   = interval * 0.05 * (Math.random() * 2 - 1);
     this._grainTimer = setTimeout(() => this._scheduleNext(), Math.max(8, interval + jitter));
@@ -4414,15 +4414,15 @@ class GranularEngine {
 /* Browser global */
 window.GranularEngine = GranularEngine;
 
-/* ═══════════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------
    FM SENTEZLEYİCİ
-   ═══════════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------- */
 /**
- * FMSynthesizer.js — Sanctuary FM Sentez Motoru
- * ─────────────────────────────────────────────────────────────────────────────
+ * FMSynthesizer.js -- Sanctuary FM Sentez Motoru
+ * -----------------------------------------------------------------------------
  * 2 operatörlü FM sentezleyici: Taşıyıcı (Carrier) + Modülatör
  * Derin frekanslar, binaural vuruşlar ve meditasyon tonları için ADSR zarf.
- * ─────────────────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------------------
  */
 
 class FMSynthesizer {
@@ -4430,13 +4430,13 @@ class FMSynthesizer {
    * @param {AudioContext} ctx
    * @param {AudioNode}    destination
    * @param {object}       params
-   * @param {number}       params.carrierFreq    — Hz (taşıyıcı frekans)
-   * @param {number}       params.modulatorRatio — modülatör/taşıyıcı oranı
-   * @param {number}       params.modulationIndex — modülasyon derinliği
-   * @param {number}       params.volume          — 0–1
-   * @param {object}       params.adsr            — { attack, decay, sustain, release } saniye
-   * @param {boolean}      params.binaural        — stereo binaural mod
-   * @param {number}       params.binauralBeat    — Hz fark (binaural)
+   * @param {number}       params.carrierFreq    -- Hz (taşıyıcı frekans)
+   * @param {number}       params.modulatorRatio -- modülatör/taşıyıcı oranı
+   * @param {number}       params.modulationIndex -- modülasyon derinliği
+   * @param {number}       params.volume          -- 0-1
+   * @param {object}       params.adsr            -- { attack, decay, sustain, release } saniye
+   * @param {boolean}      params.binaural        -- stereo binaural mod
+   * @param {number}       params.binauralBeat    -- Hz fark (binaural)
    */
   constructor(ctx, destination, params = {}) {
     this._ctx         = ctx;
@@ -4461,13 +4461,13 @@ class FMSynthesizer {
       adsr           : {
         attack : params.adsr?.attack  ?? 2.0,    // saniye
         decay  : params.adsr?.decay   ?? 1.0,
-        sustain: params.adsr?.sustain ?? 0.75,   // seviye (0–1)
+        sustain: params.adsr?.sustain ?? 0.75,   // seviye (0-1)
         release: params.adsr?.release ?? 3.0,
       },
     };
   }
 
-  /* ── Start ───────────────────────────────────────────────────────────── */
+  /* -- Start ------------------------------------------------------------- */
   start() {
     if (this._active) return;
     this._active = true;
@@ -4476,7 +4476,7 @@ class FMSynthesizer {
     const now = ctx.currentTime;
     const p   = this.params;
 
-    /* ── Çıkış gain ── */
+    /* -- Çıkış gain -- */
     this._outputGain = ctx.createGain();
     this._outputGain.gain.setValueAtTime(0, now);
     this._outputGain.connect(this._destination);
@@ -4491,7 +4491,7 @@ class FMSynthesizer {
     this._applyADSR(now);
   }
 
-  /* ── Stop (Release fazı) ─────────────────────────────────────────────── */
+  /* -- Stop (Release fazı) ----------------------------------------------- */
   stop() {
     if (!this._active) return;
     this._active = false;
@@ -4515,7 +4515,7 @@ class FMSynthesizer {
     setTimeout(() => this.dispose(), (release + 0.3) * 1000);
   }
 
-  /* ── Parametre güncelle ───────────────────────────────────────────────── */
+  /* -- Parametre güncelle ------------------------------------------------- */
   setCarrierFreq(freq) {
     if (!isFinite(freq) || freq <= 0) return;
     this.params.carrierFreq = freq;
@@ -4550,11 +4550,11 @@ class FMSynthesizer {
     }
   }
 
-  /* ── Reverb iskeleti ──────────────────────────────────────────────────── */
+  /* -- Reverb iskeleti ---------------------------------------------------- */
   /**
    * Basit convolver-based reverb zinciri.
-   * @param {number} roomSize  — 0–1
-   * @param {number} wetMix    — 0–1
+   * @param {number} roomSize  -- 0-1
+   * @param {number} wetMix    -- 0-1
    */
   addReverb(roomSize = 0.3, wetMix = 0.25) {
     const ctx = this._ctx;
@@ -4579,10 +4579,10 @@ class FMSynthesizer {
     wetGain.connect(this._destination);
   }
 
-  /* ── Saturation iskeleti ─────────────────────────────────────────────── */
+  /* -- Saturation iskeleti ----------------------------------------------- */
   /**
    * Yumuşak harmonik zenginleştirme (waveshaper).
-   * @param {number} amount — 0–1 (sıcaklık miktarı)
+   * @param {number} amount -- 0-1 (sıcaklık miktarı)
    */
   addSaturation(amount = 0.2) {
     const ctx    = this._ctx;
@@ -4595,7 +4595,7 @@ class FMSynthesizer {
     shaper.connect(this._destination);
   }
 
-  /* ── Temizlik ─────────────────────────────────────────────────────────── */
+  /* -- Temizlik ----------------------------------------------------------- */
   dispose() {
     [this._carrier, this._carrierR, this._modulator, this._modGain,
      this._outputGain, this._merger].forEach((node) => {
@@ -4606,9 +4606,9 @@ class FMSynthesizer {
     this._modGain = this._outputGain = this._merger = null;
   }
 
-  /* ────────────────────────────────────────────────────────────────────────
+  /* ------------------------------------------------------------------------
    * ÖZEL METODLAR
-   * ──────────────────────────────────────────────────────────────────────── */
+   * ------------------------------------------------------------------------ */
 
   _startMono(now) {
     const ctx = this._ctx;
@@ -4643,7 +4643,7 @@ class FMSynthesizer {
     this._merger = ctx.createChannelMerger(2);
     this._merger.connect(this._outputGain);
 
-    /* Sol kanal — taşıyıcı */
+    /* Sol kanal -- taşıyıcı */
     this._modulator = ctx.createOscillator();
     this._modulator.type            = 'sine';
     this._modulator.frequency.value = p.carrierFreq * p.modulatorRatio;
@@ -4663,7 +4663,7 @@ class FMSynthesizer {
     this._carrier.connect(leftGain);
     leftGain.connect(this._merger, 0, 0);
 
-    /* Sağ kanal — binauralBeat Hz fark */
+    /* Sağ kanal -- binauralBeat Hz fark */
     this._carrierR = ctx.createOscillator();
     this._carrierR.type            = 'sine';
     this._carrierR.frequency.value = p.carrierFreq + p.binauralBeat;
@@ -4720,23 +4720,23 @@ class FMSynthesizer {
   }
 }
 
-/* ── Export ───────────────────────────────────────────────────────────────── */
+/* -- Export ----------------------------------------------------------------- */
 
 /* Browser global */
 window.FMSynthesizer = FMSynthesizer;
 
-/* ═══════════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------
    AUDIO ENGINE
-   ═══════════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------- */
 /**
- * AudioEngine.js — Sanctuary 12. Aşama (Safari/iOS Uyumluluğu)
- * ─────────────────────────────────────────────────────────────────────────────
+ * AudioEngine.js -- Sanctuary 12. Aşama (Safari/iOS Uyumluluğu)
+ * -----------------------------------------------------------------------------
  * Değişiklikler (Phase 6):
  *   1. Safari ses politikası: ilk kullanıcı etkileşiminde AudioContext.resume()
  *   2. AudioWorklet yükleme hatasına karşı try-catch fallback (Safari uyumlu)
  *   3. _attachSafariAudioUnlock(): click/touchstart ile AudioContext kilidini açar
  *   4. initialize() güçlendirildi: state 'suspended' ise otomatik resume dener
- * ─────────────────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------------------
  * Değişiklikler (Phase 5):
  *   1. WebAudioAdapter.loadAudioFile → cache: 'force-cache' eklendi
  *   2. PreloadCache → tekrar indirmeyi önler, cache-first fetch
@@ -4744,14 +4744,14 @@ window.FMSynthesizer = FMSynthesizer;
  *   4. dispose() → gainNode/sourceNode disconnect, AudioContext kapat, tüm listener'ları temizle
  *   5. Visibility API → sekme arka plana geçince AudioContext suspend, öne gelince resume
  *   6. Waveform RAF → cancelAnimationFrame desteği ile stopWaveformLoop eklendi
- * ─────────────────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------------------
  */
 
 'use strict';
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 1 — SABİTLER
-═══════════════════════════════════════════════════════════════ */
+/* ---------------------------------------------------------------
+   SECTION 1 -- SABİTLER
+--------------------------------------------------------------- */
 
 const AUDIO_CONFIG = {
   DEFAULT_MASTER_VOLUME:  0.8,
@@ -4766,9 +4766,9 @@ const AUDIO_CONFIG = {
   LOOP_GAP_THRESHOLD:     0.05,
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 2 — NATIVE ADAPTER
-═══════════════════════════════════════════════════════════════ */
+/* ---------------------------------------------------------------
+   SECTION 2 -- NATIVE ADAPTER
+--------------------------------------------------------------- */
 
 class WebAudioAdapter {
   createContext() {
@@ -4796,8 +4796,8 @@ class WebAudioAdapter {
   }
 
   /**
-   * PHASE 5 — cache: 'force-cache' ile Service Worker önbelleğinden yükler.
-   * Aynı ses dosyası ikinci kez indirilmez — ağ trafiği ve veri tasarrufu sağlar.
+   * PHASE 5 -- cache: 'force-cache' ile Service Worker önbelleğinden yükler.
+   * Aynı ses dosyası ikinci kez indirilmez -- ağ trafiği ve veri tasarrufu sağlar.
    */
   async loadAudioFile(ctx, uri) {
     const response = await fetch(uri, {
@@ -4812,11 +4812,11 @@ class WebAudioAdapter {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 3 — PRELOAD CACHE
+/* ---------------------------------------------------------------
+   SECTION 3 -- PRELOAD CACHE
    PHASE 5: Aynı URI için promise paylaşımı + Map önbelleği.
    Duplicate fetch tamamen önlenir.
-═══════════════════════════════════════════════════════════════ */
+--------------------------------------------------------------- */
 
 class PreloadCache {
   constructor() {
@@ -4872,9 +4872,9 @@ class PreloadCache {
   get size() { return this._cache.size; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 4 — AUDIO LAYER
-═══════════════════════════════════════════════════════════════ */
+/* ---------------------------------------------------------------
+   SECTION 4 -- AUDIO LAYER
+--------------------------------------------------------------- */
 
 class AudioLayer {
   constructor(id, type, params = {}) {
@@ -4916,7 +4916,7 @@ class AudioLayer {
   }
 
   async _initWorklet() {
-    /* PHASE 6 — try-catch: Safari'de AudioWorklet desteklenmeyebilir veya
+    /* PHASE 6 -- try-catch: Safari'de AudioWorklet desteklenmeyebilir veya
      * Blob URL politikaları nedeniyle addModule() başarısız olabilir.
      * Bu durumda _initFallbackGenerator() otomatik devreye girer. */
     const blob = new Blob([WORKLET_PROCESSOR_CODE], { type: 'application/javascript' });
@@ -4998,7 +4998,7 @@ class AudioLayer {
           data[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.18 + (Math.random() * 2 - 1) * 0.08;
           break;
         case 'binaural': {
-          /* Aşama 1 — FrequencyManager üzerinden harmonik frekans al */
+          /* Aşama 1 -- FrequencyManager üzerinden harmonik frekans al */
           const _fm = (typeof window.getFrequencyManager === 'function')
             ? window.getFrequencyManager(this.params.baseFreq || 200)
             : null;
@@ -5074,7 +5074,7 @@ class AudioLayer {
   }
 
   /**
-   * PHASE 5: stop() — tüm node'ları disconnect ederek bellek boşaltır
+   * PHASE 5: stop() -- tüm node'ları disconnect ederek bellek boşaltır
    */
   stop() {
     try {
@@ -5096,7 +5096,7 @@ class AudioLayer {
       /* PHASE 5: gainNode'u da disconnect et */
       if (this.gainNode) {
         this.gainNode.disconnect();
-        /* gainNode referansını null yapma — dispose() içinde yapılır */
+        /* gainNode referansını null yapma -- dispose() içinde yapılır */
       }
     } catch (err) {
       console.warn('[AudioLayer.stop] Temizleme uyarısı:', err);
@@ -5107,7 +5107,7 @@ class AudioLayer {
   }
 
   /**
-   * PHASE 5: dispose() — AudioLayer'ı tamamen serbest bırakır
+   * PHASE 5: dispose() -- AudioLayer'ı tamamen serbest bırakır
    */
   dispose() {
     if (this._fmSynth)  { try { this._fmSynth.dispose();  } catch { /**/ } this._fmSynth  = null; }
@@ -5178,21 +5178,21 @@ class AudioLayer {
   get isStopped() { return this._state === 'stopped' || this._state === 'idle'; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 5 — AUDIO WORKLET PROCESSOR KODU
-═══════════════════════════════════════════════════════════════ */
+/* ---------------------------------------------------------------
+   SECTION 5 -- AUDIO WORKLET PROCESSOR KODU
+--------------------------------------------------------------- */
 
 const WORKLET_PROCESSOR_CODE = /* js */ `
 class AmbientProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super(options);
     this.generator = 'wind';
-    this.phase     = 0;      /* PHASE 12 — her zaman sıfır ile başla, NaN'a karşı güvenli */
+    this.phase     = 0;      /* PHASE 12 -- her zaman sıfır ile başla, NaN'a karşı güvenli */
     this.active    = true;
     this.port.onmessage = ({ data }) => {
       if (data.type === 'init') {
         const newGen = data.generator || 'wind';
-        /* Generator değiştiğinde phase'i sıfırla — geçiş anında 'pop' engellenir */
+        /* Generator değiştiğinde phase'i sıfırla -- geçiş anında 'pop' engellenir */
         if (newGen !== this.generator) { this.phase = 0; }
         this.generator = newGen;
       }
@@ -5211,7 +5211,7 @@ class AmbientProcessor extends AudioWorkletProcessor {
     const out = outputs[0];
     if (!out || out.length === 0) return true;
 
-    /* NaN koruması — sampleRate geçersizse sessiz çıkış ver */
+    /* NaN koruması -- sampleRate geçersizse sessiz çıkış ver */
     const sr = typeof sampleRate === 'number' && isFinite(sampleRate) && sampleRate > 0
       ? sampleRate : 44100;
 
@@ -5256,11 +5256,11 @@ class AmbientProcessor extends AudioWorkletProcessor {
 registerProcessor('ambient-processor', AmbientProcessor);
 `;
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 6 — WAVEFORM RAF MANAGER
+/* ---------------------------------------------------------------
+   SECTION 6 -- WAVEFORM RAF MANAGER
    PHASE 5: requestAnimationFrame döngüsünü yönetir.
    Sekme gizlendiğinde otomatik durur, görünür olunca devam eder.
-═══════════════════════════════════════════════════════════════ */
+--------------------------------------------------------------- */
 
 class WaveformRAFManager {
   constructor() {
@@ -5319,13 +5319,12 @@ class WaveformRAFManager {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
 
 </script>
 
 
 <script>
-/* ── Eksik yardımcı fonksiyonlar ── */
+/* -- Eksik yardımcı fonksiyonlar -- */
 
 /* Ekran geçişleri */
 window.goSanctuary = function() {
@@ -5384,7 +5383,7 @@ window.updateTrialState = function(){
 };
 </script>
 <script>
-/* ── Global fonksiyon atamaları ── */
+/* -- Global fonksiyon atamaları -- */
 window.pickMood = function(el) {
   var mood  = el.getAttribute('data-mood');
   var emoji = el.querySelector('.ic').textContent;
@@ -5393,7 +5392,7 @@ window.pickMood = function(el) {
   var me=document.getElementById('s-emoji'), mm=document.getElementById('s-mood');
   if(me) me.textContent=emoji;
   if(mm) mm.textContent=mood;
-  var msgs={'Anxious':'Restlessness is a temporary guest. Breathe — you are here.',
+  var msgs={'Anxious':'Restlessness is a temporary guest. Breathe -- you are here.',
     'Tired':'Rest is not a luxury, it is a need. Give yourself permission.',
     'Stressed':'Anxiety is your mind trying to protect you. You are safe now.',
     'Sad':'Every feeling passes. This too shall pass. I am here with you.',
@@ -5403,7 +5402,7 @@ window.pickMood = function(el) {
   if(msgEl) msgEl.textContent=msgs[mood]||'';
   var bgMap={'Anxious':'teal','Tired':'violet','Stressed':'sky','Sad':'rose','Calm':'teal','Grateful':'gold'};
   if(typeof window.setBgMood==='function') window.setBgMood(bgMap[mood]||'teal');
-  /* StateManager'a kaydet — global _activeMood yerine merkezi state */
+  /* StateManager'a kaydet -- global _activeMood yerine merkezi state */
   try {
     var sm = (typeof getStateManager === 'function') ? getStateManager() : null;
     if (sm && typeof sm.setSelectedMood === 'function') sm.setSelectedMood(mood);
@@ -5462,7 +5461,7 @@ window.generateAIFreq = async function(){
     var msd = await response.json();
     console.log('[generateAIFreq] MSD alındı:', JSON.stringify(msd));
 
-    /* Aşama 1 — GeminiAdapter MSD'sini FrequencyManager'a aktar */
+    /* Aşama 1 -- GeminiAdapter MSD'sini FrequencyManager'a aktar */
     if (typeof window.getFrequencyManager === 'function') {
       window.getFrequencyManager().applyMSD(msd);
       console.info('[FrequencyManager] MSD uygulandı:', msd.frequencySuggestion, 'Hz');
@@ -5493,7 +5492,7 @@ window.generateAIFreq = async function(){
       if(window.engine && window.engine.switchSound){
         window.engine.switchSound({gen:'binaural', base:freq, beat:beat});
       }
-      /* Aşama 2 — SampleManager MSD köprüsü: global switchSound'a msd ilet */
+      /* Aşama 2 -- SampleManager MSD köprüsü: global switchSound'a msd ilet */
       if(typeof window.switchSound === 'function'){
         window.switchSound('binaural', freq, beat, sceneName, msd);
       }
@@ -5548,26 +5547,26 @@ window.showAnalytics = function(){
 </script>
 <script>
 /**
- * RoomManager.js — Sanctuary 10. Aşama (Senkronize Odalar & Canlı Etkileşim)
- * ─────────────────────────────────────────────────────────────────────────────
+ * RoomManager.js -- Sanctuary 10. Aşama (Senkronize Odalar & Canlı Etkileşim)
+ * -----------------------------------------------------------------------------
  * Phase 10 Değişiklikleri:
- *   1. syncRoomAudio()   — Host ses değişince tüm katılımcılara broadcast
- *   2. Avatar Aura       — Katılımcı nefes durumu takibi
- *   3. Reaksiyon sistemi — Emoji tabanlı floating reaksiyonlar
- *   4. Host devri        — Host ayrılınca otomatik atama
- *   5. UMD wrapper       — ES module yerine window.RoomManager global
+ *   1. syncRoomAudio()   -- Host ses değişince tüm katılımcılara broadcast
+ *   2. Avatar Aura       -- Katılımcı nefes durumu takibi
+ *   3. Reaksiyon sistemi -- Emoji tabanlı floating reaksiyonlar
+ *   4. Host devri        -- Host ayrılınca otomatik atama
+ *   5. UMD wrapper       -- ES module yerine window.RoomManager global
  */
 (function(global) {
   'use strict';
 
-  /* ── Şifre Hash ── */
+  /* -- Şifre Hash -- */
   function hashPassword(pw) {
     if (!pw) return '';
     try { return btoa('sanctuary::' + pw); }
     catch(e) { return btoa(encodeURIComponent('sanctuary::' + pw)); }
   }
 
-  /* ── ID Üretici ── */
+  /* -- ID Üretici -- */
   function generateRoomId(type) {
     var prefix = type === 'private' ? 'PRIV' : type === 'guru' ? 'GURU' : 'GRUP';
     var d = new Date();
@@ -5577,7 +5576,7 @@ window.showAnalytics = function(){
     return prefix + '-' + datePart + '-' + rand;
   }
 
-  /* ── Demo Oda Verisi ── */
+  /* -- Demo Oda Verisi -- */
   var DEMO_ROOMS = [
     { id:'GRUP-0304-AAA1', type:'public', name:'Night Focus Session',   hostId:'user_zeynep', participants:['user_zeynep','u2','u3','u4','u5'], capacity:8,  password:null, category:'focus',       isActive:true, createdAt:Date.now()-3600000, audioConfig:{gen:'binaural',base:40,beat:10} },
     { id:'GRUP-0304-BBB2', type:'public', name:'Deep Sleep Ritual', hostId:'user_mert',   participants:['user_mert','u6'],                  capacity:6,  password:null, category:'sleep',       isActive:true, createdAt:Date.now()-7200000, audioConfig:{gen:'rain',base:174,beat:3}    },
@@ -5587,7 +5586,7 @@ window.showAnalytics = function(){
     { id:'PRIV-0304-FFF6', type:'private',name:'Private Session',         hostId:'user_nilufer',participants:['user_nilufer','u22'], capacity:4, password:hashPassword('demo'), category:'sleep', isActive:true, createdAt:Date.now()-300000, audioConfig:{gen:'rain',base:528,beat:6} },
   ];
 
-  /* ── Broadcast Simülasyonu ── */
+  /* -- Broadcast Simülasyonu -- */
   var _listeners = {};
   function _broadcast(event, data) {
     var handlers = _listeners[event] || [];
@@ -5601,7 +5600,7 @@ window.showAnalytics = function(){
     _listeners[event].push(fn);
   }
 
-  /* ── Storage ── */
+  /* -- Storage -- */
   var _rooms = null;
   function _load() {
     if (_rooms) return _rooms;
@@ -5620,21 +5619,21 @@ window.showAnalytics = function(){
     try { localStorage.setItem('sanctuary_rooms', JSON.stringify(_rooms)); } catch(e) {}
   }
 
-  /* ── Katılımcı Host Adları ── */
+  /* -- Katılımcı Host Adları -- */
   var HOST_NAMES = {
     'user_zeynep':'Zeynep A.','user_mert':'Mert K.','user_selin':'Selin T.',
     'user_ayse':'Ayse D.','user_can':'Can B.','user_nilufer':'Nilufer Y.',
   };
   function _hostName(id) { return HOST_NAMES[id] || (id ? id.replace('user_','').replace('_',' ') : 'Misafir'); }
 
-  /* ── Nefes Durumu ── */
+  /* -- Nefes Durumu -- */
   var _breathingUsers = {};
   function _setBreathing(userId, isBreathing) {
     _breathingUsers[userId] = isBreathing;
     _broadcast('breath_update', {userId:userId, breathing:isBreathing});
   }
 
-  /* ── Ana API ── */
+  /* -- Ana API -- */
   var RoomManager = {
 
     on: _on,
@@ -5715,7 +5714,7 @@ window.showAnalytics = function(){
       return result;
     },
 
-    /* ── Senkronize Ses (10. Aşama) ── */
+    /* -- Senkronize Ses (10. Aşama) -- */
     syncRoomAudio: function(roomId, audioConfig) {
       var rooms = _load();
       var room = rooms[roomId];
@@ -5730,7 +5729,7 @@ window.showAnalytics = function(){
       }
     },
 
-    /* ── Nefes Durumu ── */
+    /* -- Nefes Durumu -- */
     setBreathing: function(roomId, userId, isBreathing) {
       _setBreathing(userId, isBreathing);
     },
@@ -5739,7 +5738,7 @@ window.showAnalytics = function(){
       return !!_breathingUsers[userId];
     },
 
-    /* ── Host Adı ── */
+    /* -- Host Adı -- */
     getHostName: function(hostId) { return _hostName(hostId); },
 
     buildRoomCard: function(room) {
@@ -5776,11 +5775,11 @@ window.showAnalytics = function(){
 
 </script>
 <script>
-/* ═══════════════════════════════════════════════════════════════
-   10. AŞAMA — Senkronize Odalar, Avatar Aura, Reaksiyonlar
-═══════════════════════════════════════════════════════════════ */
+/* ---------------------------------------------------------------
+   10. AŞAMA -- Senkronize Odalar, Avatar Aura, Reaksiyonlar
+--------------------------------------------------------------- */
 
-/* ── Oda Render (RoomManager entegreli) ── */
+/* -- Oda Render (RoomManager entegreli) -- */
 window.renderRooms = function(filter) {
   var grid = document.getElementById('roomsGrid');
   if (!grid) return;
@@ -5847,7 +5846,7 @@ function _buildAuras(room) {
   return html;
 }
 
-/* ── Oda Modal ── */
+/* -- Oda Modal -- */
 window.openRoomModal = function(roomId) {
   var rm = window.RoomManager;
   if (!rm) return;
@@ -5869,7 +5868,7 @@ window.openRoomModal = function(roomId) {
   // Ses senkronizasyonu
   var cfg = room.audioConfig || {};
   var freqEl = modal.querySelector('.rm-freq');
-  if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz · ' + (cfg.gen||'') : '—';
+  if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz . ' + (cfg.gen||'') : '--';
 
   modal.style.display = 'flex';
   requestAnimationFrame(function(){ modal.classList.add('show'); });
@@ -5927,7 +5926,7 @@ window.closeRoomModal = function() {
   setTimeout(function(){ m.style.display='none'; document.body.style.overflow=''; }, 350);
 };
 
-/* ── Floating Reaksiyon Sistemi ── */
+/* -- Floating Reaksiyon Sistemi -- */
 window.sendReaction = function(emoji) {
   var container = document.getElementById('reaction-container');
   if (!container) {
@@ -5952,7 +5951,7 @@ window.sendReaction = function(emoji) {
   }
 };
 
-/* ── Filtre bar güncelle ── */
+/* -- Filtre bar güncelle -- */
 (function() {
   function _initRooms() {
     window.renderRooms('all');
@@ -5970,13 +5969,13 @@ window.sendReaction = function(emoji) {
     // RoomManager event'lerini dinle
     if (window.RoomManager) {
       window.RoomManager.on('audio_sync', function(data) {
-        // Host ses değiştirdi — bildirim göster
+        // Host ses değiştirdi -- bildirim göster
         var toast = document.getElementById('notif-toast');
         if (toast) {
           var t = toast.querySelector('.nt-title');
           var b = toast.querySelector('.nt-body');
           if (t) t.textContent = '🎵 Host updated the sound';
-          if (b) b.textContent = (data.audioConfig.base||'') + ' Hz · ' + (data.audioConfig.gen||'');
+          if (b) b.textContent = (data.audioConfig.base||'') + ' Hz . ' + (data.audioConfig.gen||'');
           toast.classList.add('show');
           setTimeout(function(){ toast.classList.remove('show'); }, 3000);
         }
@@ -5995,7 +5994,7 @@ window.sendReaction = function(emoji) {
   }
 })();
 
-/* ── Oda Oluşturma Modal Submit ── */
+/* -- Oda Oluşturma Modal Submit -- */
 (function() {
   var _origSubmit = document.getElementById('btnSubmitRoom');
   function _hookSubmit() {
@@ -6036,11 +6035,11 @@ window.sendReaction = function(emoji) {
 </script>
 
 <script>
-/* ══════════════════════════════════════════════════
-   SANCTUARY — GENERATIVE BACKGROUND ENGINE
+/* --------------------------------------------------
+   SANCTUARY -- GENERATIVE BACKGROUND ENGINE
    Metaball Field + Ribbon Waves + Sparkles + Ripples
    + CSS Floating Particles
-══════════════════════════════════════════════════ */
+-------------------------------------------------- */
 (function() {
   'use strict';
 
@@ -6202,7 +6201,7 @@ window.sendReaction = function(emoji) {
     document.body.appendChild(el);
   }
 
-  /* Mood rengi API — window.setBgMood('violet') */
+  /* Mood rengi API -- window.setBgMood('violet') */
   var MOOD_COLORS={teal:[110,205,196],violet:[155,142,196],gold:[201,169,110],rose:[210,130,140],sky:[100,180,230]};
   window.setBgMood=function(name){
     var c=MOOD_COLORS[name]; if(c){ cvRgb=c.slice(); cvBeat={teal:7,violet:10,gold:6,rose:8,sky:5}[name]||7; }
@@ -6212,7 +6211,7 @@ window.sendReaction = function(emoji) {
 
 
 <script>
-/* ── PreferenceVector + FeedbackCollector Startma ── */
+/* -- PreferenceVector + FeedbackCollector Startma -- */
 (function() {
   function _initAdaptive() {
     if (window.PreferenceVector) {
@@ -6222,7 +6221,7 @@ window.sendReaction = function(emoji) {
       window._feedbackCollector = new window.FeedbackCollector(window._prefVector);
     }
 
-    /* pickMood'u wrap et — mood seçimini kaydet */
+    /* pickMood'u wrap et -- mood seçimini kaydet */
     var _origPickMood = window.pickMood;
     window.pickMood = function(el) {
       if (_origPickMood) _origPickMood(el);
@@ -6234,7 +6233,7 @@ window.sendReaction = function(emoji) {
       }
     };
 
-    /* Play/pause oturum takibi — togglePlay'i patch et */
+    /* Play/pause oturum takibi -- togglePlay'i patch et */
     var _playBtn = document.getElementById('play-btn');
     if (_playBtn) {
       _playBtn.addEventListener('click', function() {
@@ -6377,7 +6376,7 @@ window.closeKardiyak = function() {
 <div id="connection-badge"></div>
 
 <script>
-/* switchTab güvenlik kilidi — main.js yüklenmeden önce çağrılırsa çalışır */
+/* switchTab güvenlik kilidi -- main.js yüklenmeden önce çağrılırsa çalışır */
 if (typeof window.switchTab !== 'function') {
   window.switchTab = function(tabId) {
     document.querySelectorAll('.tab-panel').forEach(function(el){ el.classList.remove('active'); });
@@ -6391,7 +6390,7 @@ if (typeof window.switchTab !== 'function') {
 }
 </script>
 <script>
-/* ── Language System ── */
+/* -- Language System -- */
 var TRANSLATIONS = {
   en: {
     "Today's Tone": "Today's Tone",
@@ -6419,7 +6418,7 @@ var TRANSLATIONS = {
     "How are you feeling today?": "How are you feeling today?",
     "Write your thoughts, feelings, and gratitude here. This space is yours alone...": "Write your thoughts, feelings, and gratitude here. This space is yours alone...",
     "View Your Sessions": "View Your Sessions",
-    "Go Premium — 7 Days Free": "Go Premium — 7 Days Free",
+    "Go Premium -- 7 Days Free": "Go Premium -- 7 Days Free",
     "After trial, $59.99/year. Cancel anytime.": "After trial, $59.99/year. Cancel anytime.",
     "Back": "Back",
     "Oracle Message": "Oracle Message",
@@ -6454,7 +6453,7 @@ var TRANSLATIONS = {
     "How are you feeling today?": "كيف تشعر اليوم؟",
     "Write your thoughts, feelings, and gratitude here. This space is yours alone...": "اكتب أفكارك ومشاعرك وامتنانك هنا. هذه المساحة لك وحدك...",
     "View Your Sessions": "عرض جلساتك",
-    "Go Premium — 7 Days Free": "اشترك الآن — 7 أيام مجاناً",
+    "Go Premium -- 7 Days Free": "اشترك الآن -- 7 أيام مجاناً",
     "After trial, $59.99/year. Cancel anytime.": "بعد التجربة، 59.99$/سنة. إلغاء في أي وقت.",
     "Back": "رجوع",
     "Oracle Message": "رسالة الأوراكل",

@@ -1,29 +1,29 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   SANCTUARY SES MOTORU — v12.0 (Gemini Derin Sahne Analizi)
-   ─────────────────────────────────────────────────────────────────────────────
-   v12.0 — Aşama 12 YENİLİKLERİ (v11.0 tabanı korundu):
-     • updateFromGemini(msd) — Gemini MSD'sini tam ayrıştırma:
-         environment_description → keyword matcher (su/gece/orman/…)
+/* ---------------------------------------------------------------------------
+   SANCTUARY SES MOTORU -- v12.0 (Gemini Derin Sahne Analizi)
+   -----------------------------------------------------------------------------
+   v12.0 -- Aşama 12 YENİLİKLERİ (v11.0 tabanı korundu):
+     • updateFromGemini(msd) -- Gemini MSD'sini tam ayrıştırma:
+         environment_description → keyword matcher (su/gece/orman/...)
          predominant_emotion → EQ + master gain dinamik ayarı
          active_elements[] → SampleManager Life Layer yoğunluğu
-         intensity (0–1) → kuş/böcek sıklığı + osc sub-pad seviyesi
+         intensity (0-1) → kuş/böcek sıklığı + osc sub-pad seviyesi
          spatial_hints[] → PannerNode konumlandırma
      • Akıllı EQ Miksajı: mood'a göre lowpass/highpass anlık güncelleme
-     • Osilatörler DAİMA %2 (0.02) — safety mute korundu + güçlendirildi
+     • Osilatörler DAİMA %2 (0.02) -- safety mute korundu + güçlendirildi
      • SampleManager v3.0 ile tam entegrasyon
    Tüm v11.0 / v9.0 özellikleri aynen korundu.
-   ─────────────────────────────────────────────────────────────────────────────
+   -----------------------------------------------------------------------------
    Sinyal Zinciri:
      Kaynaklar:
-       [A] Warm Sub-Pad (Osilatörler — %70 düşürülmüş gain, yumuşak FM)
+       [A] Warm Sub-Pad (Osilatörler -- %70 düşürülmüş gain, yumuşak FM)
        [B] Pink Noise Doğa Katmanı (anlık, SampleManager bağımsız)
        [C] SampleManager (Organik Ortam + Enstrüman Bankası)
            → Piano / Guitar / Flute prosedürel sentezi
-           → Canlılık katmanı: Kuş, böcek, kurbağa (15–30sn rastgele)
+           → Canlılık katmanı: Kuş, böcek, kurbağa (15-30sn rastgele)
        Tüm kaynaklar → _mainFilter → _masteringComp → _satNode (k=8)
          → _tremoloNode → _master → EQ → _comp → destination
 
-   v9.0 — Aşama 9 YENİLİKLERİ:
+   v9.0 -- Aşama 9 YENİLİKLERİ:
      • Siren Etkisi Tamamen Yok      : Osilatör gain'leri %70 düşürüldü.
                                         FM derinliği yumuşatıldı: "metalik" → "sıcak".
                                         Sinüs dominansı bitişti; osilatörler artık
@@ -38,17 +38,17 @@
                                         Earth Grounding: Gitar + Rüzgar + Orman
      • Canlılık Katmanı              : SampleManager v2.0'ın _scheduleLifeEvent()
                                         sistemi üzerinden çalışır. AudioEngine
-                                        müdahale etmez — SampleManager yönetir.
+                                        müdahale etmez -- SampleManager yönetir.
      • Gelişmiş 3D Sahneleme         : Pink Noise + Bowl Auto-Pan korundu.
                                         SampleManager HRTF PannerNode ile kuşların
                                         3D hareketi sağlanıyor.
-     • Tüm v8.0 özellikleri korundu  : Auto-Pan, Pink Noise, Arpeggiator (4–6sn),
+     • Tüm v8.0 özellikleri korundu  : Auto-Pan, Pink Noise, Arpeggiator (4-6sn),
                                         filter zarf, tremolo, chaos engine.
-   ═══════════════════════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------------------- */
 (function(){
   'use strict';
 
-  /* ── Modül-Düzeyi Değişkenler ── */
+  /* -- Modül-Düzeyi Değişkenler -- */
   var _ctx=null, _master=null, _comp=null, _mainFilter=null, _masteringComp=null;
   var _satNode=null, _tremoloNode=null;
   var _eqLow=null, _eqMid=null, _eqHigh=null;
@@ -76,10 +76,10 @@
   var GOLDEN = 1.618034;
   var ARP_RATIOS = [1/1, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8, 2/1];
 
-  /* ═══════════════════════════════════════════════════════════════
+  /* ---------------------------------------------------------------
      AŞAMA 9: GEN → SAHNE HARİTASI (Genişletildi)
      Yeni müzikal presetler: Zen Garden, Deep Space, Earth Grounding
-  ═══════════════════════════════════════════════════════════════ */
+  --------------------------------------------------------------- */
   var GEN_TO_SCENE = {
     waves       : 'Calm Breath',
     rain        : 'Deep Peace',
@@ -94,7 +94,7 @@
     morning     : 'Morning Mist',
   };
 
-  /* ── Ruh Hali Haritası ── */
+  /* -- Ruh Hali Haritası -- */
   var MOOD_MAP = {
     /* Türkçe key'ler (eski uyumluluk) */
     'Huzursuz' : {base:180, beat:6,  gen:'waves'},
@@ -103,7 +103,7 @@
     'Mutsuz'   : {base:220, beat:5,  gen:'waves'},
     'Sakin'    : {base:200, beat:7,  gen:'binaural'},
     'Minnettar': {base:528, beat:10, gen:'rain'},
-    /* İngilizce key'ler — HTML mood-chip data-mood değerleriyle eşleşir */
+    /* İngilizce key'ler -- HTML mood-chip data-mood değerleriyle eşleşir */
     'Anxious'  : {base:160, beat:8,  gen:'wind'},
     'Tired'    : {base:200, beat:4,  gen:'rain'},
     'Stressed' : {base:180, beat:6,  gen:'waves'},
@@ -112,7 +112,7 @@
     'Grateful' : {base:528, beat:10, gen:'zen'},
   };
 
-  /* ── Sahne Mikseri ── */
+  /* -- Sahne Mikseri -- */
   var SCENE_MIX = {
     waves   : { ambient: 0.55, tones: 0.45 },
     rain    : { ambient: 0.50, tones: 0.50 },
@@ -127,7 +127,7 @@
     morning : { ambient: 0.60, tones: 0.40 },
   };
 
-  /* ── AudioContext ── */
+  /* -- AudioContext -- */
   function getCtx() {
     if (!_ctx) {
       var C = window.AudioContext || window.webkitAudioContext;
@@ -137,9 +137,9 @@
     return _ctx;
   }
 
-  /* ══════════════════════════════════════════════════════════════════════
-     MASTER BUS — v9.0 (v8.0'dan korundu)
-     ══════════════════════════════════════════════════════════════════════ */
+  /* ----------------------------------------------------------------------
+     MASTER BUS -- v9.0 (v8.0'dan korundu)
+     ---------------------------------------------------------------------- */
   function ensureMaster(ctx) {
     if (_master) return;
 
@@ -218,7 +218,7 @@
     window._eqHigh        = _eqHigh;
   }
 
-  /* ── Solfeggio + Pentatonic ── */
+  /* -- Solfeggio + Pentatonic -- */
   var SCALES = {
     solfeggio:  [174, 285, 396, 417, 528, 639, 741, 852, 963],
     pentatonic: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00],
@@ -238,9 +238,9 @@
     return best;
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
-     AŞAMA 9: WARM SUB-PAD SENTEZLEYICI — buildWarmPad()
-     ────────────────────────────────────────────────────────────────────────
+  /* ------------------------------------------------------------------------
+     AŞAMA 9: WARM SUB-PAD SENTEZLEYICI -- buildWarmPad()
+     ------------------------------------------------------------------------
      v9.0 radikal değişiklikleri:
        • Gain %70 düşürüldü → Osilatörler artık ana ses DEĞİL, sub-pad.
        • FM derinliği dramatik biçimde yumuşatıldı:
@@ -250,19 +250,19 @@
        • FM modülatör oranı: 0.27 → 0.50 (sub-octave pad karakteri)
        • Micro-LFO: gainVal × 0.32 → gainVal × 0.12
          Daha sessiz, neredeyse fark edilmez nefes.
-       • Osilatör tipi tercihi: 'sine' baskın — 'triangle' kaldırıldı.
+       • Osilatör tipi tercihi: 'sine' baskın -- 'triangle' kaldırıldı.
          Sinüs dalgası warmth için uygun, metalik değil.
-     ════════════════════════════════════════════════════════════════════════ */
+     ------------------------------------------------------------------------ */
   function buildWarmPad(ctx, freq, detuneCents, gainVal, destGain, attackSec) {
     var now = ctx.currentTime;
 
-    /* ── Ana Pad Osilatörü — saf sinüs, sub karakteri ── */
+    /* -- Ana Pad Osilatörü -- saf sinüs, sub karakteri -- */
     var carrier = ctx.createOscillator();
     carrier.type = 'sine';
     carrier.frequency.value = freq;
     carrier.detune.value = detuneCents;
 
-    /* ── Soft FM Modülatör — v9.0: sıcak pad warmth ──────────────────────
+    /* -- Soft FM Modülatör -- v9.0: sıcak pad warmth ----------------------
      * Oran: 0.50 → tam sub-octave FM → derin, sıcak bass warmth.
      * Derinlik: freq × 0.004 → sadece hafif tını rengi, metalik değil. */
     var fmMod = ctx.createOscillator();
@@ -270,12 +270,12 @@
     fmMod.frequency.value = freq * 0.50;  /* Sub-octave ratio */
 
     var fmDepth = ctx.createGain();
-    /* v9.0: 0.030 → 0.004 — metalik çınlama yerine sıcak warmth */
+    /* v9.0: 0.030 → 0.004 -- metalik çınlama yerine sıcak warmth */
     fmDepth.gain.value = Math.max(0.3, freq * 0.004);
     fmMod.connect(fmDepth);
     fmDepth.connect(carrier.frequency);
 
-    /* ── Micro-LFO — v9.0: neredeyse fark edilmez, sadece doku ──────────
+    /* -- Micro-LFO -- v9.0: neredeyse fark edilmez, sadece doku ----------
      * gainVal × 0.12 → çok hafif nefes, kulak fark etmiyor ama canlılık var. */
     var lfoRate = 0.08 + Math.random() * 0.25; /* Daha yavaş */
     var lfo = ctx.createOscillator();
@@ -290,7 +290,7 @@
     shimmer.gain.value = 1.0;
     lfoAmp.connect(shimmer.gain);
 
-    /* ── ADSR Zarfı — v9.0: Uzun atak, yumuşak ── */
+    /* -- ADSR Zarfı -- v9.0: Uzun atak, yumuşak -- */
     var envNode = ctx.createGain();
     envNode.gain.setValueAtTime(0.0001, now);
     envNode.gain.exponentialRampToValueAtTime(gainVal, now + attackSec);
@@ -306,9 +306,9 @@
     return { carrier: carrier, fmMod: fmMod, lfo: lfo };
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
+  /* ------------------------------------------------------------------------
      PINK NOISE BUFFER (v8.0'dan korundu)
-     ════════════════════════════════════════════════════════════════════════ */
+     ------------------------------------------------------------------------ */
   function makePinkNoiseBuffer(ctx, gen) {
     var sr  = ctx.sampleRate || 44100;
     var dur = 12;
@@ -359,9 +359,9 @@
     return buf;
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
+  /* ------------------------------------------------------------------------
      AUTO-PAN (v8.0'dan korundu)
-     ════════════════════════════════════════════════════════════════════════ */
+     ------------------------------------------------------------------------ */
   function createAutoPan(ctx, pannerNode, lfoHz, depth, phaseOffset) {
     var lfo = ctx.createOscillator();
     lfo.type = 'sine';
@@ -374,9 +374,9 @@
     return lfo;
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
+  /* ------------------------------------------------------------------------
      DOĞRUDAN DOĞA SESİ (v8.0'dan korundu)
-     ════════════════════════════════════════════════════════════════════════ */
+     ------------------------------------------------------------------------ */
   function startDirectNature(ctx, gen, ambVol) {
     stopDirectNature();
     var now = ctx.currentTime;
@@ -451,9 +451,9 @@
     if (_directWaveSrc)     { try{_directWaveSrc.stop();_directWaveSrc.disconnect();}catch(e){} _directWaveSrc=null; }
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
+  /* ------------------------------------------------------------------------
      MODÜLASYON (v8.0'dan korundu)
-     ════════════════════════════════════════════════════════════════════════ */
+     ------------------------------------------------------------------------ */
   function startModulation(ctx) {
     stopModulation();
     var now = ctx.currentTime;
@@ -519,9 +519,9 @@
     }
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
-     GOLDEN RATIO ARPEGGİATOR — v9.0 (v8.0'dan korundu: 4–6 sn, 1.5–2.5 sn glide)
-     ════════════════════════════════════════════════════════════════════════ */
+  /* ------------------------------------------------------------------------
+     GOLDEN RATIO ARPEGGİATOR -- v9.0 (v8.0'dan korundu: 4-6 sn, 1.5-2.5 sn glide)
+     ------------------------------------------------------------------------ */
   function startArpeggiator(ctx) {
     stopArpeggiator();
     if (!_curBase || !_oscs.length) return;
@@ -569,7 +569,7 @@
     if (_arpTimer) { clearTimeout(_arpTimer); _arpTimer = null; }
   }
 
-  /* ── Temizleyiciler ── */
+  /* -- Temizleyiciler -- */
   function stopLFO() {
     if (_lfoOsc)    { try{_lfoOsc.stop();}catch(e){} _lfoOsc=null; }
     if (_lfoGain)   { try{_lfoGain.disconnect();}catch(e){} _lfoGain=null; }
@@ -599,15 +599,15 @@
     if (_granular)  { try{_granular.stop();}catch(e){} _granular=null; }
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
-     SES BAŞLAT — startSound v9.0
-     ════════════════════════════════════════════════════════════════════════ */
+  /* ------------------------------------------------------------------------
+     SES BAŞLAT -- startSound v9.0
+     ------------------------------------------------------------------------ */
   function startSound(gen, base, beat, offset) {
     var ctx = getCtx();
     if (ctx.state === 'suspended') ctx.resume();
     ensureMaster(ctx);
 
-    /* Aşama 11: SM henüz bağlı değilse bootstrap et — MOTOR SESİ ÜRETMEDEN ÖNCE */
+    /* Aşama 11: SM henüz bağlı değilse bootstrap et -- MOTOR SESİ ÜRETMEDEN ÖNCE */
     if (!_sampleManager && typeof window.SampleManager !== 'undefined' && _master) {
       try {
         _sampleManager = new window.SampleManager(ctx, _master, {
@@ -631,31 +631,31 @@
     stopModulation();
     stopDirectNature();
 
-    /* ── Filtre Zarfı ── */
+    /* -- Filtre Zarfı -- */
     var _fEnvNow = ctx.currentTime;
     _mainFilter.frequency.cancelScheduledValues(_fEnvNow);
     _mainFilter.frequency.setValueAtTime(350, _fEnvNow);
     _mainFilter.frequency.exponentialRampToValueAtTime(1900, _fEnvNow + 5.0);
 
-    /* ── Sahne Mikseri ── */
+    /* -- Sahne Mikseri -- */
     var _baseVol = window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60;
     var _mix     = SCENE_MIX[gen] || { ambient: 0.50, tones: 0.50 };
     var ambVol   = Math.max(0.05, Math.min(0.95, _baseVol * (_mix.ambient / 0.50)));
 
-    /* ══ Aşama 9: Sub-Pad Gain — %70 düşürüldü ═══════════════════════════
+    /* -- Aşama 9: Sub-Pad Gain -- %70 düşürüldü ---------------------------
      * v9.0: Osilatörler artık sadece arka plan warmth sağlar.
      * Kulağın duyduğu ana ses = SampleManager enstrümanları. */
     var oscVol = _mix.tones * 0.30; /* v9.0: 1.00 → 0.30 (%70 düşüş) */
 
     var xfDur   = 2.5;
-    var PAD_ATTACK = 5.5; /* v9.0: Daha yavaş atak — sub-pad doğal açılım */
+    var PAD_ATTACK = 5.5; /* v9.0: Daha yavaş atak -- sub-pad doğal açılım */
 
-    /* ══ DOĞRUDAN DOĞA SESİ ══ */
+    /* -- DOĞRUDAN DOĞA SESİ -- */
     startDirectNature(ctx, gen, ambVol);
 
-    /* ══ Aşama 9: WARM SUB-PAD OSİLATÖRLER ═══════════════════════════════
+    /* -- Aşama 9: WARM SUB-PAD OSİLATÖRLER -------------------------------
      * buildWarmPad: FM çok yumuşak, gain çok düşük.
-     * Kulak sadece perde değişimlerinde fark eder — siren yok. */
+     * Kulak sadece perde değişimlerinde fark eder -- siren yok. */
     if (beat > 0) {
       var _fm = (typeof window.getFrequencyManager === 'function')
         ? window.getFrequencyManager(base)
@@ -709,13 +709,13 @@
       envGainL.connect(xGainL); xGainL.connect(panL);
       envGainR.connect(xGainR); xGainR.connect(panR);
 
-      /* ── Aşama 9: Sadece 2 harmonik — daha az sinüs yoğunluğu ──────────
+      /* -- Aşama 9: Sadece 2 harmonik -- daha az sinüs yoğunluğu ----------
        * v8.0: 4 harmonik × 2 kanal = 8 osilatör → siren riski yüksek.
        * v9.0: 2 harmonik × 2 kanal = 4 osilatör → sub-pad karakteri. */
       var _beat = isFinite(beat) ? beat : 0;
       var PAD_HARMONICS = [
         { mult:1, gainVal: oscVol * 1.0 },  /* Temel */
-        { mult:2, gainVal: oscVol * 0.4 },  /* Oktav — derin warmth */
+        { mult:2, gainVal: oscVol * 0.4 },  /* Oktav -- derin warmth */
       ];
 
       PAD_HARMONICS.forEach(function(h) {
@@ -740,7 +740,7 @@
 
     var now = ctx.currentTime;
 
-    /* ══ GranularEngine / Fallback ══════════════════════════════════════ */
+    /* -- GranularEngine / Fallback -------------------------------------- */
     if (window.GranularEngine) {
       var grainTypeMap = {waves:'waves',rain:'rain',wind:'wind',fire:'forest',storm:'wind',binaural:'forest',zen:'wind',space:'wind',earth:'forest',forest:'forest',morning:'wind'};
       var grainType = grainTypeMap[gen] || 'wind';
@@ -781,7 +781,7 @@
       src.start(0, off); _startTime=now; _noise=src; _noiseGain=gain;
     }
 
-    /* ── Modülasyon + Arpeggiator ── */
+    /* -- Modülasyon + Arpeggiator -- */
     setTimeout(function() {
       if (_playing && _ctx) startModulation(_ctx);
     }, 300);
@@ -813,21 +813,21 @@
     }
   }
 
-  /* ════════════════════════════════════════════════════════════════════════
-     AŞAMA 12: updateFromGemini(msd) — Gemini Derin Sahne Analizi
-     ────────────────────────────────────────────────────────────────────────
+  /* ------------------------------------------------------------------------
+     AŞAMA 12: updateFromGemini(msd) -- Gemini Derin Sahne Analizi
+     ------------------------------------------------------------------------
      Gemini'den gelen MSD nesnesini tam ayrıştırır:
        msd.sceneName              → sahne adı (v11'den gelen yol)
        msd.environment_description→ serbest metin → keyword matcher
        msd.predominant_emotion    → EQ + master gain dinamik ayarı
        msd.active_elements[]      → ["birds","wind","water",...] → SM Life Layer
-       msd.intensity   (0–1)      → kuş/böcek sıklığı + sub-pad seviyesi
+       msd.intensity   (0-1)      → kuş/böcek sıklığı + sub-pad seviyesi
        msd.spatial_hints[]        → [{element,x,y,z}] → PannerNode konumları
        msd.frequencySuggestion    → baseFreq güncelleme (FrequencyManager)
        msd.mood                   → EQ ton rengi
-     ════════════════════════════════════════════════════════════════════════ */
+     ------------------------------------------------------------------------ */
 
-  /* ── Keyword → Gen/Scene eşleştirici ── */
+  /* -- Keyword → Gen/Scene eşleştirici -- */
   var KEYWORD_MAP = [
     /* Su / Deniz / Göl */
     { keys: ['su','deniz','okyanus','göl','nehir','şelale','yağmur','rain','water','ocean','lake','river','waterfall'],
@@ -863,7 +863,7 @@
       eqPreset: { lowHz:200, lowGain:2, midGain:-1, highHz:6000, highGain:0, filterHz:1400 } },
   ];
 
-  /* ── Emotion → EQ haritası ── */
+  /* -- Emotion → EQ haritası -- */
   var EMOTION_EQ = {
     /* Hüzünlü / Melankoli → boğuk, sarıcı */
     sad       : { lowGain:4,  midGain:-3, highGain:-3, filterHz:900,  masterMult:0.75 },
@@ -888,7 +888,7 @@
   /**
    * Gemini MSD'sini tüm ses katmanlarına anlık uygula.
    * index.html içindeki generateAIFreq'ten çağrılır.
-   * @param {object} msd — Gemini API çıktısı
+   * @param {object} msd -- Gemini API çıktısı
    */
   window.updateFromGemini = function(msd) {
     if (!msd) return;
@@ -898,7 +898,7 @@
     console.group('[AudioEngine v12] updateFromGemini');
     console.info('MSD alındı:', JSON.stringify(msd).slice(0, 200));
 
-    /* ── 1. environment_description → Keyword Matcher ── */
+    /* -- 1. environment_description → Keyword Matcher -- */
     var envDesc = (msd.environment_description || msd.sceneName || '').toLowerCase();
     var matchedEntry = null;
     for (var ki = 0; ki < KEYWORD_MAP.length; ki++) {
@@ -912,7 +912,7 @@
       if (matchedEntry) break;
     }
 
-    /* ── 2. EQ Güncelleme ── */
+    /* -- 2. EQ Güncelleme -- */
     var now = ctx.currentTime;
     var ramp = 2.0;
 
@@ -922,7 +922,7 @@
       _applyEQPreset(ep, now, ramp);
     }
 
-    /* Emotion EQ (keyword preset'in üzerine yazar — daha spesifik) */
+    /* Emotion EQ (keyword preset'in üzerine yazar -- daha spesifik) */
     var emotion = (msd.predominant_emotion || msd.mood || '').toLowerCase();
     var emotionPreset = null;
     for (var ek in EMOTION_EQ) {
@@ -940,7 +940,7 @@
       }
     }
 
-    /* ── 3. FrequencyManager güncelle ── */
+    /* -- 3. FrequencyManager güncelle -- */
     var newFreq = msd.frequencySuggestion || msd.freq;
     if (isFinite(newFreq) && newFreq > 0) {
       if (typeof window.getFrequencyManager === 'function') {
@@ -948,7 +948,7 @@
       }
     }
 
-    /* ── 4. SampleManager'a Gemini verilerini ilet ── */
+    /* -- 4. SampleManager'a Gemini verilerini ilet -- */
     if (_sampleManager && typeof _sampleManager.applyGeminiData === 'function') {
       try {
         _sampleManager.applyGeminiData({
@@ -961,11 +961,11 @@
       } catch(e) { console.warn('[updateFromGemini] SM applyGeminiData hatası:', e.message); }
     }
 
-    /* ── 5. Ses değişimi — matchedEntry'ye göre sahne güncelle ── */
+    /* -- 5. Ses değişimi -- matchedEntry'ye göre sahne güncelle -- */
     if (matchedEntry && _playing) {
       var beat = msd.beat || _curBeat || 7;
       var freq = newFreq || _curBase || 200;
-      /* Mevcut gen zaten aynıysa tekrar başlatma — sadece EQ güncellendi */
+      /* Mevcut gen zaten aynıysa tekrar başlatma -- sadece EQ güncellendi */
       if (matchedEntry.gen !== _curGen) {
         startDirectNature(ctx, matchedEntry.gen,
           (window._prefVector ? window._prefVector.getLayerGains().ambient * 0.85 : 0.60) * 0.75);
@@ -1000,9 +1000,9 @@
     } catch(e) { console.warn('[_applyEQPreset]', e.message); }
   }
 
-  /* ══════════════════════════════════════════════
+  /* ----------------------------------------------
      GLOBAL API
-     ══════════════════════════════════════════════ */
+     ---------------------------------------------- */
 
   window.togglePlay = function() {
     var btn  = document.getElementById('play-btn');
@@ -1072,16 +1072,16 @@
     }
   };
 
-  /* ════════════════════════════════════════════════════════════════════════
-     switchSound — v9.0: Enstrüman Preset Entegrasyonu
-     ════════════════════════════════════════════════════════════════════════ */
+  /* ------------------------------------------------------------------------
+     switchSound -- v9.0: Enstrüman Preset Entegrasyonu
+     ------------------------------------------------------------------------ */
   window.switchSound = function(gen, base, beat, label, msd) {
     try{ localStorage.setItem('lastGen',gen); localStorage.setItem('lastBase',base); localStorage.setItem('lastBeat',beat); }catch(e){}
     if (window._prefVector) try{ window._prefVector.recordSoundChoice(gen, base, beat); }catch(e){}
     _pauseOffset = 0;
     if (_playing) startSound(gen, base, beat, 0);
 
-    /* ── SampleManager v2.0 — Sahne + Enstrüman Preset ── */
+    /* -- SampleManager v2.0 -- Sahne + Enstrüman Preset -- */
     if (typeof window.SampleManager !== 'undefined') {
       var ctx = getCtx();
       ensureMaster(ctx);
@@ -1145,9 +1145,9 @@
   };
 
 })();
-/* ═══════════════════════════════════════════════════ */
+/* --------------------------------------------------- */
 
-/* ══ ADIM 8+9: Listener adaptasyonu + syncStart ══ */
+/* -- ADIM 8+9: Listener adaptasyonu + syncStart -- */
 
   window.applyRemoteState = function(params) {
     if (!params) return;
@@ -1178,7 +1178,7 @@
     }
   };
 
-/* ══ ADIM 9: Biyometrik Adaptasyon ══ */
+/* -- ADIM 9: Biyometrik Adaptasyon -- */
 window.applyBiometricEffect = function(p) {
   if (!p || !window._ctx) return;
   var now  = window._ctx.currentTime;
@@ -1199,7 +1199,40 @@ window.applyBiometricEffect = function(p) {
   } catch(e) { console.warn('[applyBiometricEffect]', e); }
 };
 
-/* ── Yedek referans ── */
+/* -- Yedek referans -- */
 window._audioToggle      = window.togglePlay;
 window._audioSwitchSound = window.switchSound;
 window._audioSleepTimer  = window.setSleepTimer;
+
+/* -- Play butonu doğrudan bağlama --
+   main.js veya başka scriptler window.togglePlay'i override etse bile
+   bu binding AudioEngine'in kendi togglePlay'ini doğrudan çağırır.    */
+(function() {
+  var _tp = window.togglePlay; /* AudioEngine'in togglePlay referansını sakla */
+
+  function _bindBtn() {
+    var btn = document.getElementById('play-btn');
+    if (!btn) return;
+    /* Önceki listener'ları temizlemek için clone trick */
+    var fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
+    fresh.addEventListener('click', function() {
+      if (window._ctx && window._ctx.state === 'suspended') {
+        window._ctx.resume();
+      }
+      /* Saklanan referansı kullan -- override'a karşı korumalı */
+      if (typeof _tp === 'function') {
+        _tp();
+      } else if (typeof window.togglePlay === 'function') {
+        window.togglePlay();
+      }
+    });
+    console.info('[AudioEngine v12] Play butonu bağlandı ✓');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _bindBtn);
+  } else {
+    _bindBtn();
+  }
+})();

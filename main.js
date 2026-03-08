@@ -1,25 +1,25 @@
 /**
- * main.js — Sanctuary 11. Aşama (Performans & Bellek Optimizasyonu)
- * ─────────────────────────────────────────────────────────────────────────────
+ * main.js -- Sanctuary 11. Aşama (Performans & Bellek Optimizasyonu)
+ * -----------------------------------------------------------------------------
  * 4. Aşama korundu. Ek değişiklikler (Phase 5):
- *   1. PageVisibilityManager — Sekme gizlenince Ripple/Waveform durur, CPU tasarrufu
- *   2. RenderGuard           — Oda listesi sadece veri değiştiğinde render edilir
- *   3. stopWaveformLoop()    — cancelAnimationFrame ile RAF döngüsü iptal edilir
- *   4. fetchWithTimeout      — cache: 'force-cache' destekli (SW ile entegre)
- *   5. Cleanup on unload     — beforeunload + pagehide'da tüm kaynaklar temizlenir
- * ─────────────────────────────────────────────────────────────────────────────
+ *   1. PageVisibilityManager -- Sekme gizlenince Ripple/Waveform durur, CPU tasarrufu
+ *   2. RenderGuard           -- Oda listesi sadece veri değiştiğinde render edilir
+ *   3. stopWaveformLoop()    -- cancelAnimationFrame ile RAF döngüsü iptal edilir
+ *   4. fetchWithTimeout      -- cache: 'force-cache' destekli (SW ile entegre)
+ *   5. Cleanup on unload     -- beforeunload + pagehide'da tüm kaynaklar temizlenir
+ * -----------------------------------------------------------------------------
  * 4. Aşama özeti:
  *   - Toast Sistemi, Hata Yönetimi, Offline/Online panel, Loading Spinners, Fetch Timeout
- * ─────────────────────────────────────────────────────────────────────────────
+ * -----------------------------------------------------------------------------
  */
 
 'use strict';
 
-/* ══════════════════════════════════════════════════════════════════
-   PHASE 5 — BÖLÜM 0: PAGE VISIBILITY MANAGER
+/* ------------------------------------------------------------------
+   PHASE 5 -- BÖLÜM 0: PAGE VISIBILITY MANAGER
    Sekme arka plana geçince Ripple ve Waveform efektleri durur.
    Öne gelince otomatik devam eder. CPU ve pil tasarrufu sağlar.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 var PageVisibilityManager = (function () {
   var _tabVisible  = !document.hidden;
@@ -68,12 +68,12 @@ var PageVisibilityManager = (function () {
   return { init: init, register: register, isVisible: isVisible, dispose: dispose };
 })();
 
-/* ══════════════════════════════════════════════════════════════════
-   PHASE 5 — BÖLÜM 0B: RENDER GUARD
+/* ------------------------------------------------------------------
+   PHASE 5 -- BÖLÜM 0B: RENDER GUARD
    Oda listesi ve ses listelerinin gereksiz yeniden render edilmesini önler.
    Veriyi stringify ederek önceki versiyonla karşılaştırır (deep comparison).
    Veri değişmediyse DOM dokunulmaz → CPU ve layout tasarrufu.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 var RenderGuard = (function () {
   var _lastHashes = {}; // key → string hash
@@ -81,8 +81,8 @@ var RenderGuard = (function () {
   /**
    * data değişmediyse false döner (render atla).
    * data değiştiyse true döner (render gerekiyor) ve hash günceller.
-   * @param {string} key  — benzersiz anahtar (örn: 'rooms', 'sounds')
-   * @param {*}      data — karşılaştırılacak veri
+   * @param {string} key  -- benzersiz anahtar (örn: 'rooms', 'sounds')
+   * @param {*}      data -- karşılaştırılacak veri
    */
   function shouldRender(key, data) {
     try {
@@ -107,11 +107,11 @@ var RenderGuard = (function () {
   return { shouldRender: shouldRender, invalidate: invalidate, invalidateAll: invalidateAll };
 })();
 
-/* ══════════════════════════════════════════════════════════════════
-   PHASE 5 — BÖLÜM 0C: GLOBAL RAF REGISTRY
+/* ------------------------------------------------------------------
+   PHASE 5 -- BÖLÜM 0C: GLOBAL RAF REGISTRY
    Tüm requestAnimationFrame ID'lerini takip eder.
    Temizlik gerektiğinde (sekme kapat, dispose) hepsini iptal eder.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 var RAFRegistry = (function () {
   var _ids = new Set();
@@ -133,7 +133,7 @@ var RAFRegistry = (function () {
 })();
 
 /**
- * PHASE 5: stopWaveformLoop — tüm waveform RAF'larını cancelAnimationFrame ile iptal eder.
+ * PHASE 5: stopWaveformLoop -- tüm waveform RAF'larını cancelAnimationFrame ile iptal eder.
  * AudioEngine.stopWaveformLoop() ile birlikte çağrılmalıdır.
  */
 function stopWaveformLoop() {
@@ -147,11 +147,11 @@ function stopWaveformLoop() {
   console.info('[main] Waveform döngüsü durduruldu.');
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 1 — MERKEZI TOAST BİLDİRİM SİSTEMİ
+/* ------------------------------------------------------------------
+   BÖLÜM 1 -- MERKEZI TOAST BİLDİRİM SİSTEMİ
    Cam efektli, 4 tip: success | error | warning | info
    Otomatik kapanır, progress bar gösterir, kapatılabilir.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 var ToastManager = (function () {
   var container = null;
@@ -283,17 +283,17 @@ var ToastManager = (function () {
   };
 })();
 
-/* Geriye dönük uyumluluk — eski showToast() çağrıları çalışmaya devam eder */
+/* Geriye dönük uyumluluk -- eski showToast() çağrıları çalışmaya devam eder */
 function showToast(message, type, title) {
   type = type || 'info';
   console.info('[Toast]', type.toUpperCase() + ':', message);
   return ToastManager.show(message, type, title);
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 2 — ONLINE / OFFLINE PANEL
+/* ------------------------------------------------------------------
+   BÖLÜM 2 -- ONLINE / OFFLINE PANEL
    İnternet kesilince kırmızı banner, gelince yeşil flash gösterilir.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 var NetworkMonitor = (function () {
   var offlinePanel = null;
@@ -310,7 +310,7 @@ var NetworkMonitor = (function () {
         '<span class="offline-dot"></span>',
         '<div class="offline-text">',
         '  <span class="offline-title">İnternet Bağlantısı Kesildi</span>',
-        '  <span class="offline-sub">Çevrimdışı Mod Aktif — Temel Sahneler Kullanılabilir</span>',
+        '  <span class="offline-sub">Çevrimdışı Mod Aktif -- Temel Sahneler Kullanılabilir</span>',
         '</div>',
         '<span class="offline-icon">📡</span>',
       ].join('');
@@ -371,10 +371,10 @@ var NetworkMonitor = (function () {
   };
 })();
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 3 — FETCH WRAPPER (10 saniyelik timeout)
-   fetchWithTimeout() — standart fetch yerine her yerde bu kullanılır.
-══════════════════════════════════════════════════════════════════ */
+/* ------------------------------------------------------------------
+   BÖLÜM 3 -- FETCH WRAPPER (10 saniyelik timeout)
+   fetchWithTimeout() -- standart fetch yerine her yerde bu kullanılır.
+------------------------------------------------------------------ */
 
 function fetchWithTimeout(url, options, timeoutMs) {
   timeoutMs = timeoutMs || 10000;
@@ -425,16 +425,16 @@ function fetchWithTimeout(url, options, timeoutMs) {
     });
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 4 — LOADING SPINNER YARDIMCILARI
+/* ------------------------------------------------------------------
+   BÖLÜM 4 -- LOADING SPINNER YARDIMCILARI
    Buton, konteyner veya play butonu için spinner ekler/kaldırır.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 var LoadingManager = (function () {
 
   /**
    * Butona spinner ekler, disabled yapar.
-   * @returns {function} restore — orijinal metni geri getirir
+   * @returns {function} restore -- orijinal metni geri getirir
    */
   function setButtonLoading(btn, loadingText) {
     if (!btn) return function () {};
@@ -535,11 +535,11 @@ var LoadingManager = (function () {
   };
 })();
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 5 — RİPPLE EFEKTİ (Çok Halkalı Su Dalgası)
+/* ------------------------------------------------------------------
+   BÖLÜM 5 -- RİPPLE EFEKTİ (Çok Halkalı Su Dalgası)
    mousedown + touchstart desteği
    Her tıklamada 3 halka oluşur, CSS animasyonu ile kaybolur.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 function initRippleEffect() {
   var RING_COUNT  = 3;
@@ -598,11 +598,11 @@ function initRippleEffect() {
   }, { passive: true });
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 6 — SEKME GEÇİŞ ANİMASYONLARI
+/* ------------------------------------------------------------------
+   BÖLÜM 6 -- SEKME GEÇİŞ ANİMASYONLARI
    switchTab() global fonksiyonunu override eder.
    İçerik blur+fade-in (0.3s) ile gelir.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 function initTabAnimations() {
   window.switchTab = function (tabId) {
@@ -641,10 +641,10 @@ function initTabAnimations() {
   };
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 7 — NEFES DÖNGÜSÜ (Ses Senkronlu)
+/* ------------------------------------------------------------------
+   BÖLÜM 7 -- NEFES DÖNGÜSÜ (Ses Senkronlu)
    engine.fadeTo() ile nefes hızına ses seviyesi uyarlanır.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 function startBreathCycle(engine, breathWrap, guideEl, options) {
   options = options || {};
@@ -693,11 +693,11 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
       }
     } catch (err) {
       console.warn('[BreathCycle] Volume sync hatası:', err);
-      /* Ses senkronu kritik değil — sessizce devam et */
+      /* Ses senkronu kritik değil -- sessizce devam et */
     }
   }
 
-  /* PHASE 11 — Haptic helper: mobilde kısa titreşim */
+  /* PHASE 11 -- Haptic helper: mobilde kısa titreşim */
   function _haptic(ms) {
     try {
       if (navigator.vibrate) navigator.vibrate(ms || 20);
@@ -708,21 +708,21 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
     if (stopped) return;
 
     setBreathClass('breath-inhale');
-    setGuide('Nefes al…');
+    setGuide('Nefes al...');
     syncVolume(volInhale, inhale);
-    _haptic(20); /* PHASE 11 — Nefes Al titreşimi */
+    _haptic(20); /* PHASE 11 -- Nefes Al titreşimi */
 
     timers.push(setTimeout(function () {
       if (stopped) return;
       setBreathClass('breath-hold');
-      setGuide('Tut…');
+      setGuide('Tut...');
 
       timers.push(setTimeout(function () {
         if (stopped) return;
         setBreathClass('breath-exhale');
-        setGuide('Nefes ver…');
+        setGuide('Nefes ver...');
         syncVolume(volExhale, exhale);
-        _haptic(20); /* PHASE 11 — Nefes Ver titreşimi */
+        _haptic(20); /* PHASE 11 -- Nefes Ver titreşimi */
 
         timers.push(setTimeout(function () {
           if (stopped) return;
@@ -743,9 +743,9 @@ function startBreathCycle(engine, breathWrap, guideEl, options) {
   };
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 8 — API KEY GÜVENLİ YÜKLEME
-══════════════════════════════════════════════════════════════════ */
+/* ------------------------------------------------------------------
+   BÖLÜM 8 -- API KEY GÜVENLİ YÜKLEME
+------------------------------------------------------------------ */
 
 function initApiKey(key) {
   if (!key || typeof key !== 'string') return;
@@ -771,10 +771,10 @@ function clearApiKey() {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 9 — SES DOSYASI YÜKLEME (Hata Yönetimli)
+/* ------------------------------------------------------------------
+   BÖLÜM 9 -- SES DOSYASI YÜKLEME (Hata Yönetimli)
    Ses yüklenirken play butonunda spinner gösterilir.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 function loadAudioWithFeedback(audioEl, src, playBtn) {
   if (!audioEl) return;
@@ -805,14 +805,14 @@ function loadAudioWithFeedback(audioEl, src, playBtn) {
   }, { once: true });
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 10 — ODA UI YÖNETİMİ
-══════════════════════════════════════════════════════════════════ */
+/* ------------------------------------------------------------------
+   BÖLÜM 10 -- ODA UI YÖNETİMİ
+------------------------------------------------------------------ */
 
 function renderRoomList(container, category) {
   if (!container) return;
 
-  /* PHASE 5: RenderGuard — veri değişmediyse DOM'a dokunma */
+  /* PHASE 5: RenderGuard -- veri değişmediyse DOM'a dokunma */
   var cacheKey = 'rooms:' + (category || 'all');
 
   // Skeleton loader göster (sadece ilk render veya kategori değişince)
@@ -921,9 +921,9 @@ function _bindRoomCards(container) {
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 11 — ODA HANDLER'LARI (Hata Yönetimli)
-══════════════════════════════════════════════════════════════════ */
+/* ------------------------------------------------------------------
+   BÖLÜM 11 -- ODA HANDLER'LARI (Hata Yönetimli)
+------------------------------------------------------------------ */
 
 function handleCreateRoom(formData) {
   formData = formData || {};
@@ -1028,10 +1028,10 @@ function handleLeaveRoom(roomId) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 12 — AI ORACLE OVERLAY KONTROLÜ
+/* ------------------------------------------------------------------
+   BÖLÜM 12 -- AI ORACLE OVERLAY KONTROLÜ
    Mevcut overlay'in düzgün çalıştığını garanti eder.
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 var AiOracleUI = (function () {
   function showProcessing() {
@@ -1053,7 +1053,7 @@ var AiOracleUI = (function () {
   }
 
   /**
-   * AI Oracle çağrısı — timeout + hata yönetimi ile
+   * AI Oracle çağrısı -- timeout + hata yönetimi ile
    */
   function generateFrequency(prompt, apiCallFn, onSuccess) {
     if (!prompt || !prompt.trim()) {
@@ -1106,31 +1106,31 @@ var AiOracleUI = (function () {
   };
 })();
 
-/* ══════════════════════════════════════════════════════════════════
-   BÖLÜM 13 — BAŞLATMA
-══════════════════════════════════════════════════════════════════ */
+/* ------------------------------------------------------------------
+   BÖLÜM 13 -- BAŞLATMA
+------------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', function () {
 
-  /* 0a. PHASE 5: PageVisibilityManager — sekme gizlenince efektler durur */
+  /* 0a. PHASE 5: PageVisibilityManager -- sekme gizlenince efektler durur */
   try {
     PageVisibilityManager.init();
 
     /* Ripple efektini sekme görünürlüğüne bağla */
     PageVisibilityManager.register(
       function onHide() {
-        /* Sekme gizlendi — ripple spawn'unu durdur */
+        /* Sekme gizlendi -- ripple spawn'unu durdur */
         window._rippleDisabled = true;
         console.debug('[main] Ripple devre dışı (sekme gizli)');
       },
       function onShow() {
-        /* Sekme görünür — ripple'ı yeniden etkinleştir */
+        /* Sekme görünür -- ripple'ı yeniden etkinleştir */
         window._rippleDisabled = false;
         console.debug('[main] Ripple etkin (sekme görünür)');
       }
     );
 
-    /* PHASE 11 — Canvas animasyonlarını sekme görünürlüğüne bağla
+    /* PHASE 11 -- Canvas animasyonlarını sekme görünürlüğüne bağla
      * Sekme arka plana geçince waveform + particles durur → pil/ısı tasarrufu
      * Ses kesintisiz devam eder */
     PageVisibilityManager.register(
@@ -1148,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.debug('[main] Canvas animasyonları durduruldu (arka plan)');
       },
       function onShow() {
-        /* Waveform tekrar başlat — AudioEngine aktifse */
+        /* Waveform tekrar başlat -- AudioEngine aktifse */
         try {
           if (typeof AudioEngine !== 'undefined' && AudioEngine.getInstance) {
             var eng = AudioEngine.getInstance();
@@ -1307,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         var roomName = nameInput.value.trim();
-        var restore  = LoadingManager.setButtonLoading(submitRoom, 'Oluşturuluyor…');
+        var restore  = LoadingManager.setButtonLoading(submitRoom, 'Oluşturuluyor...');
 
         setTimeout(function () {
           try {
@@ -1336,10 +1336,10 @@ document.addEventListener('DOMContentLoaded', function () {
   console.info('[Sanctuary] 5. Aşama yüklendi. PageVisibilityManager, RenderGuard, RAFRegistry hazır.');
 });
 
-/* ══════════════════════════════════════════════════════════════════
-   GLOBAL TEMIZLIK — PHASE 5
+/* ------------------------------------------------------------------
+   GLOBAL TEMIZLIK -- PHASE 5
    beforeunload + pagehide: tüm kaynaklar temizlenir
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 function _globalCleanup() {
   try { clearApiKey(); }         catch (e) { /* no-op */ }
@@ -1350,13 +1350,13 @@ function _globalCleanup() {
 }
 
 window.addEventListener('beforeunload', _globalCleanup);
-/* PHASE 5: pagehide — mobil tarayıcılar beforeunload'ı her zaman tetiklemez */
+/* PHASE 5: pagehide -- mobil tarayıcılar beforeunload'ı her zaman tetiklemez */
 window.addEventListener('pagehide',     _globalCleanup);
 
-/* ══════════════════════════════════════════════════════════════════
-   GLOBAL API — Diğer modüller bu fonksiyonlara erişebilir
+/* ------------------------------------------------------------------
+   GLOBAL API -- Diğer modüller bu fonksiyonlara erişebilir
    PHASE 5: Yeni modüller eklendi
-══════════════════════════════════════════════════════════════════ */
+------------------------------------------------------------------ */
 
 window.SanctuaryToast      = ToastManager;
 window.SanctuaryLoading    = LoadingManager;
@@ -1377,15 +1377,15 @@ window.handleLeaveRoom  = handleLeaveRoom;
 window.renderRoomList   = renderRoomList;
 window.showToast        = showToast;
 
-/* ═══════════════════════════════════════════════════════════════
-   8. AŞAMA — Konsolidasyon & Yayına Hazırlık
+/* ---------------------------------------------------------------
+   8. AŞAMA -- Konsolidasyon & Yayına Hazırlık
    1. Merkezi CONFIG
-   2. sessionBuffer — sekme geçişlerinde veri korunumu
+   2. sessionBuffer -- sekme geçişlerinde veri korunumu
    3. window.Sanctuary global namespace
    4. Merkezi hata yakalayıcı
-═══════════════════════════════════════════════════════════════ */
+--------------------------------------------------------------- */
 
-/* ── Merkezi CONFIG ── */
+/* -- Merkezi CONFIG -- */
 window.SanctuaryConfig = {
   breath: { inhale:4000, hold:7000, exhale:8000, pause:1000 },
   audio: {
@@ -1402,7 +1402,7 @@ window.SanctuaryConfig = {
   },
 };
 
-/* ── sessionBuffer — Sekme geçişlerinde veri korunumu ── */
+/* -- sessionBuffer -- Sekme geçişlerinde veri korunumu -- */
 window.SanctuarySessionBuffer = (function() {
   var _data = {};
   return {
@@ -1412,7 +1412,7 @@ window.SanctuarySessionBuffer = (function() {
   };
 })();
 
-/* ── switchTab'ı sessionBuffer ile güçlendir ── */
+/* -- switchTab'ı sessionBuffer ile güçlendir -- */
 (function() {
   var _origSwitchTab = window.switchTab || window.Sanctuary && window.Sanctuary.switchTab;
   window.switchTab = function(tabId) {
@@ -1436,7 +1436,7 @@ window.SanctuarySessionBuffer = (function() {
   };
 })();
 
-/* ── Merkezi hata yakalayıcı ── */
+/* -- Merkezi hata yakalayıcı -- */
 (function() {
   function _showErrorToast(msg) {
     var toast = document.getElementById('notif-toast');
@@ -1461,7 +1461,7 @@ window.SanctuarySessionBuffer = (function() {
   });
 })();
 
-/* ── window.Sanctuary global namespace ── */
+/* -- window.Sanctuary global namespace -- */
 window.Sanctuary = {
   config:        window.SanctuaryConfig,
   sessionBuffer: window.SanctuarySessionBuffer,
@@ -1480,13 +1480,13 @@ window.Sanctuary = {
   cancelSleepTimer: function()   { if(window.cancelSleepTimer)window.cancelSleepTimer();},
 };
 
-console.info('[Sanctuary] 8. Aşama yüklendi ✓ — window.Sanctuary hazır');
+console.info('[Sanctuary] 8. Aşama yüklendi ✓ -- window.Sanctuary hazır');
 
-/* ═══════════════════════════════════════════════════════════
-   9. AŞAMA — Zihin Haritası, Akıllı Öneriler, Duygu-Ses
-═══════════════════════════════════════════════════════════ */
+/* -----------------------------------------------------------
+   9. AŞAMA -- Zihin Haritası, Akıllı Öneriler, Duygu-Ses
+----------------------------------------------------------- */
 
-/* ── Zihin Haritası Render ── */
+/* -- Zihin Haritası Render -- */
 window.renderMindMap = function() {
   var stats = window.SanctuaryStats;
   if (!stats) return;
@@ -1515,7 +1515,7 @@ window.renderMindMap = function() {
   }
 };
 
-/* ── Kişiselleştirilmiş Karşılama ── */
+/* -- Kişiselleştirilmiş Karşılama -- */
 window.updatePersonalizedGreeting = function() {
   var stats = window.SanctuaryStats;
   if (!stats) return;
@@ -1526,7 +1526,7 @@ window.updatePersonalizedGreeting = function() {
   }
 };
 
-/* ── Akıllı Frekans Önerisi ── */
+/* -- Akıllı Frekans Önerisi -- */
 window.showSmartSuggestion = function(mood) {
   var stats = window.SanctuaryStats;
   if (!stats) return;
@@ -1535,7 +1535,7 @@ window.showSmartSuggestion = function(mood) {
   if (!suggest || !suggestText) return;
 
   var rec = stats.getSmartFreqSuggestion(mood);
-  suggestText.textContent = '✦ Senin için öneri: ' + rec.label + ' — şimdi dene?';
+  suggestText.textContent = '✦ Senin için öneri: ' + rec.label + ' -- şimdi dene?';
   suggest.style.display = 'flex';
   suggest.onclick = function() {
     if (window.switchSound) window.switchSound(rec.gen, rec.freq, rec.beat, rec.label);
@@ -1548,7 +1548,7 @@ window.showSmartSuggestion = function(mood) {
   };
 };
 
-/* ── Duygu-Ses İlişkilendirmesi (Journal) ── */
+/* -- Duygu-Ses İlişkilendirmesi (Journal) -- */
 window.analyzeJournalAndModulate = function(text) {
   if (!text || !window.switchSound) return;
   var lower = text.toLowerCase();
@@ -1569,7 +1569,7 @@ window.analyzeJournalAndModulate = function(text) {
   }
 };
 
-/* ── pickMood'u intercept et — akıllı öneri ve aktivite kaydı ── */
+/* -- pickMood'u intercept et -- akıllı öneri ve aktivite kaydı -- */
 (function() {
   var _origPickMood = window.pickMood;
   window.pickMood = function(el) {
@@ -1578,7 +1578,7 @@ window.analyzeJournalAndModulate = function(text) {
     if (!mood) return;
     // Akıllı öneri göster
     setTimeout(function() { window.showSmartSuggestion(mood); }, 300);
-    // Aktivite kaydı başlat — _sessionMood yerine StateManager kullan
+    // Aktivite kaydı başlat -- _sessionMood yerine StateManager kullan
     window._sessionStart = Date.now();
     try {
       var sm = (typeof getStateManager === 'function') ? getStateManager() : null;
@@ -1589,7 +1589,7 @@ window.analyzeJournalAndModulate = function(text) {
   };
 })();
 
-/* ── Journal kaydetme — ses modülasyonu ── */
+/* -- Journal kaydetme -- ses modülasyonu -- */
 (function() {
   var _origSave = window.saveJournalEntry;
   window.saveJournalEntry = function() {
@@ -1608,7 +1608,7 @@ window.analyzeJournalAndModulate = function(text) {
 
 /* [togglePlay wrapper kaldırıldı] */
 
-/* ── Sayfa yüklenince zihin haritasını render et ── */
+/* -- Sayfa yüklenince zihin haritasını render et -- */
 (function() {
   function _initPhase9() {
     window.renderMindMap && window.renderMindMap();
@@ -1629,11 +1629,11 @@ window.analyzeJournalAndModulate = function(text) {
   }
 })();
 
-/* ═══════════════════════════════════════════════════════════════
-   10. AŞAMA — Senkronize Odalar, Avatar Aura, Reaksiyonlar
-═══════════════════════════════════════════════════════════════ */
+/* ---------------------------------------------------------------
+   10. AŞAMA -- Senkronize Odalar, Avatar Aura, Reaksiyonlar
+--------------------------------------------------------------- */
 
-/* ── Oda Render (RoomManager entegreli) ── */
+/* -- Oda Render (RoomManager entegreli) -- */
 window.renderRooms = function(filter) {
   var grid = document.getElementById('roomsGrid');
   if (!grid) return;
@@ -1700,7 +1700,7 @@ function _buildAuras(room) {
   return html;
 }
 
-/* ── Oda Modal ── */
+/* -- Oda Modal -- */
 window.openRoomModal = function(roomId) {
   var rm = window.RoomManager;
   if (!rm) return;
@@ -1722,7 +1722,7 @@ window.openRoomModal = function(roomId) {
   // Ses senkronizasyonu
   var cfg = room.audioConfig || {};
   var freqEl = modal.querySelector('.rm-freq');
-  if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz · ' + (cfg.gen||'') : '—';
+  if (freqEl) freqEl.textContent = cfg.base ? cfg.base + ' Hz · ' + (cfg.gen||'') : '--';
 
   modal.style.display = 'flex';
   requestAnimationFrame(function(){ modal.classList.add('show'); });
@@ -1780,7 +1780,7 @@ window.closeRoomModal = function() {
   setTimeout(function(){ m.style.display='none'; document.body.style.overflow=''; }, 350);
 };
 
-/* ── Floating Reaksiyon Sistemi ── */
+/* -- Floating Reaksiyon Sistemi -- */
 window.sendReaction = function(emoji) {
   var container = document.getElementById('reaction-container');
   if (!container) {
@@ -1805,7 +1805,7 @@ window.sendReaction = function(emoji) {
   }
 };
 
-/* ── Filtre bar güncelle ── */
+/* -- Filtre bar güncelle -- */
 (function() {
   function _initRooms() {
     window.renderRooms('all');
@@ -1823,7 +1823,7 @@ window.sendReaction = function(emoji) {
     // RoomManager event'lerini dinle
     if (window.RoomManager) {
       window.RoomManager.on('audio_sync', function(data) {
-        // Host ses değiştirdi — bildirim göster
+        // Host ses değiştirdi -- bildirim göster
         var toast = document.getElementById('notif-toast');
         if (toast) {
           var t = toast.querySelector('.nt-title');
@@ -1848,7 +1848,7 @@ window.sendReaction = function(emoji) {
   }
 })();
 
-/* ── Nefes-Aura Senkronizasyonu (Phase 10) ── */
+/* -- Nefes-Aura Senkronizasyonu (Phase 10) -- */
 
 /**
  * startBreathCycle'ı RoomManager ile entegre et.
@@ -1862,7 +1862,7 @@ window.sendReaction = function(emoji) {
     roomId = roomId || null;
     var userId = 'user_local';
 
-    // Aura küresi referansı — odadaki kendi noktamız
+    // Aura küresi referansı -- odadaki kendi noktamız
     var selfAura = null;
     if (roomId) {
       selfAura = document.querySelector('#auras-' + roomId + ' .aura-dot[title="' + userId + '"]');
@@ -1920,7 +1920,7 @@ window.sendReaction = function(emoji) {
   };
 })();
 
-/* ── Odaya katılınca Room Audio dinleyicisini başlat ── */
+/* -- Odaya katılınca Room Audio dinleyicisini başlat -- */
 (function() {
   var _origJoin = window.handleJoinRoom;
   window.handleJoinRoom = function(roomId, password) {
@@ -1938,7 +1938,7 @@ window.sendReaction = function(emoji) {
   };
 })();
 
-/* ── Oda Modal Join butonuna nefes entegrasyonu ── */
+/* -- Oda Modal Join butonuna nefes entegrasyonu -- */
 (function() {
   /* Room modal render edilince join butonuna hook ekle */
   var _origOpen = window.openRoomModal;
@@ -1963,7 +1963,7 @@ window.sendReaction = function(emoji) {
   };
 })();
 
-/* ── Host Ses Değiştirme Fonksiyonu (Host için) ── */
+/* -- Host Ses Değiştirme Fonksiyonu (Host için) -- */
 window.hostSyncAudio = function(roomId, audioConfig) {
   if (!roomId || !audioConfig) return;
   try {
@@ -1979,7 +1979,7 @@ window.hostSyncAudio = function(roomId, audioConfig) {
   }
 };
 
-console.info('[Sanctuary] 10. Aşama — Nefes-Aura Senkronizasyonu & Room Audio Köprüsü hazır ✓');
+console.info('[Sanctuary] 10. Aşama -- Nefes-Aura Senkronizasyonu & Room Audio Köprüsü hazır ✓');
 (function() {
   var _origSubmit = document.getElementById('btnSubmitRoom');
   function _hookSubmit() {
@@ -2088,7 +2088,7 @@ console.info('[Sanctuary] 10. Aşama — Nefes-Aura Senkronizasyonu & Room Audio
   };
 })();
 
-/* ══ ADIM 9: BiometricSimulator Başlat ══ */
+/* -- ADIM 9: BiometricSimulator Başlat -- */
 (function() {
   window.addEventListener('load', function() {
     if (window.BiometricSimulator) {
@@ -2098,7 +2098,7 @@ console.info('[Sanctuary] 10. Aşama — Nefes-Aura Senkronizasyonu & Room Audio
   });
 })();
 
-/* ══ ADIM 9: BiometricSimulator başlat ══ */
+/* -- ADIM 9: BiometricSimulator başlat -- */
 window.addEventListener('load', function() {
   if (window.BiometricSimulator) {
     window.BiometricSimulator.start(3000);
@@ -2106,20 +2106,13 @@ window.addEventListener('load', function() {
   }
 });
 
-/* ══ ADIM 12: VisualizerEngine başlat ══ */
+/* -- ADIM 12: VisualizerEngine başlat -- */
 (function() {
   var _visStarted = false;
   /* _audioToggle: AudioEngine.js sonunda tanımlanan güvenli yedek referans */
   window.togglePlay = function() {
     var fn = window._audioToggle || null;
-    if (!fn) { console.error('[Sanctuary] AudioEngine yüklenmedi.'); return; }
-    /* AudioContext tarayıcı politikası — resume et */
-    var ctx = window._ctx;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().then(function() { fn(); });
-    } else {
-      fn();
-    }
+    if (fn) fn.apply(this, arguments);
     setTimeout(function() {
       if (!_visStarted && window.VisualizerEngine) {
         window.VisualizerEngine.init('vis-canvas', window._analyser || null);
