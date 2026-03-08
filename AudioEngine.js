@@ -96,12 +96,20 @@
 
   /* ── Ruh Hali Haritası ── */
   var MOOD_MAP = {
+    /* Türkçe key'ler (eski uyumluluk) */
     'Huzursuz' : {base:180, beat:6,  gen:'waves'},
     'Yorgun'   : {base:200, beat:4,  gen:'rain'},
     'Kaygılı'  : {base:160, beat:8,  gen:'wind'},
     'Mutsuz'   : {base:220, beat:5,  gen:'waves'},
     'Sakin'    : {base:200, beat:7,  gen:'binaural'},
     'Minnettar': {base:528, beat:10, gen:'rain'},
+    /* İngilizce key'ler — HTML mood-chip data-mood değerleriyle eşleşir */
+    'Anxious'  : {base:160, beat:8,  gen:'wind'},
+    'Tired'    : {base:200, beat:4,  gen:'rain'},
+    'Stressed' : {base:180, beat:6,  gen:'waves'},
+    'Sad'      : {base:220, beat:5,  gen:'waves'},
+    'Calm'     : {base:200, beat:7,  gen:'binaural'},
+    'Grateful' : {base:528, beat:10, gen:'zen'},
   };
 
   /* ── Sahne Mikseri ── */
@@ -1018,8 +1026,8 @@
         var gen='', base=0, beat=0;
         try { gen=localStorage.getItem('lastGen')||''; base=parseInt(localStorage.getItem('lastBase')||'0')||0; beat=parseInt(localStorage.getItem('lastBeat')||'0')||0; } catch(e){}
         if (!gen || !base) {
-          var mood='Sakin'; try{ mood=localStorage.getItem('lastMood')||'Sakin'; }catch(e){}
-          var cfg = MOOD_MAP[mood] || MOOD_MAP['Sakin'];
+          var mood='Calm'; try{ mood=localStorage.getItem('lastMood')||'Calm'; }catch(e){}
+          var cfg = MOOD_MAP[mood] || MOOD_MAP['Calm'];
           gen=cfg.gen; base=cfg.base; beat=cfg.beat;
         }
         startSound(gen, base, beat, _pauseOffset);
