@@ -2109,9 +2109,10 @@ window.addEventListener('load', function() {
 /* ══ ADIM 12: VisualizerEngine başlat ══ */
 (function() {
   var _visStarted = false;
-  var _origToggle = window.togglePlay;
+  /* _audioToggle: AudioEngine.js sonunda tanımlanan güvenli yedek referans */
   window.togglePlay = function() {
-    if (_origToggle) _origToggle.apply(this, arguments);
+    var fn = window._audioToggle || null;
+    if (fn) fn.apply(this, arguments);
     setTimeout(function() {
       if (!_visStarted && window.VisualizerEngine) {
         window.VisualizerEngine.init('vis-canvas', window._analyser || null);
@@ -2128,5 +2129,95 @@ window.addEventListener('load', function() {
       _origMood.apply(this, arguments);
       if (window.VisualizerEngine) window.VisualizerEngine.setMood(mood);
     };
+  }
+})();
+/* ══════════════════════════════════════════════════════════════════
+   GEMİNİ ENTEGRASYONU — orijinal koda dokunulmadı, sadece eklendi
+   goSanctuary() çağrıldığında Gemini'den reçete alır,
+   window.switchSound() ile AudioEngine'e iletir.
+══════════════════════════════════════════════════════════════════ */
+(function() {
+  var MOOD_GEN = {
+    'Anxious':'wind','Tired':'rain','Stressed':'waves',
+    'Sad':'waves','Calm':'binaural','Grateful':'zen',
+    'قلق':'wind','مجهد':'waves','متعب':'rain',
+    'حزين':'waves','هادئ':'binaural','ممتنّ':'zen',
+  };
+  var TEXTURE_GEN = {
+    ocean:'waves',sea:'waves',wave:'waves',rain:'rain',
+    wind:'wind',birds:'forest',piano:'binaural',
+    guitar:'binaural',flute:'binaural',
+  };
+  var FALLBACK = {
+    'Anxious' :{sceneName:'Calm Breath',    baseHz:396,binauralHz:6},
+    'Stressed':{sceneName:'Deep Peace',     baseHz:432,binauralHz:6},
+    'Tired'   :{sceneName:'Energy Renewal', baseHz:528,binauralHz:10},
+    'Sad'     :{sceneName:'Light Breath',   baseHz:417,binauralHz:5},
+    'Calm'    :{sceneName:'Focus Flow',     baseHz:40, binauralHz:7},
+    'Grateful':{sceneName:'Heart Resonance',baseHz:528,binauralHz:10},
+  };
+
+  function applyRecipe(r, mood) {
+    if (!r) return;
+    var base  = r.baseHz  || r.frequencySuggestion || 432;
+    var beat  = r.binauralHz || 7;
+    var scene = r.sceneName || 'Calm Breath';
+    var gen   = MOOD_GEN[mood] || 'waves';
+
+    if (r.textures && r.textures[0]) {
+      var n = (r.textures[0].name || '').toLowerCase();
+      for (var k in TEXTURE_GEN) {
+        if (n.indexOf(k) !== -1) { gen = TEXTURE_GEN[k]; break; }
+      }
+    }
+
+    console.info('[Gemini] switchSound:', gen, base, beat, scene);
+    if (typeof window.switchSound === 'function') {
+      window.switchSound(gen, base, beat, scene, {sceneName: scene});
+    }
+  }
+
+  /* GeminiAdapter yüklendikten sonra çalış */
+  function initGemini() {
+    if (typeof window.GeminiAdapter === 'function' && !window._geminiAdapter) {
+      window._geminiAdapter = new window.GeminiAdapter();
+      console.info('[Gemini] Adapter hazır ✓');
+    }
+
+    /* goSanctuary'yi wrap et — orijinalini koru */
+    var _orig = window.goSanctuary;
+    if (!_orig) return;
+
+    window.goSanctuary = function() {
+      /* Seçili mood'u al */
+      var mood = null;
+      try { mood = localStorage.getItem('sanctuary_last_mood'); } catch(e) {}
+      var chip = document.querySelector('.mood-chip.active');
+      if (chip) mood = chip.getAttribute('data-mood') || mood;
+      if (!mood) mood = 'Calm';
+
+      var text = (document.getElementById('mood-textarea') || {}).value || '';
+
+      /* Orijinal ekran geçişi */
+      _orig();
+
+      /* Gemini reçetesi */
+      var adapter = window._geminiAdapter;
+      if (adapter && typeof adapter.generateScene === 'function') {
+        adapter.generateScene(text, mood)
+          .then(function(r) { applyRecipe(r, mood); })
+          .catch(function() { applyRecipe(FALLBACK[mood] || FALLBACK['Calm'], mood); });
+      } else {
+        applyRecipe(FALLBACK[mood] || FALLBACK['Calm'], mood);
+      }
+    };
+
+    console.info('[Gemini] goSanctuary wrap ✓');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGemini);
+  } else {
+    initGemini();
   }
 })();

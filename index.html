@@ -4998,15 +4998,9 @@ class AudioLayer {
           data[i] = Math.sin(2 * Math.PI * 0.12 * t) * 0.18 + (Math.random() * 2 - 1) * 0.08;
           break;
         case 'binaural': {
-          /* Aşama 1 — FrequencyManager üzerinden harmonik frekans al */
-          const _fm = (typeof window.getFrequencyManager === 'function')
-            ? window.getFrequencyManager(this.params.baseFreq || 200)
-            : null;
-          const baseFreq = _fm
-            ? _fm.getNextFrequency()
-            : (this.params.baseFreq || 200);
+          const baseFreq = this.params.baseFreq || 200;
           const beatFreq = this.params.beatFreq || 10;
-          const chFreq   = channel === 0 ? baseFreq : Math.max(20, Math.min(20000, baseFreq + beatFreq));
+          const chFreq   = channel === 0 ? baseFreq : baseFreq + beatFreq;
           data[i] = Math.sin(2 * Math.PI * chFreq * t) * 0.12;
           break;
         }
@@ -5354,11 +5348,6 @@ class AudioEngine {
     /* PHASE 5: Event listener referansları — dispose()'da kaldırılır */
     this._boundHandlers   = {};
 
-    /* Aşama 1 — FrequencyManager: harmonik frekans yönetimi */
-    this.frequencyManager = (typeof window.getFrequencyManager === 'function')
-      ? window.getFrequencyManager(432)
-      : null;
-
     this._attachAppStateListeners();
   }
 
@@ -5638,12 +5627,6 @@ class AudioEngine {
   setFrequency(hz) {
     const freq = isFinite(hz) && hz > 0 ? hz : 432;
     this._currentFreq = freq;
-
-    /* Aşama 1 — FrequencyManager'ı da güncelle */
-    if (this.frequencyManager) {
-      this.frequencyManager.setBaseFreq(freq);
-    }
-
     this._layers.forEach((layer) => {
       if (layer.type === 'binaural') {
         layer.setParameter('baseFreq', freq);
@@ -6201,19 +6184,6 @@ window.generateAIFreq = async function(){
     var msd = await response.json();
     console.log('[generateAIFreq] MSD alındı:', JSON.stringify(msd));
 
-    /* Aşama 12 — updateFromGemini: tüm ses motoru MSD ile güncellenir */
-    if (typeof window.updateFromGemini === 'function') {
-      try { window.updateFromGemini(msd); } catch(e) {
-        console.warn('[generateAIFreq] updateFromGemini hatası:', e.message);
-      }
-    }
-
-    /* Aşama 1 — GeminiAdapter MSD'sini FrequencyManager'a aktar */
-    if (typeof window.getFrequencyManager === 'function') {
-      window.getFrequencyManager().applyMSD(msd);
-      console.info('[FrequencyManager] MSD uygulandı:', msd.frequencySuggestion, 'Hz');
-    }
-
     /* MSD doğrulama */
     var freq = msd.frequencySuggestion || msd.freq || 432;
     var beat = (msd.layers && msd.layers.find(function(l){ return l.type==='binaural'; })) ? 7 : (msd.beat || 7);
@@ -6238,10 +6208,6 @@ window.generateAIFreq = async function(){
       localStorage.setItem('lastBeat', beat);
       if(window.engine && window.engine.switchSound){
         window.engine.switchSound({gen:'binaural', base:freq, beat:beat});
-      }
-      /* Aşama 2 — SampleManager MSD köprüsü: global switchSound'a msd ilet */
-      if(typeof window.switchSound === 'function'){
-        window.switchSound('binaural', freq, beat, sceneName, msd);
       }
     }catch(e){}
 
@@ -7014,15 +6980,13 @@ window.sendReaction = function(emoji) {
 <script src="OfflineManager.js"></script>
 <script src="SecurityWrapper.js"></script>
 <script src="modules.js"></script> -->
-<script src="FrequencyManager.js"></script>
-<script src="SampleManager_v3.js"></script>
-<script src="AudioEngine_v12.js"></script>
-<script src="SanctuarySync.js"></script>
+<script src="AudioEngine.js"></script>
 <script src="StateManager.js"></script>
 <script src="VisualizerEngine.js"></script>
 <script src="PerformanceMonitor.js"></script>
 <script src="PreferenceManager.js"></script>
 <script src="LearningEngine.js"></script>
+<script src="GeminiAdapter.js"></script>
 <script src="main.js"></script>
 <script>
 /* Adım 9 UI güncelle */
