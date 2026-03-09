@@ -1,8 +1,4 @@
-/* SANCTUARY main.js v7
-   Tek değişiklik öncekine göre: autoStart YOK.
-   Müziği kullanıcı Play butonuyla başlatır.
-   main.js sadece switchSound() parametrelerini hazırlar.
-*/
+/* SANCTUARY main.js v8 — sadece Gemini entegrasyonu */
 (function(W) {
   'use strict';
 
@@ -16,22 +12,19 @@
   };
 
   var FALLBACK = {
-    'Anxious' :{sceneName:'Calm Breath',    baseHz:396,binauralHz:6, textures:[{name:'ocean',gain:0.55}],breath:[4,4,8]},
-    'Stressed':{sceneName:'Deep Peace',     baseHz:432,binauralHz:6, textures:[{name:'rain', gain:0.55}], breath:[4,2,6]},
-    'Tired'   :{sceneName:'Energy Renewal', baseHz:528,binauralHz:10,textures:[{name:'wind', gain:0.5}],  breath:[5,2,5]},
-    'Sad'     :{sceneName:'Light Breath',   baseHz:417,binauralHz:5, textures:[{name:'ocean',gain:0.6}],  breath:[4,2,7]},
-    'Calm'    :{sceneName:'Focus Flow',     baseHz:40, binauralHz:7, textures:[{name:'ocean',gain:0.45}], breath:[4,4,4]},
-    'Grateful':{sceneName:'Heart Resonance',baseHz:528,binauralHz:10,textures:[{name:'birds',gain:0.5}],  breath:[5,3,6]},
+    'Anxious' :{sceneName:'Calm Breath',    baseHz:396,binauralHz:6},
+    'Stressed':{sceneName:'Deep Peace',     baseHz:432,binauralHz:6},
+    'Tired'   :{sceneName:'Energy Renewal', baseHz:528,binauralHz:10},
+    'Sad'     :{sceneName:'Light Breath',   baseHz:417,binauralHz:5},
+    'Calm'    :{sceneName:'Focus Flow',     baseHz:40, binauralHz:7},
+    'Grateful':{sceneName:'Heart Resonance',baseHz:528,binauralHz:10},
   };
 
   var TEXTURE_GEN = {
-    ocean:'waves',sea:'waves',wave:'waves',
-    rain:'rain',  wind:'wind',
-    birds:'forest',forest:'forest',
-    piano:'binaural',guitar:'binaural',flute:'binaural',
+    ocean:'waves',sea:'waves',wave:'waves',rain:'rain',
+    wind:'wind',birds:'forest',piano:'binaural',guitar:'binaural',flute:'binaural',
   };
 
-  /* ── Reçeteyi ses motoruna hazırla (sadece switchSound, togglePlay YOK) ── */
   function applyRecipe(r) {
     if (!r) return;
     var base  = r.baseHz  || r.frequencySuggestion || 432;
@@ -46,35 +39,12 @@
       }
     }
 
-    console.info('[Sanctuary] Reçete:', scene, base+'Hz', gen);
-
-    /* switchSound:
-       - _playing=true ise sesi hemen değiştirir
-       - _playing=false ise sadece localStorage'a yazar,
-         kullanıcı Play'e basınca bu değerler kullanılır */
+    /* Sadece switchSound — togglePlay'e DOKUNMA */
     if (typeof W.switchSound === 'function') {
       W.switchSound(gen, base, beat, scene, {sceneName: scene});
     }
-
-    /* Nefes CSS */
-    var bp = r.breathPattern || r.breath;
-    if (bp) {
-      var i = Array.isArray(bp) ? bp[0] : (bp.inhale||4);
-      var h = Array.isArray(bp) ? bp[1] : (bp.hold  ||0);
-      var e = Array.isArray(bp) ? bp[2] : (bp.exhale||8);
-      document.documentElement.style.setProperty('--breath-speed', (i+h+e)+'s');
-    }
-
-    /* Badge güncelle */
-    requestAnimationFrame(function() {
-      var badge = document.getElementById('freq-badge');
-      var lbl   = document.getElementById('freq-label');
-      if (badge) { badge.classList.add('on'); badge.style.opacity='1'; }
-      if (lbl)   lbl.textContent = base + ' Hz · ' + scene;
-    });
   }
 
-  /* ── Mood seçimi ── */
   function selectMood(m) {
     _mood = m;
     try { localStorage.setItem('sanctuary_last_mood', m); } catch(e) {}
@@ -83,42 +53,16 @@
     });
   }
 
-  /* ── goSanctuary wrap ── */
-  function wrapGoSanctuary() {
-    var _orig = W.goSanctuary;
-    if (!_orig) return;
-
-    W.goSanctuary = function() {
-      if (!_mood) selectMood('Calm');
-      var text = (document.getElementById('mood-textarea') || {}).value || '';
-
-      /* Ekranı geç */
-      _orig();
-
-      /* Gemini'den reçete al, switchSound'a ilet */
-      var adapter = W._geminiAdapter;
-      if (adapter && typeof adapter.generateScene === 'function') {
-        adapter.generateScene(text, _mood)
-          .then(applyRecipe)
-          .catch(function() { applyRecipe(FALLBACK[_mood] || FALLBACK.Calm); });
-      } else {
-        applyRecipe(FALLBACK[_mood] || FALLBACK.Calm);
-      }
-    };
-  }
-
-  /* ── Init ── */
   function init() {
     /* Mood chips */
     document.querySelectorAll('.mood-chip').forEach(function(chip) {
-      if (chip._v7) return; chip._v7 = true;
+      if (chip._v8) return; chip._v8 = true;
       chip.addEventListener('click', function() {
         var m = chip.getAttribute('data-mood');
         if (m) selectMood(m);
       });
     });
 
-    /* Kayıtlı mood */
     try { var s = localStorage.getItem('sanctuary_last_mood'); if (s) selectMood(s); } catch(e) {}
 
     /* GeminiAdapter */
@@ -126,9 +70,26 @@
       W._geminiAdapter = new W.GeminiAdapter();
     }
 
-    wrapGoSanctuary();
+    /* goSanctuary wrap — SADECE Gemini çağrısı ekle */
+    var _orig = W.goSanctuary;
+    if (_orig) {
+      W.goSanctuary = function() {
+        if (!_mood) selectMood('Calm');
+        var text = (document.getElementById('mood-textarea') || {}).value || '';
+        _orig(); /* orijinal ekran geçişi */
 
-    console.info('[Sanctuary] main.js v7 hazır ✓');
+        var adapter = W._geminiAdapter;
+        if (adapter && typeof adapter.generateScene === 'function') {
+          adapter.generateScene(text, _mood)
+            .then(applyRecipe)
+            .catch(function() { applyRecipe(FALLBACK[_mood] || FALLBACK.Calm); });
+        } else {
+          applyRecipe(FALLBACK[_mood] || FALLBACK.Calm);
+        }
+      };
+    }
+
+    console.info('[Sanctuary] main.js v8 hazır ✓');
   }
 
   if (document.readyState === 'loading') {
